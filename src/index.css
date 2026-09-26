@@ -1,0 +1,197 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* 格仔鋪主題：暖米紙色 + 墨黑 + 赭金 */
+    --background: 56 50% 94%;
+    --foreground: 0 0% 11%;
+    --card: 56 45% 96%;
+    --card-foreground: 0 0% 11%;
+    --popover: 56 45% 96%;
+    --popover-foreground: 0 0% 11%;
+    --primary: 0 0% 11%;
+    --primary-foreground: 56 50% 94%;
+    --secondary: 46 35% 88%;
+    --secondary-foreground: 0 0% 11%;
+    --muted: 46 30% 90%;
+    --muted-foreground: 30 8% 38%;
+    --accent: 46 39% 51%;
+    --accent-foreground: 56 50% 94%;
+    --destructive: 8 62% 44%;
+    --destructive-foreground: 56 50% 94%;
+    --border: 42 18% 76%;
+    --input: 42 18% 70%;
+    --ring: 46 39% 45%;
+    --radius: 0.5rem;
+    --sidebar-background: 56 45% 96%;
+    --sidebar-foreground: 0 0% 11%;
+    --sidebar-primary: 0 0% 11%;
+    --sidebar-primary-foreground: 56 50% 94%;
+    --sidebar-accent: 46 35% 88%;
+    --sidebar-accent-foreground: 0 0% 11%;
+    --sidebar-border: 42 18% 76%;
+    --sidebar-ring: 46 39% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground font-body;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: #b39c4f;
+    color: #f8f7e5;
+  }
+  /* 自訂捲軸 */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #efedda;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #1d1d1d;
+    border-radius: 0;
+    border: 2px solid #efedda;
+  }
+}
+
+@layer components {
+  /* 紙感噪點覆層（multiply, 5%） */
+  .noise-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    pointer-events: none;
+    opacity: 0.055;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 180px 180px;
+  }
+
+  /* 規格書虛線分隔 */
+  .dotline {
+    border: none;
+    border-top: 2px dotted rgba(29, 29, 29, 0.4);
+  }
+  .dotline-cream {
+    border: none;
+    border-top: 2px dotted rgba(248, 247, 229, 0.4);
+  }
+
+  /* 章節標籤（mono 小字 + 虛線） */
+  .spec-label {
+    @apply font-mono text-[11px] uppercase tracking-[0.22em] text-ink/60;
+  }
+
+  /* 格仔牆格仔 */
+  .grid-cell {
+    @apply relative aspect-square border border-ink/25 bg-cream-2/40 transition-all duration-300;
+  }
+  .grid-cell:hover {
+    @apply border-ink z-10;
+    transform: translateY(-3px);
+    box-shadow: 4px 4px 0 0 rgba(29, 29, 29, 0.9);
+  }
+  .grid-cell-occupied {
+    @apply bg-cream;
+  }
+  .grid-cell-vacant {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      transparent 0 6px,
+      rgba(29, 29, 29, 0.055) 6px 7px
+    );
+  }
+
+  /* 動態描邊 pill 按鈕：hover 時 SVG 描邊繞行一圈 */
+  .btn-stroke {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    border-radius: 999px;
+    padding: 0.9rem 2rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    transition: color 0.35s, background-color 0.35s;
+    cursor: pointer;
+  }
+  .btn-stroke .btn-stroke-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+  }
+  .btn-stroke .btn-stroke-rect {
+    fill: none;
+    stroke-width: 1.6;
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    transition: stroke-dashoffset 0.9s cubic-bezier(0.33, 1, 0.68, 1);
+  }
+  .btn-stroke:hover .btn-stroke-rect {
+    stroke-dashoffset: 0;
+  }
+
+  /* 雙框 badge */
+  .badge-frame {
+    position: relative;
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-[11px] uppercase tracking-[0.14em];
+  }
+  .badge-frame::after {
+    content: "";
+    position: absolute;
+    inset: 2.5px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    opacity: 0.45;
+    pointer-events: none;
+  }
+
+  /* 帳房式表格 */
+  .ledger-table th {
+    @apply font-mono text-[11px] uppercase tracking-[0.16em] text-ink/55 font-medium;
+  }
+  .ledger-table td {
+    @apply border-t border-ink/15;
+  }
+
+  /* 底線式輸入 */
+  .underline-input {
+    @apply w-full bg-transparent border-0 border-b border-ink/35 rounded-none px-0 py-2 text-[15px] outline-none transition-colors;
+  }
+  .underline-input:focus {
+    border-bottom-color: #b39c4f;
+    box-shadow: 0 1px 0 0 #b39c4f;
+  }
+  .underline-input::placeholder {
+    color: rgba(29, 29, 29, 0.35);
+  }
+
+  /* 規格行（why rows / steps） */
+  .spec-row {
+    @apply relative grid gap-2 py-7 transition-all duration-300;
+  }
+  .spec-row:hover {
+    background: rgba(179, 156, 79, 0.07);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
