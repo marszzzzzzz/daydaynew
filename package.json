@@ -12,7 +12,8 @@
     "check": "tsc -b",
     "format": "prettier --write .",
     "test": "vitest run",
-    "owner:create": "esbuild db/create-owner.ts --platform=node --bundle --format=esm --packages=external --outfile=dist/create-owner.mjs --log-level=warning && node dist/create-owner.mjs"
+    "owner:create": "esbuild db/create-owner.ts --platform=node --bundle --format=esm --packages=external --outfile=dist/create-owner.mjs --log-level=warning && node dist/create-owner.mjs",
+    "setup": "node scripts/setup-env.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",
