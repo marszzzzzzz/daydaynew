@@ -164,7 +164,7 @@ vercel deploy --prod   # 正式版
 
 ## 資料初始化
 
-伺服器啟動時會自動執行 bootstrap（`api/bootstrap.ts`）：
+伺服器啟動時會自動執行 bootstrap（`server/bootstrap.ts`）：
 
 1. `CREATE SCHEMA / TABLE IF NOT EXISTS` 建立 `gridbox` schema 同全部六張表（idempotent，可重複執行；SQL 喺 `db/ddl.ts`）
 2. 補齊 70 個格仔——10 排 × 每排 7 格，編號 001–070；第三、四排（015–028）係大格 $700/月，其餘中格 $500/月
