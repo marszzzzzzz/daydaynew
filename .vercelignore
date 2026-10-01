@@ -1,0 +1,7 @@
+# 唔好上載秘密同本機數據
+.env
+.env.*
+!.env.example
+data
+dist
+node_modules

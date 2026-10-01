@@ -71,7 +71,7 @@
 - **後端**：Hono + tRPC 11（superjson 序列化，Date 等類型自動保留）
 - **資料庫**：Supabase Postgres（Drizzle ORM + postgres-js），全部表放喺獨立 schema `gridbox`；本機開發冇 `DATABASE_URL` 時自動用 PGlite（嵌入式 Postgres，同一套 SQL）
 - **認證**：用戶名密碼註冊（scrypt）+ JWT session（httpOnly cookie）
-- **部署**：Docker（`npm start` 跑 `dist/boot.js`，port 4100）
+- **部署**：Vercel（正式網址 https://gridbox-shop.vercel.app ，香港附近 sin1 region）；亦可以用 Docker（`npm start` 跑 `dist/boot.js`，port 4100）
 
 ## 頁面路由
 
@@ -145,6 +145,23 @@ npm run owner:create -- <用戶名> <密碼> [顯示名稱]   # 建立 / 重設�
 
 > `gridbox` schema 冇經 Supabase REST API 暴露，六張表都開咗 RLS（冇 policy），anon / authenticated 角色讀唔到任何資料；只有 app 伺服器用 `DATABASE_URL` 直連先讀寫到。
 
+## 部署去 Vercel
+
+項目已連結 Vercel 項目 **gridbox-shop**，正式網址：https://gridbox-shop.vercel.app
+
+- 建構方式：Build Output API（`scripts/build-vercel.mjs`）
+  - 前端 `vite build` → Vercel CDN
+  - 後端 `server/vercel-entry.ts` 用 esbuild 打包成單一 Function（`/api/*`），region `sin1`（新加坡，同 Supabase 同區）
+- 環境變數：`npm run vercel:env` 會將本機 `.env` 嘅 `DATABASE_URL` 同一個新生成嘅 `SESSION_SECRET` 設定到 Vercel（Sensitive，唔會印出），`DEMO_MODE=false`
+- 部署指令：
+
+```bash
+vercel deploy          # preview 版本
+vercel deploy --prod   # 正式版
+```
+
+> Vercel Function 請求上限約 4.5MB，POS CSV 太大請分開幾次上載。登入失敗鎖定係按 Function instance 記錄，喺 Vercel 上保護較弱。
+
 ## 資料初始化
 
 伺服器啟動時會自動執行 bootstrap（`api/bootstrap.ts`）：
@@ -164,8 +181,10 @@ npm run owner:create -- <用戶名> <密碼> [顯示名稱]   # 建立 / 重設�
 ## 項目結構
 
 ```javascript
-├── api/                 # 後端
-│   ├── boot.ts          # Hono server 入口（啟動時執行 bootstrapDb）
+├── server/              # 後端（Hono + tRPC）
+│   ├── app.ts           # Hono app（/api 路由）
+│   ├── boot.ts          # 本機 / Docker 入口（加靜態檔 + listen）
+│   ├── vercel-entry.ts  # Vercel Function 入口
 │   ├── bootstrap.ts     # 自動建表 + 店主 + 示範資料
 │   ├── accountRouter.ts # 註冊 / 登入 / 開戶口 / 重設密碼
 │   ├── auth/session.ts  # JWT session 簽發同驗證

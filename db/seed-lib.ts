@@ -1,10 +1,10 @@
 import { sql, eq, and, like, inArray, notLike } from "drizzle-orm";
 import { users, grids, tenants, leases, sales, rentRecords } from "./schema";
 import { allGridCodes, gridSizeOf, gridRentOf } from "@contracts/gridLayout";
-import { hashPassword } from "../api/password";
-import { env } from "../api/lib/env";
+import { hashPassword } from "../server/password";
+import { env } from "../server/lib/env";
 
-type Db = ReturnType<typeof import("../api/queries/connection").getDb>;
+type Db = ReturnType<typeof import("../server/queries/connection").getDb>;
 
 /** Demo 戶口（登入頁一撳試用）；註冊計數會排除 local:demo-% */
 export const DEMO_OWNER = { username: "demo-owner", password: "demo1234", name: "店主 Demo" } as const;

@@ -154,7 +154,11 @@ if (phase === "2") {
   const gen = await boss.m("shop.admin.generateMonthRent", { month: "2026-09" });
   check("開立本月租金單", gen.ok, gen);
   const st2 = await boss.q("shop.admin.stats");
-  check("總覽：本月銷售 $485、未收租金 $700", Number(st2.data?.sales.amount) === 485 && Number(st2.data?.rent.unpaidAmount) === 700, st2.data && { sales: st2.data.sales, rent: st2.data.rent });
+  // 本月銷售 = 當月記錄總和（測試數據日期固定，所以同 listSales 比對，唔依賴今日日期）
+  const month = new Date().toISOString().slice(0, 7);
+  const allSales = (await boss.q("shop.admin.listSales", {})).data ?? [];
+  const monthSum = allSales.filter((r) => r.saleDate.startsWith(month)).reduce((a, r) => a + Number(r.totalAmount), 0);
+  check("總覽：本月銷售 = 當月記錄總和、未收租金 $700", Number(st2.data?.sales.amount) === monthSum && Number(st2.data?.rent.unpaidAmount) === 700 && allSales.reduce((a, r) => a + Number(r.totalAmount), 0) === 485, st2.data && { sales: st2.data.sales, monthSum, rent: st2.data.rent });
 
   const delT = await boss.m("shop.admin.deleteTenant", { id: tid });
   check("刪除有記錄嘅租戶 → 中文提示（唔會留孤兒數據）", !delT.ok && /唔可以刪除/.test(delT.message), delT);

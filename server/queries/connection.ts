@@ -27,7 +27,8 @@ export async function initDb(): Promise<void> {
     // Supabase pooler（6543，transaction mode）唔支援 prepared statement
     const client = postgres(env.databaseUrl, {
       prepare: false,
-      max: 10,
+      // Vercel 每個 function instance 只開 1 條連線（Supabase pooler 負責共用）
+      max: process.env.VERCEL ? 1 : 10,
       ssl: /localhost|127\.0\.0\.1/.test(env.databaseUrl) ? false : "require",
       onnotice: () => {},
     });

@@ -3,7 +3,7 @@
  *   npm run owner:create -- <用戶名> <密碼> [顯示名稱]
  * 會用 .env 入面嘅 DATABASE_URL（冇就用本機 PGlite）。
  */
-import { initDb, getDb, execRaw, closeDb } from "../api/queries/connection";
+import { initDb, getDb, execRaw, closeDb } from "../server/queries/connection";
 import { DDL } from "./ddl";
 import { upsertOwner } from "./seed-lib";
 
