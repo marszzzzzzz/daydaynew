@@ -63,8 +63,8 @@ export default function Login() {
           }}
         />
         <Link to="/" className="relative flex items-baseline gap-2">
-          <span className="font-display text-2xl font-black tracking-tight">
-            格仔鋪
+          <span className="whitespace-nowrap font-display text-2xl font-black tracking-tight">
+            日日新格仔鋪
           </span>
           <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-cream/50">
             GridBox.hk
@@ -102,8 +102,8 @@ export default function Login() {
       <div className="flex items-center justify-center p-6 md:p-14">
         <div className="w-full max-w-sm">
           <Link to="/" className="mb-8 flex items-baseline gap-2 md:hidden">
-            <span className="font-display text-xl font-black tracking-tight">
-              格仔鋪
+            <span className="whitespace-nowrap font-display text-xl font-black tracking-tight">
+              日日新格仔鋪
             </span>
             <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink/50">
               GridBox.hk

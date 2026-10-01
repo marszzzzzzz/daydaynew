@@ -29,8 +29,8 @@ export default function Home() {
       <header className="fixed inset-x-0 top-0 z-50 border-b border-ink/15 bg-cream/85 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
           <Link to="/" className="flex items-baseline gap-2">
-            <span className="font-display text-[22px] font-black tracking-tight">格仔鋪</span>
-            <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-ink/55">GridBox.hk</span>
+            <span className="whitespace-nowrap font-display text-[22px] font-black tracking-tight">日日新格仔鋪</span>
+            <span className="hidden font-mono text-[11px] uppercase tracking-[0.22em] text-ink/55 sm:inline">GridBox.hk</span>
           </Link>
           <nav className="hidden items-center gap-7 font-mono text-[12px] uppercase tracking-[0.16em] text-ink/70 md:flex">
             <a href="#wall" className="transition-colors hover:text-ochre-deep">格仔現況</a>
@@ -199,7 +199,7 @@ export default function Home() {
         </div>
         <footer className="border-t border-cream/15">
           <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 px-5 py-8 font-mono text-[11px] uppercase tracking-[0.16em] text-cream/50 md:flex-row md:items-center">
-            <span>格仔鋪 GridBox.hk</span>
+            <span>日日新格仔鋪 GridBox.hk</span>
             <span>旺角 · 每日 13:00 – 21:00</span>
             <span>© {new Date().getFullYear()} GridBox</span>
           </div>
