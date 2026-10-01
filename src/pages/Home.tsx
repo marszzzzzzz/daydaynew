@@ -30,7 +30,7 @@ export default function Home() {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
           <Link to="/" className="flex items-baseline gap-2">
             <span className="whitespace-nowrap font-display text-[22px] font-black tracking-tight">日日新格仔鋪</span>
-            <span className="hidden font-mono text-[11px] uppercase tracking-[0.22em] text-ink/55 sm:inline">GridBox.hk</span>
+            <span className="hidden font-mono text-[11px] uppercase tracking-[0.22em] text-ink/55 sm:inline">DayDayNew.HK</span>
           </Link>
           <nav className="hidden items-center gap-7 font-mono text-[12px] uppercase tracking-[0.16em] text-ink/70 md:flex">
             <a href="#wall" className="transition-colors hover:text-ochre-deep">格仔現況</a>
@@ -115,7 +115,7 @@ export default function Home() {
 
       {/* ─── 點解租格仔 ─── */}
       <section id="why" className="mx-auto max-w-6xl scroll-mt-28 px-5 py-28">
-        <p className="spec-label mb-4">Why GridBox — 點解租格仔？</p>
+        <p className="spec-label mb-4">Why DayDayNew — 點解租格仔？</p>
         <h2 className="font-display max-w-2xl text-4xl font-black leading-tight tracking-tight md:text-5xl">
           用一個格仔嘅租金，
           <br />
@@ -199,9 +199,9 @@ export default function Home() {
         </div>
         <footer className="border-t border-cream/15">
           <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 px-5 py-8 font-mono text-[11px] uppercase tracking-[0.16em] text-cream/50 md:flex-row md:items-center">
-            <span>日日新格仔鋪 GridBox.hk</span>
+            <span>日日新格仔鋪 DayDayNew.HK</span>
             <span>旺角 · 每日 13:00 – 21:00</span>
-            <span>© {new Date().getFullYear()} GridBox</span>
+            <span>© {new Date().getFullYear()} DayDayNew.HK</span>
           </div>
         </footer>
       </section>

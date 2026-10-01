@@ -13,7 +13,7 @@ export default function DashHeader({ roleLabel }: { roleLabel: string }) {
           <div className="flex items-baseline gap-3">
             <Link to="/" className="flex items-baseline gap-2">
               <span className="whitespace-nowrap font-display text-xl font-black tracking-tight">日日新格仔鋪</span>
-              <span className="hidden font-mono text-[10px] uppercase tracking-[0.22em] text-ink/55 sm:inline">GridBox.hk</span>
+              <span className="hidden font-mono text-[10px] uppercase tracking-[0.22em] text-ink/55 sm:inline">DayDayNew.HK</span>
             </Link>
             <span className="badge-frame whitespace-nowrap border border-ink/40 text-ink/70">
               {/* 細畫面只顯示「·」前面嘅短名（例如「店主 Admin」），避免擠到斷行 */}

@@ -27,8 +27,13 @@ export async function initDb(): Promise<void> {
     // Supabase pooler（6543，transaction mode）唔支援 prepared statement
     const client = postgres(env.databaseUrl, {
       prepare: false,
-      // Vercel 每個 function instance 只開 1 條連線（Supabase pooler 負責共用）
-      max: process.env.VERCEL ? 1 : 10,
+      // Vercel 每個 function instance 開少量連線（Supabase pooler 負責共用）
+      max: process.env.VERCEL ? 3 : 10,
+      idle_timeout: 20, // 閒置 20 秒自動斷開，避免用到已經被 pooler 斷咗嘅連線
+      max_lifetime: 60 * 5,
+      connect_timeout: 10,
+      // 單條查詢最長 15 秒，唔會拖到 Vercel 30 秒超時
+      connection: { statement_timeout: 15000 },
       ssl: /localhost|127\.0\.0\.1/.test(env.databaseUrl) ? false : "require",
       onnotice: () => {},
     });

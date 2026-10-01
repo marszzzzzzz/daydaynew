@@ -67,7 +67,7 @@ export default function Login() {
             日日新格仔鋪
           </span>
           <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-cream/50">
-            GridBox.hk
+            DayDayNew.HK
           </span>
         </Link>
         <div className="relative">
@@ -106,7 +106,7 @@ export default function Login() {
               日日新格仔鋪
             </span>
             <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink/50">
-              GridBox.hk
+              DayDayNew.HK
             </span>
           </Link>
 

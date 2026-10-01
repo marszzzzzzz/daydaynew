@@ -38,3 +38,9 @@ app.use("/api/trpc/*", (c) =>
   }),
 );
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
+
+// 任何未處理錯誤（例如數據庫連唔到）都回 JSON 中文訊息，前端先讀得明
+app.onError((err, c) => {
+  console.error("[api]", err);
+  return c.json({ error: { json: { message: "伺服器暫時連唔到資料庫，請稍後再試", code: -32603, data: { code: "INTERNAL_SERVER_ERROR" } } } }, 500);
+});
