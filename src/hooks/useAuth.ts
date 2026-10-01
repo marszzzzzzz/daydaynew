@@ -27,9 +27,11 @@ export function useAuth(options?: UseAuthOptions) {
   });
 
   const logoutMutation = trpc.auth.logout.useMutation({
-    onSuccess: async () => {
-      await utils.invalidate();
-      navigate(redirectPath);
+    // 無論成功與否都清走本機快取嘅登入資料，再整頁重新載入登入頁
+    // （淨係 invalidate 會留低舊 user，登入頁會即刻彈返入後台）
+    onSettled: () => {
+      utils.auth.me.setData(undefined, undefined);
+      window.location.replace(redirectPath);
     },
   });
 
