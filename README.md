@@ -71,7 +71,7 @@
 - **後端**：Hono + tRPC 11（superjson 序列化，Date 等類型自動保留）
 - **資料庫**：Supabase Postgres（Drizzle ORM + postgres-js），全部表放喺獨立 schema `gridbox`；本機開發冇 `DATABASE_URL` 時自動用 PGlite（嵌入式 Postgres，同一套 SQL）
 - **認證**：用戶名密碼註冊（scrypt）+ JWT session（httpOnly cookie）
-- **部署**：Docker（`npm start` 跑 `dist/boot.js`，port 3000）
+- **部署**：Docker（`npm start` 跑 `dist/boot.js`，port 4100）
 
 ## 頁面路由
 
@@ -128,7 +128,7 @@
 ## 常用指令
 
 ```bash
-npm run dev          # 開發伺服器 http://localhost:3000
+npm run dev          # 開發伺服器 http://localhost:4100
 npm run build        # 生產建構（前端 dist/public + 後端 dist/boot.js）
 npm start            # 生產模式啟動
 npm run check        # TypeScript 類型檢查

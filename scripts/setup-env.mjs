@@ -100,4 +100,4 @@ DEMO_MODE=false
 `;
 fs.writeFileSync(".env", env, { mode: 0o600 });
 console.log("\n✓ 已寫入 app/.env（只有你嘅電腦帳戶讀到）");
-console.log("下一步：npm run build && npm start，然後開 http://localhost:3000/api/trpc/shop.dbHealth\n");
+console.log("下一步：npm run build && npm start，然後開 http://localhost:4100/api/trpc/shop.dbHealth\n");
