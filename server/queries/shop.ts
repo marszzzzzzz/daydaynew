@@ -192,6 +192,7 @@ export type SaleFilters = {
   to?: string;
   gridId?: number;
   tenantId?: number;
+  createdBy?: number;
 };
 
 export async function listSales(filters: SaleFilters = {}, limit = 500) {
@@ -200,6 +201,7 @@ export async function listSales(filters: SaleFilters = {}, limit = 500) {
   if (filters.to) conds.push(lte(sales.saleDate, filters.to));
   if (filters.gridId) conds.push(eq(sales.gridId, filters.gridId));
   if (filters.tenantId) conds.push(eq(sales.tenantId, filters.tenantId));
+  if (filters.createdBy) conds.push(eq(sales.createdBy, filters.createdBy));
 
   return getDb()
     .select({
@@ -240,6 +242,33 @@ export async function createSale(data: {
 }) {
   const [{ id }] = await getDb().insert(sales).values(data).returning({ id: sales.id });
   return id;
+}
+
+/** 批量新增銷售（POS 匯入用，每 200 行一批） */
+export async function createSalesBatch(
+  rows: {
+    gridId: number | null;
+    tenantId: number | null;
+    saleDate: string;
+    productName: string;
+    quantity: number;
+    unitPrice: string;
+    totalAmount: string;
+    note: string;
+    createdBy: number;
+  }[],
+) {
+  for (let i = 0; i < rows.length; i += 200) {
+    await getDb().insert(sales).values(rows.slice(i, i + 200));
+  }
+}
+
+export async function countSalesWithNotePrefix(prefix: string) {
+  const [row] = await getDb()
+    .select({ c: sql<number>`count(*)` })
+    .from(sales)
+    .where(like(sales.note, `${prefix.replace(/[%_\\]/g, "\\$&")}%`));
+  return Number(row?.c ?? 0);
 }
 
 export async function updateSale(

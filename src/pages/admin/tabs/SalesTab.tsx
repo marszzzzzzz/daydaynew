@@ -207,16 +207,17 @@ function SaleRow({ row, onDelete, onSaved }: { row: SaleRowData; onDelete: () =>
         <td className="py-2 pr-4 font-mono text-[12.5px] font-semibold">{row.gridCode ?? "直銷"}</td>
         <td className="py-2 pr-4 text-[12.5px]">{row.tenantName ?? "店舖直銷"}</td>
         <td className="py-2 pr-4">
-          <input className="underline-input !py-1 text-[13px]" value={product} onChange={(e) => setProduct(e.target.value)} />
+          <input className="underline-input !py-1 text-[13px]" value={product} onChange={(e) => setProduct(e.target.value)} placeholder="貨品" />
+          <input className="underline-input mt-1 !py-1 font-mono text-[11.5px] text-ink/70" value={note} onChange={(e) => setNote(e.target.value)} placeholder="備註（可留空）" />
         </td>
         <td className="py-2 pr-4">
-          <input className="underline-input !py-1 text-right font-mono text-[13px]" value={qty} onChange={(e) => setQty(e.target.value)} />
+          <input className="underline-input !py-1 w-16 text-right font-mono text-[13px]" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} />
         </td>
         <td className="py-2 pr-4">
-          <input className="underline-input !py-1 text-right font-mono text-[13px]" value={price} onChange={(e) => setPrice(e.target.value)} />
+          <input className="underline-input !py-1 w-20 text-right font-mono text-[13px]" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} />
         </td>
-        <td className="py-2 pr-4">
-          <input className="underline-input !py-1 font-mono text-[13px]" value={note} onChange={(e) => setNote(e.target.value)} placeholder="備註" />
+        <td className="py-2 pr-4 text-right font-mono font-semibold">
+          {Number.isFinite(Number(qty) * Number(price)) ? `$${fmtMoney(Number(qty) * Number(price))}` : "—"}
         </td>
         <td className="py-2 text-right">
           <div className="flex justify-end gap-2">
@@ -245,7 +246,10 @@ function SaleRow({ row, onDelete, onSaved }: { row: SaleRowData; onDelete: () =>
       <td className="py-3 pr-4 font-mono text-[12.5px]">{row.saleDate}{row.saleTime ? ` ${row.saleTime}` : ""}</td>
       <td className="py-3 pr-4 font-mono text-[12.5px] font-semibold">{row.gridCode ?? <span className="text-ochre-deep">直銷</span>}</td>
       <td className="py-3 pr-4">{row.tenantName ?? <span className="text-ink/45">店舖直銷</span>}</td>
-      <td className="py-3 pr-4">{row.productName}</td>
+      <td className="py-3 pr-4">
+        {row.productName}
+        {row.note && <p className="mt-0.5 max-w-xs truncate font-mono text-[10.5px] text-ink/45" title={row.note}>{row.note}</p>}
+      </td>
       <td className="py-3 pr-4 text-right font-mono">{row.quantity}</td>
       <td className="py-3 pr-4 text-right font-mono">${fmtMoney(row.unitPrice)}</td>
       <td className="py-3 pr-4 text-right font-mono font-semibold">${fmtMoney(row.totalAmount)}</td>

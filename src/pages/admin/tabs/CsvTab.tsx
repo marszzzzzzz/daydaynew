@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { PosImport, isPosCsv } from "@/components/PosImport";
 import { trpc } from "@/providers/trpc";
 import { toast } from "sonner";
 import { SectionTitle, ActionButton } from "../ui";
@@ -76,88 +77,31 @@ export default function CsvTab() {
   );
 }
 
-/** POS 收銀系統「商品銷售_明細」CSV 直接匯入（Day Day New 格式） */
+/** POS 收銀系統「商品銷售_明細」CSV 直接匯入（Day Day New 原檔，格仔按每行「商品分類」自動分配） */
 function ImportPosSales({ onDone }: { onDone: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [gridId, setGridId] = useState<number | null>(null);
-  const [saleDate, setSaleDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [fileName, setFileName] = useState("");
-  const [csvText, setCsvText] = useState("");
-  const [result, setResult] = useState<{
-    inserted: number;
-    totalQty: number;
-    totalAmount: string;
-    period: { start: string; end: string } | null;
-    gridCode: string;
-    tenantName: string | null;
-    errors: { row: number; message: string }[];
-  } | null>(null);
-
-  const gridsQ = trpc.shop.admin.listGrids.useQuery();
-  const occupied = (gridsQ.data ?? []).filter((g) => g.status === "occupied");
-
-  const importPos = trpc.shop.admin.importPosSales.useMutation({
-    onSuccess: (r) => {
-      setResult(r);
-      if (r.inserted > 0) {
-        toast.success(`成功匯入 ${r.inserted} 筆 POS 銷售到 ${r.gridCode}`);
-        onDone();
-      }
-      if (r.errors.length > 0) toast.error(`${r.errors.length} 行有錯誤`);
-    },
-    onError: (e) => toast.error(e.message),
-  });
+  const [pos, setPos] = useState<{ text: string; fileName: string } | null>(null);
 
   const handleFile = async (file: File) => {
     const text = await file.text();
-    if (!text.includes("商品名稱")) {
-      setCsvText("");
-      setFileName("");
-      return toast.error("呢個檔案唔似「商品銷售_明細」格式（搵唔到欄位標題）");
+    if (!isPosCsv(text)) {
+      setPos(null);
+      return toast.error("呢個檔案唔似 POS「商品銷售_明細」格式；標準格式請用上面嘅「銷售 CSV」匯入");
     }
-    setCsvText(text);
-    setFileName(file.name);
-    setResult(null);
+    setPos({ text, fileName: file.name });
   };
 
   return (
     <div className="border border-ink/25 p-6 lg:col-span-2">
       <p className="spec-label">Import — POS 收銀明細（Day Day New）</p>
       <p className="mt-3 font-mono text-[11.5px] leading-[1.9] text-ink/60">
-        直接上傳收銀系統匯出嘅「商品銷售_明細」CSV，系統自動跳過標題同「合計」行，
-        抽取商品名稱、數量、銷售金額（單價 = 金額 ÷ 數量）。
-        <br />
-        由於 POS 檔冇格號同每日日期，請揀返呢批銷售屬於邊個格仔、記落邊一日。
+        直接上傳收銀系統匯出嘅「商品銷售_明細」CSV，唔使改格式：
+        <br />· 格仔按每行「商品分類」自動分配（例如「04格」→ 格仔 004，有生效租約就計入該租戶）
+        <br />· 冇格號嘅分類（雜貨、NBA、泳衣…）當店舖直銷
+        <br />· 「格仔租金」分類（租金／按金）唔係銷售，自動略過；「合計」行略過
+        <br />· 同一期間嘅檔案只可以匯入一次，避免重複計數
       </p>
-
-      <div className="mt-5 grid gap-5 sm:grid-cols-2">
-        <label className="block">
-          <span className="spec-label mb-1.5 block">所屬格仔（須有生效租約）</span>
-          <select
-            className="w-full border border-ink/30 bg-cream px-3 py-2.5 font-mono text-[13.5px] outline-none focus:border-ink"
-            value={gridId ?? ""}
-            onChange={(e) => setGridId(e.target.value ? Number(e.target.value) : null)}
-          >
-            <option value="">— 揀格仔 —</option>
-            {occupied.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.code} · {g.size === "L" ? "大格" : "中格"}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="spec-label mb-1.5 block">記帳日期</span>
-          <input
-            type="date"
-            className="w-full border border-ink/30 bg-cream px-3 py-2.5 font-mono text-[13.5px] outline-none focus:border-ink"
-            value={saleDate}
-            onChange={(e) => setSaleDate(e.target.value)}
-          />
-        </label>
-      </div>
-
-      <div className="mt-5 flex flex-wrap items-center gap-4">
+      <div className="mt-5">
         <input
           ref={fileRef}
           type="file"
@@ -169,33 +113,18 @@ function ImportPosSales({ onDone }: { onDone: () => void }) {
             e.target.value = "";
           }}
         />
-        <ActionButton tone="ghost" onClick={() => fileRef.current?.click()}>
-          {csvText ? "重新選擇檔案" : "① 選擇 POS CSV 檔案"}
-        </ActionButton>
-        {fileName && <span className="font-mono text-[12px] text-ink/60">{fileName}</span>}
-        <ActionButton
-          tone="ochre"
-          disabled={!csvText || !gridId || !saleDate || importPos.isPending}
-          onClick={() => csvText && gridId && importPos.mutate({ gridId, saleDate, csvText })}
-        >
-          {importPos.isPending ? "匯入中…" : "② 匯入"}
+        <ActionButton tone="ochre" onClick={() => fileRef.current?.click()}>
+          {pos ? "重新選擇檔案" : "選擇 POS CSV 檔案"}
         </ActionButton>
       </div>
-
-      {result && (
-        <div className="mt-5 border-t border-ink/15 pt-4 font-mono text-[12px] leading-[1.9]">
-          <p className="text-ink">
-            ✓ 匯入 {result.inserted} 筆到 {result.gridCode}
-            {result.tenantName ? `（租戶：${result.tenantName}）` : ""} · 總數量 {result.totalQty} · 總金額 $
-            {result.totalAmount}
-          </p>
-          {result.period && (
-            <p className="text-ink/55">檔案標示期間：{result.period.start} 至 {result.period.end}</p>
-          )}
-          {result.errors.slice(0, 8).map((er, i) => (
-            <p key={i} className="text-red-800/80">第 {er.row} 行：{er.message}</p>
-          ))}
-        </div>
+      {pos && (
+        <PosImport
+          key={pos.fileName + pos.text.length}
+          text={pos.text}
+          fileName={pos.fileName}
+          onCancel={() => setPos(null)}
+          onDone={onDone}
+        />
       )}
     </div>
   );
@@ -219,6 +148,7 @@ function ImportSales({ onDone }: { onDone: () => void }) {
 
   const handleFile = async (file: File) => {
     const text = await file.text();
+    if (isPosCsv(text)) return toast.error("呢個係 POS「商品銷售_明細」檔，請用下面「POS 收銀明細」匯入");
     const rows = parseCsv(text);
     if (rows.length < 2) return toast.error("CSV 內容為空");
     const body = rows.slice(1).map((r) => ({

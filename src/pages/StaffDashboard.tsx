@@ -5,6 +5,7 @@ import DashHeader from "@/components/DashHeader";
 import WeeklyReport from "@/components/WeeklyReport";
 import { fmtMoney, todayStr } from "@/lib/format";
 import { parseCsv } from "@/lib/csv";
+import { PosImport, isPosCsv } from "@/components/PosImport";
 import { useAuth } from "@/hooks/useAuth";
 import { Field, ActionButton, EmptyRow } from "./admin/ui";
 
@@ -152,11 +153,9 @@ function SaleEntry() {
 /** 02 我嘅記錄（只係自己輸入嘅，可以改／刪） */
 function MySales({ userId }: { userId: number }) {
   const utils = trpc.useUtils();
-  const sales = trpc.shop.admin.listSales.useQuery({});
-  const mine = useMemo(
-    () => (sales.data ?? []).filter((r) => r.createdBy === userId),
-    [sales.data, userId],
-  );
+  // 由伺服器直接篩選自己嘅記錄（唔會因為全店頭 500 筆限制而漏咗）
+  const sales = trpc.shop.admin.listSales.useQuery({ mine: true });
+  const mine = useMemo(() => (sales.data ?? []).filter((r) => r.createdBy === userId), [sales.data, userId]);
 
   const invalidate = () => {
     utils.shop.admin.listSales.invalidate();
@@ -235,16 +234,18 @@ function MySaleRow({ row, onDelete, onSaved }: { row: SaleRowData; onDelete: () 
         <td className="py-2 pl-5 pr-4 font-mono text-[12.5px]">{row.saleDate}{row.saleTime ? ` ${row.saleTime}` : ""}</td>
         <td className="py-2 pr-4 font-mono text-[12.5px] font-semibold">{row.gridCode ?? "直銷"}</td>
         <td className="py-2 pr-4">
-          <input className="underline-input !py-1 text-[13px]" value={product} onChange={(e) => setProduct(e.target.value)} />
+          <input className="underline-input !py-1 text-[13px]" value={product} onChange={(e) => setProduct(e.target.value)} placeholder="貨品" />
+          <input className="underline-input mt-1 !py-1 font-mono text-[11.5px] text-ink/70" value={note} onChange={(e) => setNote(e.target.value)} placeholder="備註（可留空）" />
         </td>
         <td className="py-2 pr-4">
-          <input className="underline-input !py-1 text-right font-mono text-[13px]" value={qty} onChange={(e) => setQty(e.target.value)} />
+          <input className="underline-input !py-1 w-16 text-right font-mono text-[13px]" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} />
         </td>
         <td className="py-2 pr-4">
-          <input className="underline-input !py-1 text-right font-mono text-[13px]" value={price} onChange={(e) => setPrice(e.target.value)} />
+          <input className="underline-input !py-1 w-20 text-right font-mono text-[13px]" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} />
         </td>
-        <td className="py-2 pr-4">
-          <input className="underline-input !py-1 font-mono text-[13px]" value={note} onChange={(e) => setNote(e.target.value)} placeholder="備註" />
+        <td className="py-2 pr-4 text-right font-mono font-semibold">
+          {/* 即時計：數量 × 單價 */}
+          {Number.isFinite(Number(qty) * Number(price)) ? `$${fmtMoney(Number(qty) * Number(price))}` : "—"}
         </td>
         <td className="py-2 pr-5 text-right">
           <div className="flex justify-end gap-2">
@@ -272,7 +273,10 @@ function MySaleRow({ row, onDelete, onSaved }: { row: SaleRowData; onDelete: () 
     <tr className="transition-colors hover:bg-ochre/10">
       <td className="py-3 pl-5 pr-4 font-mono text-[12.5px]">{row.saleDate}{row.saleTime ? ` ${row.saleTime}` : ""}</td>
       <td className="py-3 pr-4 font-mono text-[12.5px] font-semibold">{row.gridCode ?? <span className="text-ochre-deep">直銷</span>}</td>
-      <td className="py-3 pr-4">{row.productName}</td>
+      <td className="py-3 pr-4">
+        {row.productName}
+        {row.note && <p className="mt-0.5 max-w-xs truncate font-mono text-[10.5px] text-ink/45" title={row.note}>{row.note}</p>}
+      </td>
       <td className="py-3 pr-4 text-right font-mono">{row.quantity}</td>
       <td className="py-3 pr-4 text-right font-mono">${fmtMoney(row.unitPrice)}</td>
       <td className="py-3 pr-4 text-right font-mono font-semibold">${fmtMoney(row.totalAmount)}</td>
@@ -295,6 +299,7 @@ function CsvUpload() {
   const utils = trpc.useUtils();
   const fileRef = useRef<HTMLInputElement>(null);
   const [result, setResult] = useState<{ inserted: number; directCount: number; errors: { row: number; message: string }[] } | null>(null);
+  const [pos, setPos] = useState<{ text: string; fileName: string } | null>(null);
 
   const importSales = trpc.shop.admin.importSales.useMutation({
     onSuccess: (r) => {
@@ -310,6 +315,13 @@ function CsvUpload() {
 
   const handleFile = async (file: File) => {
     const text = await file.text();
+    setResult(null);
+    // POS 收銀機原檔（商品銷售_明細）→ 用 POS 匯入流程
+    if (isPosCsv(text)) {
+      setPos({ text, fileName: file.name });
+      return;
+    }
+    setPos(null);
     const rows = parseCsv(text);
     if (rows.length < 2) return toast.error("CSV 內容為空");
     const body = rows.slice(1).map((r) => ({
@@ -328,6 +340,12 @@ function CsvUpload() {
     <div className="max-w-2xl border border-ink/25 p-6">
       <p className="spec-label">Import — 銷售 CSV</p>
       <p className="mt-3 font-mono text-[11.5px] leading-[1.9] text-ink/60">
+        支援兩種檔案，系統自動分辨：
+        <br />
+        <b>① POS 收銀機「商品銷售_明細」原檔</b>：直接上載，唔使改。格仔按「商品分類」（例如「04格」→ 格仔 004）自動分配，
+        冇格號嘅貨品當店舖直銷，租金／按金自動略過。上載後會先預覽，確認先匯入。
+        <br />
+        <b>② 標準格式：</b>
         欄位次序：交易日期, 交易時間, 格仔編號, 商品名稱, 數量, 單價, 備註
         <br />
         例：2026-07-01, 14:30, 024, PKM散M4, 3, 125, 可留空
@@ -347,9 +365,18 @@ function CsvUpload() {
           }}
         />
         <ActionButton tone="ochre" disabled={importSales.isPending} onClick={() => fileRef.current?.click()}>
-          {importSales.isPending ? "匯入中…" : "選擇 CSV 檔案"}
+          {importSales.isPending ? "匯入中…" : pos ? "重新選擇檔案" : "選擇 CSV 檔案"}
         </ActionButton>
       </div>
+      {pos && (
+        <PosImport
+          key={pos.fileName + pos.text.length}
+          text={pos.text}
+          fileName={pos.fileName}
+          onCancel={() => setPos(null)}
+          onDone={() => utils.shop.admin.listSales.invalidate()}
+        />
+      )}
       {result && (
         <div className="mt-5 border-t border-ink/15 pt-4 font-mono text-[12px] leading-[1.9]">
           <p className="text-ink">

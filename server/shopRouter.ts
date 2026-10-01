@@ -89,6 +89,92 @@ function parseCsvText(text: string): string[][] {
   return rows;
 }
 
+/** 解析 POS「商品銷售_明細」CSV（按欄位名搵欄，唔靠固定位置） */
+export function parsePosCsv(text: string):
+  | { error: string }
+  | {
+      period: { start: string; end: string; defaultDate: string } | null;
+      items: { row: number; name: string; qty: number; amount: string; unitPrice: string; category: string; gridCode: string | null; note: string }[];
+      errors: { row: number; message: string }[];
+      skippedRent: number;
+    } {
+  const rows = parseCsvText(text.replace(/^\uFEFF/, ""));
+  const pm = text.slice(0, 400).match(/(\d{4}-\d{2}-\d{2})\s*[\d-]*\s*至\s*(\d{4}-\d{2}-\d{2})/);
+  let period: { start: string; end: string; defaultDate: string } | null = null;
+  if (pm) {
+    // 結束時間係翌日朝早（例如 07-31 10:00），即係最後一個營業日係結束日前一日
+    const d = new Date(pm[2] + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() - 1);
+    const last = d.toISOString().slice(0, 10);
+    period = { start: pm[1], end: pm[2], defaultDate: last < pm[1] ? pm[1] : last };
+  }
+  const h = rows.findIndex((r) => r.some((c) => c.trim() === "商品名稱"));
+  if (h < 0) return { error: "唔係 POS「商品銷售_明細」格式：搵唔到欄位標題（行號,商品編號,商品名稱,…）" };
+  const head = rows[h].map((c) => c.trim());
+  const col = (name: string) => head.indexOf(name);
+  const c = {
+    no: col("商品編號"),
+    name: col("商品名稱"),
+    spec: col("規格"),
+    qty: col("數量"),
+    amount: col("銷售金額"),
+    cat: col("商品分類"),
+    barcode: col("商品條碼"),
+  };
+  if (c.name < 0 || c.qty < 0 || c.amount < 0 || c.cat < 0) {
+    return { error: "POS 檔缺少必要欄位（商品名稱、數量、銷售金額、商品分類）" };
+  }
+  const clean = (v: string | undefined) => (v ?? "").replace(/\t/g, " ").replace(/\s+/g, " ").trim();
+  const items = [];
+  const errors: { row: number; message: string }[] = [];
+  let skippedRent = 0;
+  for (let i = h + 1; i < rows.length; i++) {
+    const r = rows[i];
+    const first = clean(r[0]);
+    if (!first || first.startsWith("合計")) continue;
+    const row = i + 1;
+    const name = clean(r[c.name]);
+    const category = clean(r[c.cat]);
+    const qty = Number(clean(r[c.qty]));
+    const amount = Number(clean(r[c.amount]));
+    if (/租金|按金/.test(category)) {
+      skippedRent++;
+      continue;
+    }
+    if (!name || name === "-") {
+      errors.push({ row, message: "商品名稱空白" });
+      continue;
+    }
+    if (!Number.isFinite(qty) || qty <= 0 || !Number.isInteger(qty)) {
+      errors.push({ row, message: `數量錯誤：${clean(r[c.qty])}` });
+      continue;
+    }
+    if (!Number.isFinite(amount) || amount < 0) {
+      errors.push({ row, message: `銷售金額錯誤：${clean(r[c.amount])}` });
+      continue;
+    }
+    const gm = category.match(/^(\d{1,3})\s*格$/);
+    const gridCode = gm ? gm[1].padStart(3, "0") : null;
+    const extras = [
+      c.no >= 0 && clean(r[c.no]) ? `編號 ${clean(r[c.no])}` : "",
+      c.spec >= 0 && clean(r[c.spec]) && clean(r[c.spec]) !== "-" ? `規格 ${clean(r[c.spec])}` : "",
+      category && category !== "-" ? `分類 ${category}` : "",
+      c.barcode >= 0 && clean(r[c.barcode]) && clean(r[c.barcode]) !== "-" ? `條碼 ${clean(r[c.barcode])}` : "",
+    ].filter(Boolean);
+    items.push({
+      row,
+      name: name.slice(0, 200),
+      qty,
+      amount: amount.toFixed(2),
+      unitPrice: (amount / qty).toFixed(2),
+      category,
+      gridCode,
+      note: extras.join(" · "),
+    });
+  }
+  return { period, items, errors, skippedRent };
+}
+
 export const shopRouter = createRouter({
   /** 宣傳頁公開統計 */
   publicStats: publicQuery.query(() => withDbRetry(() => q.publicStats())),
@@ -340,9 +426,14 @@ export const shopRouter = createRouter({
           to: dateStr.optional(),
           gridId: z.number().optional(),
           tenantId: z.number().optional(),
+          /** true = 只要自己輸入嘅記錄（店員「我嘅記錄」） */
+          mine: z.boolean().optional(),
         }),
       )
-      .query(({ input }) => q.listSales(input)),
+      .query(({ ctx, input }) => {
+        const { mine, ...filters } = input;
+        return q.listSales({ ...filters, createdBy: mine ? ctx.user.id : undefined }, mine ? 5000 : 500);
+      }),
 
     /** 週結報表（星期一至日）；唔輸入就用今個星期 */
     weeklyReport: staffQuery
@@ -677,96 +768,111 @@ export const shopRouter = createRouter({
      * 欄位：行號,商品編號,商品名稱,規格,數量,銷售金額,商品分類,...
      * 由於原檔冇每日日期亦冇格號，全部記錄會掛落 admin 揀定嘅格仔 + 指定日期
      */
+    /**
+     * 匯入 POS「商品銷售_明細」CSV（Day Day New 收銀機原檔，唔使改格式）：
+     * - 標題行「日期 2026-07-01 10-00-00至2026-07-31 10-00-00」→ 銷售期間
+     * - 「商品分類」係「NN格」→ 計入格仔 0NN（有生效租約就計入該租戶）；其他分類 → 店舖直銷
+     * - 「格仔租金」分類（租金／按金）唔係銷售，自動略過
+     * - 「合計」行略過；單價 = 銷售金額 ÷ 數量
+     * - 同一期間嘅檔案只可以匯入一次（防止重複計數）
+     */
     importPosSales: staffQuery
       .input(
         z.object({
-          gridId: z.number(),
           saleDate: dateStr,
-          csvText: z.string().min(1, "CSV 內容為空").max(5_000_000, "檔案太大（上限 5MB）"),
+          csvText: z.string().min(1, "CSV 內容為空").max(4_000_000, "檔案太大（上限 4MB）"),
+          dryRun: z.boolean().default(false),
         }),
       )
       .mutation(async ({ ctx, input }) => {
-        const grid = await q.findGridById(input.gridId);
-        if (!grid) throw new TRPCError({ code: "NOT_FOUND", message: "搵唔到呢個格仔" });
-        const lease = await q.findActiveLeaseByGrid(grid.id);
-        if (!lease) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: `格仔 ${grid.code} 冇生效中嘅租約，請先建立租約` });
-        }
-        const tenant = await q.findTenantById(lease.tenantId);
+        const parsed = parsePosCsv(input.csvText);
+        if ("error" in parsed) throw new TRPCError({ code: "BAD_REQUEST", message: parsed.error });
+        const { period, items, errors, skippedRent } = parsed;
 
-        const rows = parseCsvText(input.csvText);
-        // 偵測標題行嘅日期範圍：「日期 2026-08-01 10-00-00至2026-09-01 10-00-00」
-        const titleLine = input.csvText.slice(0, 300);
-        const pm = titleLine.match(/(\d{4}-\d{2}-\d{2})\s*[\d-]*\s*至\s*(\d{4}-\d{2}-\d{2})/);
-        const period = pm ? { start: pm[1], end: pm[2] } : null;
+        // 格仔 + 生效租約
+        const grids = await q.listGrids();
+        const gridByCode = new Map(grids.map((g) => [g.code, g]));
+        const leaseByGrid = new Map<number, Awaited<ReturnType<typeof q.findActiveLeaseByGrid>>>();
+        const warnings: string[] = [];
+        const rows: Parameters<typeof q.createSalesBatch>[0] = [];
+        const byGrid = new Map<string, { qty: number; amount: number; count: number; tenantName: string | null }>();
+        let directCount = 0;
 
-        // 搵欄位名嗰行（包含「商品名稱」），之後先係數據
-        const headerIdx = rows.findIndex((r) => r.some((c) => c.includes("商品名稱")));
-        if (headerIdx < 0) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "唔係「商品銷售_明細」格式：搵唔到欄位標題（行號,商品編號,商品名稱,…）",
-          });
-        }
-
-        const errors: { row: number; message: string }[] = [];
-        let inserted = 0;
-        let totalQty = 0;
-        let totalAmount = 0;
-        for (let i = headerIdx + 1; i < rows.length; i++) {
-          const r = rows[i];
-          const first = (r[0] ?? "").trim();
-          if (first === "" || first.startsWith("合計")) continue; // 合計行 / 空行
-          const rowNo = i + 1;
-          const name = (r[2] ?? "").replace(/\t/g, " ").replace(/\s+/g, " ").trim();
-          const qty = Number((r[4] ?? "").trim());
-          const amount = Number((r[5] ?? "").trim());
-          if (!name || name === "-") {
-            errors.push({ row: rowNo, message: "商品名稱空白" });
-            continue;
+        for (const it of items) {
+          let gridId: number | null = null;
+          let tenantId: number | null = null;
+          let gridCode: string | null = null;
+          if (it.gridCode) {
+            const g = gridByCode.get(it.gridCode);
+            if (!g) {
+              errors.push({ row: it.row, message: `商品分類「${it.category}」對應嘅格仔 ${it.gridCode} 唔存在` });
+              continue;
+            }
+            if (!leaseByGrid.has(g.id)) leaseByGrid.set(g.id, await q.findActiveLeaseByGrid(g.id));
+            const lease = leaseByGrid.get(g.id);
+            gridId = g.id;
+            gridCode = g.code;
+            tenantId = lease?.tenantId ?? null;
+          } else {
+            directCount++;
           }
-          if (!Number.isFinite(qty) || qty <= 0) {
-            errors.push({ row: rowNo, message: `數量錯誤：${(r[4] ?? "").trim()}` });
-            continue;
-          }
-          if (!Number.isFinite(amount) || amount < 0) {
-            errors.push({ row: rowNo, message: `銷售金額錯誤：${(r[5] ?? "").trim()}` });
-            continue;
-          }
-          const qtyInt = Math.round(qty);
-          const spec = (r[3] ?? "").trim();
-          const barcode = (r[10] ?? "").trim();
-          const noteParts = [
-            "POS 匯入",
-            (r[1] ?? "").trim() ? `編號 ${(r[1] ?? "").trim()}` : "",
-            spec && spec !== "-" ? `規格 ${spec}` : "",
-            (r[6] ?? "").trim() && (r[6] ?? "").trim() !== "-" ? `分類 ${(r[6] ?? "").trim()}` : "",
-            barcode && barcode !== "-" ? `條碼 ${barcode}` : "",
-          ].filter(Boolean);
-          await q.createSale({
-            gridId: grid.id,
-            tenantId: lease.tenantId,
+          rows.push({
+            gridId,
+            tenantId,
             saleDate: input.saleDate,
-            productName: name.slice(0, 200),
-            quantity: qtyInt,
-            unitPrice: (amount / qty).toFixed(2),
-            totalAmount: amount.toFixed(2),
-            note: noteParts.join(" · "),
+            productName: it.name,
+            quantity: it.qty,
+            unitPrice: it.unitPrice,
+            totalAmount: it.amount,
+            note: it.note,
             createdBy: ctx.user.id,
           });
-          inserted += 1;
-          totalQty += qty;
-          totalAmount += amount;
+          const key = gridCode ?? "店舖直銷";
+          const agg = byGrid.get(key) ?? { qty: 0, amount: 0, count: 0, tenantName: null };
+          agg.qty += it.qty;
+          agg.amount += Number(it.amount);
+          agg.count += 1;
+          byGrid.set(key, agg);
         }
-        return {
-          inserted,
-          totalQty,
-          totalAmount: totalAmount.toFixed(2),
+
+        // 租戶名 + 未有租約警告
+        const tenantIds = [...new Set(rows.map((r) => r.tenantId).filter((x): x is number => x != null))];
+        const tenantNames = new Map<number, string>();
+        for (const id of tenantIds) tenantNames.set(id, (await q.findTenantById(id))?.name ?? "");
+        for (const [code, agg] of byGrid) {
+          if (code === "店舖直銷") continue;
+          const r = rows.find((x) => x.gridId === gridByCode.get(code)?.id);
+          agg.tenantName = r?.tenantId ? tenantNames.get(r.tenantId) ?? null : null;
+          if (!r?.tenantId) warnings.push(`格仔 ${code} 未有生效租約：${agg.count} 筆已記錄喺格仔，但未計入任何租戶`);
+        }
+
+        // 防止重複匯入同一期間
+        const sourceTag = period ? `POS ${period.start}~${period.end}` : null;
+        if (sourceTag && (await q.countSalesWithNotePrefix(`[${sourceTag}]`)) > 0) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `${period!.start} 至 ${period!.end} 嘅 POS 檔已經匯入過。如要重新匯入，請先喺銷售記錄刪除舊資料`,
+          });
+        }
+        if (sourceTag) for (const r of rows) r.note = `[${sourceTag}] ${r.note}`;
+
+        const summary = {
           period,
-          gridCode: grid.code,
-          tenantName: tenant?.name ?? null,
+          saleDate: input.saleDate,
+          count: rows.length,
+          directCount,
+          skippedRent,
+          totalQty: rows.reduce((a, r) => a + r.quantity, 0),
+          totalAmount: rows.reduce((a, r) => a + Number(r.totalAmount), 0).toFixed(2),
+          byGrid: [...byGrid.entries()]
+            .map(([code, a]) => ({ code, tenantName: a.tenantName, count: a.count, qty: a.qty, amount: a.amount.toFixed(2) }))
+            .sort((a, b) => (a.code === "店舖直銷" ? 1 : b.code === "店舖直銷" ? -1 : a.code.localeCompare(b.code))),
+          warnings,
           errors,
         };
+        if (input.dryRun) return { ...summary, inserted: 0 };
+        await q.createSalesBatch(rows);
+        return { ...summary, inserted: rows.length };
       }),
 
     /** 匯入格仔 CSV：欄位 code,size,monthlyRent */
