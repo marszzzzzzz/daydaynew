@@ -231,6 +231,28 @@ export const shopRouter = createRouter({
       };
     }),
 
+  /** 租戶專區走勢：日／週／月總銷售 + 頭 5 位貨品；可以按格仔篩 */
+  myTrend: authedQuery
+    .input(
+      z.object({
+        granularity: z.enum(["day", "week", "month"]),
+        from: dateStr,
+        to: dateStr,
+        gridCode: z.string().regex(/^\d{3}$/).optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      if (input.from > input.to) throw new TRPCError({ code: "BAD_REQUEST", message: "開始日期唔可以遲過結束日期" });
+      const days = (Date.parse(input.to) - Date.parse(input.from)) / 86400000;
+      const cap = { day: 186, week: 3 * 366, month: 10 * 366 }[input.granularity];
+      if (days > cap) throw new TRPCError({ code: "BAD_REQUEST", message: "期間太長，請揀較粗嘅時段（週／月）" });
+      const tenant = await q.findTenantByUserId(ctx.user.id);
+      if (!tenant) return null;
+      // 只可以篩自己有份嘅格仔（銷售查詢本身已經限死 tenantId）
+      const grid = input.gridCode ? await q.findGridByCode(input.gridCode) : null;
+      return q.tenantTrend(tenant.id, input.granularity, input.from, input.to, grid?.id);
+    }),
+
   mySummary: authedQuery.query(async ({ ctx }) => {
     const tenant = await q.findTenantByUserId(ctx.user.id);
     if (!tenant) return null;

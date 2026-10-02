@@ -842,3 +842,102 @@ export async function unassignSalesOutsideLease(leaseId: number) {
     WHERE l.id = ${leaseId} AND s."gridId" = l."gridId" AND s."tenantId" = l."tenantId"
       AND (s."saleDate" < l."startDate" OR s."saleDate" > l."endDate")`);
 }
+
+// ─── 租戶專區走勢 ───────────────────────────────────────────
+
+export type Granularity = "day" | "week" | "month";
+
+const isoDay = (d: Date) => d.toISOString().slice(0, 10);
+const parseDay = (s: string) => new Date(s + "T00:00:00Z");
+
+/** 日期所屬時段嘅開始日（週＝星期一開始） */
+function bucketStart(date: string, g: Granularity): string {
+  if (g === "day") return date;
+  if (g === "month") return date.slice(0, 7) + "-01";
+  const d = parseDay(date);
+  const dow = (d.getUTCDay() + 6) % 7; // 星期一 = 0
+  d.setUTCDate(d.getUTCDate() - dow);
+  return isoDay(d);
+}
+
+function nextBucket(start: string, g: Granularity): string {
+  const d = parseDay(start);
+  if (g === "day") d.setUTCDate(d.getUTCDate() + 1);
+  else if (g === "week") d.setUTCDate(d.getUTCDate() + 7);
+  else d.setUTCMonth(d.getUTCMonth() + 1);
+  return isoDay(d);
+}
+
+function bucketLabel(start: string, g: Granularity): string {
+  if (g === "month") return start.slice(0, 7);
+  if (g === "day") return start.slice(5);
+  const end = parseDay(start);
+  end.setUTCDate(end.getUTCDate() + 6);
+  return `${start.slice(5)}–${isoDay(end).slice(5)}`;
+}
+
+/**
+ * 租戶銷售走勢：期間內每個時段嘅總銷售、件數，同期間頭 5 位貨品喺每個時段嘅銷售額；
+ * 每個時段亦附上貨品明細（畀「時段列表」下鑽用）。冇銷售嘅時段都會列出（0）。
+ */
+export async function tenantTrend(tenantId: number, g: Granularity, from: string, to: string, gridId?: number) {
+  const conds = [eq(sales.tenantId, tenantId), gte(sales.saleDate, from), lte(sales.saleDate, to)];
+  if (gridId) conds.push(eq(sales.gridId, gridId));
+  const rows = await getDb()
+    .select({ saleDate: sales.saleDate, productName: sales.productName, quantity: sales.quantity, totalAmount: sales.totalAmount })
+    .from(sales)
+    .where(and(...conds));
+
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  // 所有時段（包括冇銷售）
+  const buckets: { key: string; from: string; to: string; label: string }[] = [];
+  for (let s = bucketStart(from, g), i = 0; s <= to && i < 400; s = nextBucket(s, g), i++) {
+    const end = parseDay(nextBucket(s, g));
+    end.setUTCDate(end.getUTCDate() - 1);
+    const bFrom = s < from ? from : s;
+    const bTo = isoDay(end) > to ? to : isoDay(end);
+    // 週標籤用剪裁後嘅日子（例如期間去到 06-30，就顯示 06-29–06-30）
+    const label = g === "week" ? `${bFrom.slice(5)}–${bTo.slice(5)}` : bucketLabel(s, g);
+    buckets.push({ key: s, from: bFrom, to: bTo, label });
+  }
+  const byBucket = new Map(buckets.map((b) => [b.key, { amount: 0, qty: 0, items: new Map<string, { qty: number; amount: number }>() }]));
+  const productTotals = new Map<string, number>();
+  for (const r of rows) {
+    const b = byBucket.get(bucketStart(r.saleDate, g));
+    if (!b) continue;
+    const amt = Number(r.totalAmount) || 0;
+    b.amount += amt;
+    b.qty += r.quantity;
+    const it = b.items.get(r.productName) ?? { qty: 0, amount: 0 };
+    it.qty += r.quantity;
+    it.amount += amt;
+    b.items.set(r.productName, it);
+    productTotals.set(r.productName, (productTotals.get(r.productName) ?? 0) + amt);
+  }
+  const topProducts = [...productTotals.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, amount]) => ({ name, amount: r2(amount) }));
+
+  return {
+    granularity: g,
+    from,
+    to,
+    topProducts,
+    totalAmount: r2(rows.reduce((a, r) => a + (Number(r.totalAmount) || 0), 0)),
+    totalQty: rows.reduce((a, r) => a + r.quantity, 0),
+    buckets: buckets.map((b) => {
+      const v = byBucket.get(b.key)!;
+      return {
+        ...b,
+        amount: r2(v.amount),
+        qty: v.qty,
+        /** 頭 5 位貨品喺呢個時段嘅銷售額（同 topProducts 次序一樣） */
+        top: topProducts.map((p) => r2(v.items.get(p.name)?.amount ?? 0)),
+        items: [...v.items.entries()]
+          .map(([name, it]) => ({ name, qty: it.qty, amount: r2(it.amount) }))
+          .sort((a, b) => b.amount - a.amount),
+      };
+    }),
+  };
+}

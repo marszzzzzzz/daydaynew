@@ -3,6 +3,7 @@ import { trpc } from "@/providers/trpc";
 import { useAuth } from "@/hooks/useAuth";
 import DashHeader from "@/components/DashHeader";
 import { fmtMoney } from "@/lib/format";
+import TenantTrend from "@/components/TenantTrend";
 
 /** 租戶專區（唯讀）：只顯示總銷售同按貨品合計 */
 export default function TenantDashboard() {
@@ -95,6 +96,9 @@ export default function TenantDashboard() {
             共售出 {d.totalQty} 件 · {d.items.length} 款貨品
           </p>
         </div>
+
+        {/* 走勢圖（跟住上面揀嘅格仔） */}
+        <TenantTrend key={gridCode || "all"} gridCode={gridCode} latestMonth={d.months[0] ?? null} />
 
         {/* 貨品 */}
         <h2 className="font-display mt-12 text-xl font-black tracking-tight">貨品銷售</h2>
