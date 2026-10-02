@@ -21,7 +21,7 @@ export default function GridWall({ grids }: { grids: WallGrid[] }) {
   }
 
   return (
-    <div className="relative">
+    <div className="relative max-sm:[overflow-x:clip] max-sm:[overflow-clip-margin:12px]">
       {/* 規格框：虛線 + 角標 */}
       <div className="absolute -inset-3 border border-dashed border-ink/40 pointer-events-none" aria-hidden="true" />
       <CornerMark className="-top-3 -left-3 border-t-2 border-l-2" />
@@ -65,16 +65,19 @@ export default function GridWall({ grids }: { grids: WallGrid[] }) {
                 />
               )}
 
-              {/* 規格 tooltip */}
-              <span
-                className={cn(
-                  "pointer-events-none absolute -top-2 left-1/2 z-20 -translate-x-1/2 -translate-y-full whitespace-nowrap border border-ink bg-ink px-2 py-1 font-mono text-[10px] text-cream transition-all duration-200",
-                  isActive ? "opacity-100" : "translate-y-[calc(-100%+6px)] opacity-0",
-                )}
-              >
-                {g.code} · {GRID_SIZE_LABEL[g.size] ?? g.size} · {GRID_STATUS_LABEL[g.status] ?? g.status}
-                {g.status === "vacant" && ` · $${Number(g.monthlyRent).toFixed(0)}/月`}
-              </span>
+              {/* 規格 tooltip：只喺 hover 時先出現（隱藏時唔佔位，避免手機版頁面被撐闊） */}
+              {isActive && (
+                <span
+                  className={cn(
+                    "pointer-events-none absolute -top-2 z-20 -translate-y-full whitespace-nowrap border border-ink bg-ink px-2 py-1 font-mono text-[10px] text-cream",
+                    tipAlign(i % 5, 5),
+                    tipAlignSm(i % 7, 7),
+                  )}
+                >
+                  {g.code} · {GRID_SIZE_LABEL[g.size] ?? g.size} · {GRID_STATUS_LABEL[g.status] ?? g.status}
+                  {g.status === "vacant" && ` · $${Number(g.monthlyRent).toFixed(0)}/月`}
+                </span>
+              )}
             </button>
           );
         })}
@@ -99,4 +102,16 @@ function GridWallSkeleton() {
       ))}
     </div>
   );
+}
+
+/** tooltip 對齊：左邊兩行靠左、右邊兩行靠右、中間置中（避免超出畫面） */
+function tipAlign(col: number, cols: number) {
+  if (col <= 1) return "left-0";
+  if (col >= cols - 2) return "right-0";
+  return "left-1/2 -translate-x-1/2";
+}
+function tipAlignSm(col: number, cols: number) {
+  if (col <= 1) return "sm:left-0 sm:right-auto sm:translate-x-0";
+  if (col >= cols - 2) return "sm:left-auto sm:right-0 sm:translate-x-0";
+  return "sm:left-1/2 sm:right-auto sm:-translate-x-1/2";
 }

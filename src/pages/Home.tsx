@@ -27,9 +27,10 @@ export default function Home() {
 
       {/* ─── 導航 ─── */}
       <header className="fixed inset-x-0 top-0 z-50 border-b border-ink/15 bg-cream/85 backdrop-blur-sm">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
-          <Link to="/" className="flex items-baseline gap-2">
-            <span className="whitespace-nowrap font-display text-[22px] font-black tracking-tight">日日新格仔鋪</span>
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-5">
+          <Link to="/" className="flex min-w-0 items-center gap-2 sm:gap-2.5">
+            <img src="/logo.png" alt="Day-Day New 日日新 logo" width={44} height={42} className="h-10 w-auto shrink-0 sm:h-11" />
+            <span className="whitespace-nowrap font-display text-[19px] font-black tracking-tight sm:text-[22px]">日日新格仔鋪</span>
             <span className="hidden font-mono text-[11px] uppercase tracking-[0.22em] text-ink/55 sm:inline">DayDayNew.HK</span>
           </Link>
           <nav className="hidden items-center gap-7 font-mono text-[12px] uppercase tracking-[0.16em] text-ink/70 md:flex">
@@ -40,9 +41,15 @@ export default function Home() {
           </nav>
           <Link
             to={isAuthenticated ? "/dashboard" : "/login"}
-            className="border border-ink px-4 py-2 font-mono text-[12px] uppercase tracking-[0.16em] transition-colors hover:bg-ink hover:text-cream"
+            className="shrink-0 whitespace-nowrap border border-ink px-3 py-2 font-mono text-[12px] uppercase tracking-[0.16em] transition-colors hover:bg-ink hover:text-cream sm:px-4"
           >
-            {isAuthenticated ? `進入專區 · ${user?.name ?? ""}` : "登入"}
+            {isAuthenticated ? (
+              <>
+                進入專區<span className="hidden sm:inline"> · {user?.name ?? ""}</span>
+              </>
+            ) : (
+              "登入"
+            )}
           </Link>
         </div>
       </header>
