@@ -7,7 +7,7 @@ import StrokeButton from "@/components/StrokeButton";
 import { fmtMoney } from "@/lib/format";
 import { allGridCodes, gridSizeOf, gridRentOf } from "@contracts/gridLayout";
 
-/** 資料庫未就緒時嘅靜態格仔牆：同真實佈局一致（10 排 × 7，編號 001–070；第 3、4 排大格 $700，其餘中格 $500） */
+/** 資料庫未就緒時嘅靜態格仔牆：同真實佈局一致（10 排 × 7，編號 001–070；第 2–10 排嘅第 3、4 格係大格 $700，其餘中格 $500） */
 const FALLBACK_WALL: WallGrid[] = allGridCodes().map((code) => ({
   code,
   size: gridSizeOf(code),
@@ -167,7 +167,7 @@ export default function Home() {
             <PriceRow
               size="L"
               name="大格"
-              desc="古著、波鞋、大型擺設 · 位於第三、四行當眼位置"
+              desc="古著、波鞋、大型擺設 · 格仔牆中間兩行當眼位置"
               rent={rentOf(stats?.sizeRent, "L") ?? "700"}
               last
             />

@@ -4,7 +4,7 @@ import { SectionTitle, ActionButton } from "../ui";
 
 /**
  * 08 示範資料：生成器面板
- * - 初始化 70 格佈局（001–070，10 排 × 7，第 3、4 排大格）
+ * - 初始化 70 格佈局（001–070，10 排 × 7，第 2–10 排第 3、4 格係大格）
  * - 生成 / 清除【示範】營業資料（租戶、租約、銷售、租金按金）
  * - 重置 demo 戶口密碼
  */
@@ -86,7 +86,7 @@ export default function DemoTab() {
           <div>
             <p className="font-medium">第一步 · 格仔佈局</p>
             <p className="mt-1 text-[13px] leading-[1.8] text-ink/60">
-              建立標準 70 格：編號 001–070，10 排 × 每排 7 格；第 3、4 排（015–028）係大格 $700，其餘中格 $500。已存在嘅編號會跳過。
+              建立標準 70 格：編號 001–070，10 排 × 每排 7 格；第 2–10 排嘅第 3、4 格（010、011、017、018 … 066、067，共 18 格）係大格 $700，其餘中格 $500。已存在嘅編號會跳過。
             </p>
           </div>
           <ActionButton onClick={() => initGrids.mutate()} disabled={pending}>

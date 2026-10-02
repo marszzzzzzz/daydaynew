@@ -26,7 +26,7 @@ const addDays = (d: Date, n: number) => {
 };
 
 /**
- * 建立 70 個格仔（10 排 × 7，編號 001–070；第 3、4 排大格）。已存在嘅編號會跳過。
+ * 建立 70 個格仔（10 排 × 7，編號 001–070；第 2–10 排第 3、4 格係大格）。已存在嘅編號會跳過。
  * 回傳新增數量。
  */
 export async function ensureGridLayout(db: Db): Promise<number> {
@@ -46,14 +46,14 @@ export async function ensureGridLayout(db: Db): Promise<number> {
 
 /**
  * 示範營業資料：4 個【示範】租戶 + 租約 + 近 40 日銷售 + 租金按金記錄。
- * 租約落喺 017（大格）、002、036（中格）、026（大格）；010、013 標記已預留。
+ * 租約落喺 017（大格）、002、036（中格）、025（大格）；010、013 標記已預留。
  * 按金 = 一個月月租（同宣傳頁文案一致）。
  * 可重複執行嘅前提：先 clearDemoBusiness 或資料庫為空。
  */
 export async function seedDemoBusiness(db: Db): Promise<{ tenants: number; leases: number; sales: number; rent: number }> {
   const allGrids = await db.select().from(grids);
   const byCode = Object.fromEntries(allGrids.map((g) => [g.code, g]));
-  const need = ["017", "002", "026", "036", "010", "013"];
+  const need = ["017", "002", "025", "036", "010", "013"];
   for (const code of need) {
     if (!byCode[code]) throw new Error(`缺少格仔 ${code}，請先初始化 70 格佈局`);
   }
@@ -73,10 +73,10 @@ export async function seedDemoBusiness(db: Db): Promise<{ tenants: number; lease
   await db.insert(leases).values([
     { gridId: byCode["017"].id, tenantId: t1.id, startDate: fmt(addMonths(today, -2)), endDate: fmt(addMonths(today, 4)), rentFreeDays: 7, monthlyRent: rentOf("017"), deposit: rentOf("017"), status: "active", note: "首月免租 7 日" },
     { gridId: byCode["002"].id, tenantId: t2.id, startDate: fmt(addDays(addMonths(today, -1), -10)), endDate: fmt(addMonths(today, 5)), rentFreeDays: 7, monthlyRent: rentOf("002"), deposit: rentOf("002"), status: "active" },
-    { gridId: byCode["026"].id, tenantId: t3.id, startDate: fmt(addMonths(today, -3)), endDate: fmt(addMonths(today, 9)), rentFreeDays: 14, monthlyRent: rentOf("026"), deposit: rentOf("026"), status: "active" },
+    { gridId: byCode["025"].id, tenantId: t3.id, startDate: fmt(addMonths(today, -3)), endDate: fmt(addMonths(today, 9)), rentFreeDays: 14, monthlyRent: rentOf("025"), deposit: rentOf("025"), status: "active" },
     { gridId: byCode["036"].id, tenantId: t4.id, startDate: fmt(addDays(today, -25)), endDate: fmt(addMonths(today, 2)), rentFreeDays: 0, monthlyRent: rentOf("036"), deposit: rentOf("036"), status: "active", note: "季租" },
   ]);
-  await db.update(grids).set({ status: "occupied" }).where(sql`${grids.code} in ('017','002','026','036')`);
+  await db.update(grids).set({ status: "occupied" }).where(sql`${grids.code} in ('017','002','025','036')`);
   await db.update(grids).set({ status: "reserved" }).where(sql`${grids.code} in ('010','013')`);
 
   const demoLeases = await db
@@ -88,7 +88,7 @@ export async function seedDemoBusiness(db: Db): Promise<{ tenants: number; lease
   const products: Record<string, [string, number][]> = {
     "017": [["手繪耳環", 88], ["黏土戒指", 68], ["布藝髮圈", 45], ["串珠手鏈", 78]],
     "002": [["中古龍珠 figure", 220], ["鬼滅襟章", 35], ["海賊王卡", 25], ["迷你模型", 150]],
-    "026": [["韓國貼紙套裝", 32], ["原子筆 3 支裝", 28], ["A6 記事簿", 48], ["和紙膠帶", 22]],
+    "025": [["韓國貼紙套裝", 32], ["原子筆 3 支裝", 28], ["A6 記事簿", 48], ["和紙膠帶", 22]],
     "036": [["二手波鞋", 650], ["鞋帶", 40], ["波鞋清潔劑", 78], ["鞋墊", 68]],
   };
   const saleRows: (typeof sales.$inferInsert)[] = [];
@@ -97,7 +97,7 @@ export async function seedDemoBusiness(db: Db): Promise<{ tenants: number; lease
     s = (s * 1103515245 + 12345) % 2147483648;
     return s / 2147483648;
   };
-  for (const [code, tenant] of [["017", t1], ["002", t2], ["026", t3], ["036", t4]] as const) {
+  for (const [code, tenant] of [["017", t1], ["002", t2], ["025", t3], ["036", t4]] as const) {
     for (let day = 39; day >= 0; day--) {
       const d = addDays(today, -day);
       if (rand() < 0.45) continue; // 唔係日日有單
