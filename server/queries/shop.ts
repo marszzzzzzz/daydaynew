@@ -580,3 +580,199 @@ export async function weeklyReport(weekStart: string) {
     grand: { qty: totalQty, amount: totalAmount.toFixed(2), count: rows.length },
   };
 }
+
+// ─── 租戶銷售情況 ───────────────────────────────────────────
+
+type ReportRow = {
+  gridId: number | null;
+  tenantId: number | null;
+  saleDate: string;
+  productName: string;
+  quantity: number;
+  totalAmount: string;
+};
+
+async function salesInRange(from: string, to: string): Promise<ReportRow[]> {
+  return getDb()
+    .select({
+      gridId: sales.gridId,
+      tenantId: sales.tenantId,
+      saleDate: sales.saleDate,
+      productName: sales.productName,
+      quantity: sales.quantity,
+      totalAmount: sales.totalAmount,
+    })
+    .from(sales)
+    .where(and(gte(sales.saleDate, from), lte(sales.saleDate, to)));
+}
+
+const lastDayOfMonth = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate(); // m = 1–12
+const ymd = (y: number, m: number, d: number) => `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+
+/**
+ * 比較期間：
+ * - 整月（1 號至月尾，可以跨幾個月）→ 對上同樣數目嘅整月
+ * - 1 月 1 日開始（今年至今）→ 去年同期
+ * - 其他 → 緊接之前同樣日數
+ */
+function comparePeriod(from: string, to: string, days: number) {
+  const [fy, fm, fd] = from.split("-").map(Number);
+  const [ty, tm, td] = to.split("-").map(Number);
+  if (fd === 1 && td === lastDayOfMonth(ty, tm)) {
+    const months = (ty - fy) * 12 + (tm - fm) + 1;
+    const start = new Date(Date.UTC(fy, fm - 1 - months, 1));
+    const endMonth = new Date(Date.UTC(fy, fm - 1, 0));
+    return {
+      prevFrom: start.toISOString().slice(0, 10),
+      prevTo: endMonth.toISOString().slice(0, 10),
+    };
+  }
+  if (fm === 1 && fd === 1 && fy === ty) {
+    return { prevFrom: ymd(fy - 1, 1, 1), prevTo: ymd(ty - 1, tm, Math.min(td, lastDayOfMonth(ty - 1, tm))) };
+  }
+  return { prevFrom: shiftDate(from, -days), prevTo: shiftDate(from, -1) };
+}
+
+function shiftDate(d: string, days: number) {
+  const x = new Date(d + "T00:00:00Z");
+  x.setUTCDate(x.getUTCDate() + days);
+  return x.toISOString().slice(0, 10);
+}
+
+/**
+ * 每個租戶（或者未有租約嘅格仔）喺期間內嘅銷售：筆數、數量、金額、佔比、
+ * 同上一段同樣長度期間比較、熱賣貨品、每日走勢、現時租約月租。
+ * 店舖直銷（gridId 為 null）另外一行。
+ */
+export async function tenantSalesReport(from: string, to: string) {
+  const days = Math.round((Date.parse(to) - Date.parse(from)) / 86400000) + 1;
+  const { prevFrom, prevTo } = comparePeriod(from, to, days);
+  const [rows, prevRows, allGrids, allTenants, activeLeases] = await Promise.all([
+    salesInRange(from, to),
+    salesInRange(prevFrom, prevTo),
+    listGrids(),
+    getDb().select({ id: tenants.id, name: tenants.name }).from(tenants),
+    getDb()
+      .select({ gridId: leases.gridId, tenantId: leases.tenantId, monthlyRent: leases.monthlyRent })
+      .from(leases)
+      .where(eq(leases.status, "active")),
+  ]);
+  const gridCode = new Map(allGrids.map((g) => [g.id, g.code]));
+  const tenantName = new Map(allTenants.map((t) => [t.id, t.name]));
+
+  // 分組鍵：有租戶 → t:租戶；有格仔冇租戶 → g:格仔；都冇 → direct（店舖直銷）
+  const keyOf = (r: { tenantId: number | null; gridId: number | null }) =>
+    r.tenantId != null ? `t:${r.tenantId}` : r.gridId != null ? `g:${r.gridId}` : "direct";
+
+  type Group = {
+    key: string;
+    kind: "tenant" | "grid" | "direct";
+    name: string;
+    gridIds: Set<number>;
+    count: number;
+    qty: number;
+    amount: number;
+    prevAmount: number;
+    products: Map<string, { qty: number; amount: number }>;
+    daily: Map<string, number>;
+    lastSaleDate: string | null;
+  };
+  const groups = new Map<string, Group>();
+  const ensure = (r: { tenantId: number | null; gridId: number | null }) => {
+    const key = keyOf(r);
+    let g = groups.get(key);
+    if (!g) {
+      const kind = key === "direct" ? "direct" : key.startsWith("t:") ? "tenant" : "grid";
+      g = {
+        key,
+        kind,
+        name:
+          kind === "direct"
+            ? "店舖直銷"
+            : kind === "tenant"
+              ? tenantName.get(r.tenantId!) ?? `租戶 #${r.tenantId}`
+              : `格仔 ${gridCode.get(r.gridId!) ?? r.gridId}（未有租約）`,
+        gridIds: new Set(),
+        count: 0,
+        qty: 0,
+        amount: 0,
+        prevAmount: 0,
+        products: new Map(),
+        daily: new Map(),
+        lastSaleDate: null,
+      };
+      groups.set(key, g);
+    }
+    return g;
+  };
+
+  for (const r of rows) {
+    const g = ensure(r);
+    const amt = Number(r.totalAmount) || 0;
+    if (r.gridId != null) g.gridIds.add(r.gridId);
+    g.count += 1;
+    g.qty += r.quantity;
+    g.amount += amt;
+    const p = g.products.get(r.productName) ?? { qty: 0, amount: 0 };
+    p.qty += r.quantity;
+    p.amount += amt;
+    g.products.set(r.productName, p);
+    g.daily.set(r.saleDate, (g.daily.get(r.saleDate) ?? 0) + amt);
+    if (!g.lastSaleDate || r.saleDate > g.lastSaleDate) g.lastSaleDate = r.saleDate;
+  }
+  for (const r of prevRows) {
+    const g = ensure(r);
+    g.prevAmount += Number(r.totalAmount) || 0;
+    if (r.gridId != null) g.gridIds.add(r.gridId);
+  }
+
+  // 有生效租約但期間冇銷售嘅租戶都要列出（睇到邊個賣唔到嘢）
+  for (const l of activeLeases) {
+    const g = ensure({ tenantId: l.tenantId, gridId: l.gridId });
+    g.gridIds.add(l.gridId);
+  }
+  const rentByTenant = new Map<number, number>();
+  for (const l of activeLeases) rentByTenant.set(l.tenantId, (rentByTenant.get(l.tenantId) ?? 0) + Number(l.monthlyRent));
+
+  const total = [...groups.values()].reduce((a, g) => a + g.amount, 0);
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const list = [...groups.values()]
+    .map((g) => ({
+      key: g.key,
+      kind: g.kind,
+      name: g.name,
+      grids: [...g.gridIds].map((id) => gridCode.get(id) ?? String(id)).sort(),
+      count: g.count,
+      qty: g.qty,
+      amount: r2(g.amount),
+      prevAmount: r2(g.prevAmount),
+      share: total > 0 ? r2((g.amount / total) * 100) : 0,
+      monthlyRent: g.kind === "tenant" ? rentByTenant.get(Number(g.key.slice(2))) ?? null : null,
+      lastSaleDate: g.lastSaleDate,
+      topProducts: [...g.products.entries()]
+        .map(([name, p]) => ({ name, qty: p.qty, amount: r2(p.amount) }))
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 8),
+      daily: [...g.daily.entries()].map(([date, amount]) => ({ date, amount: r2(amount) })).sort((a, b) => a.date.localeCompare(b.date)),
+    }))
+    // 有銷售或者有租約先列；店舖直銷放最尾
+    .filter((g) => g.count > 0 || g.prevAmount > 0 || g.kind === "tenant")
+    .sort((a, b) => (a.kind === "direct" ? 1 : b.kind === "direct" ? -1 : b.amount - a.amount));
+
+  const direct = list.find((g) => g.kind === "direct");
+  return {
+    from,
+    to,
+    days,
+    prev: { from: prevFrom, to: prevTo, amount: r2(prevRows.reduce((a, r) => a + (Number(r.totalAmount) || 0), 0)) },
+    totals: {
+      amount: r2(total),
+      count: rows.length,
+      gridAmount: r2(total - (direct?.amount ?? 0)),
+      directAmount: direct?.amount ?? 0,
+      sellers: list.filter((g) => g.kind !== "direct" && g.count > 0).length,
+      unassignedGrids: list.filter((g) => g.kind === "grid" && g.count > 0).length,
+    },
+    groups: list,
+  };
+}

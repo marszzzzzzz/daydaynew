@@ -435,6 +435,14 @@ export const shopRouter = createRouter({
         return q.listSales({ ...filters, createdBy: mine ? ctx.user.id : undefined }, mine ? 5000 : 500);
       }),
 
+    /** 租戶銷售情況：按租戶（或未有租約嘅格仔）統計期間銷售，同上一段期間比較 */
+    tenantSalesReport: adminQuery
+      .input(z.object({ from: dateStr, to: dateStr }))
+      .query(({ input }) => {
+        if (input.from > input.to) throw new TRPCError({ code: "BAD_REQUEST", message: "開始日期唔可以遲過結束日期" });
+        return q.tenantSalesReport(input.from, input.to);
+      }),
+
     /** 週結報表（星期一至日）；唔輸入就用今個星期 */
     weeklyReport: staffQuery
       .input(z.object({ weekStart: dateStr.optional() }))

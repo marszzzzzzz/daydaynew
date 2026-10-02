@@ -11,6 +11,7 @@ import CsvTab from "./tabs/CsvTab";
 import DemoTab from "./tabs/DemoTab";
 import WeeklyTab from "./tabs/WeeklyTab";
 import PayrollTab from "./tabs/PayrollTab";
+import TenantSalesTab from "./tabs/TenantSalesTab";
 
 const TABS = [
   { id: "overview", no: "01", label: "總覽" },
@@ -23,6 +24,7 @@ const TABS = [
   { id: "demo", no: "08", label: "示範資料" },
   { id: "weekly", no: "09", label: "週結報表" },
   { id: "payroll", no: "10", label: "兼職人工" },
+  { id: "tenantSales", no: "11", label: "租戶銷售" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -98,6 +100,7 @@ export default function AdminDashboard() {
         {tab === "demo" && <DemoTab />}
         {tab === "weekly" && <WeeklyTab />}
         {tab === "payroll" && <PayrollTab />}
+        {tab === "tenantSales" && <TenantSalesTab />}
       </main>
     </div>
   );
