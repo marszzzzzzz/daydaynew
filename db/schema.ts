@@ -1,4 +1,4 @@
-import { index, integer, numeric, pgSchema, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, index, integer, numeric, pgSchema, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 /**
  * Postgres（Supabase）schema。
@@ -152,4 +152,69 @@ export const rentRecords = gridbox.table(
 export type RentRecord = typeof rentRecords.$inferSelect;
 export type InsertRentRecord = typeof rentRecords.$inferInsert;
 
-export const ALL_TABLES = ["users", "tenants", "grids", "leases", "sales", "rent_records"] as const;
+/** 兼職員工（店主管理；唔一定有登入戶口） */
+export const employees = gridbox.table("employees", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  phone: text("phone"),
+  /** 預設時薪（新增更表時帶入；每更會另外記低當時時薪） */
+  hourlyRate: money("hourlyRate").notNull(),
+  /** 有冇參加強積金（受僱少於 60 日可豁免） */
+  mpfEnrolled: boolean("mpfEnrolled").notNull().default(true),
+  active: boolean("active").notNull().default(true),
+  note: text("note"),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+export type Employee = typeof employees.$inferSelect;
+
+/** 返工記錄（每更） */
+export const shifts = gridbox.table(
+  "shifts",
+  {
+    id: serial("id").primaryKey(),
+    employeeId: integer("employeeId").notNull(),
+    /** YYYY-MM-DD */
+    workDate: text("workDate").notNull(),
+    /** HH:MM；落更早過返工 = 跨午夜 */
+    startTime: text("startTime").notNull(),
+    endTime: text("endTime").notNull(),
+    breakMinutes: integer("breakMinutes").notNull().default(0),
+    /** 呢更嘅時薪（快照，之後加人工唔會改舊記錄） */
+    hourlyRate: money("hourlyRate").notNull(),
+    note: text("note"),
+    createdBy: integer("createdBy"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [index("shifts_emp_date_idx").on(table.employeeId, table.workDate)],
+);
+
+export type Shift = typeof shifts.$inferSelect;
+
+/** 已出糧記錄（每人每月一條；出糧後該月更表鎖定，數字凍結） */
+export const payrollPayments = gridbox.table(
+  "payroll_payments",
+  {
+    id: serial("id").primaryKey(),
+    employeeId: integer("employeeId").notNull(),
+    /** YYYY-MM */
+    month: text("month").notNull(),
+    hours: numeric("hours", { precision: 8, scale: 2 }).notNull(),
+    basePay: money("basePay").notNull(),
+    adjustment: money("adjustment").notNull().default("0"),
+    grossPay: money("grossPay").notNull(),
+    mpfEmployee: money("mpfEmployee").notNull(),
+    mpfEmployer: money("mpfEmployer").notNull(),
+    netPay: money("netPay").notNull(),
+    paidAt: text("paidAt").notNull(),
+    note: text("note"),
+    createdAt: createdAt(),
+  },
+  (table) => [uniqueIndex("payroll_emp_month_uq").on(table.employeeId, table.month)],
+);
+
+export type PayrollPayment = typeof payrollPayments.$inferSelect;
+
+export const ALL_TABLES = ["users", "tenants", "grids", "leases", "sales", "rent_records", "employees", "shifts", "payroll_payments"] as const;
