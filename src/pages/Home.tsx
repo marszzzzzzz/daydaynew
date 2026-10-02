@@ -8,7 +8,7 @@ import { fmtMoney } from "@/lib/format";
 import { allGridCodes, gridSizeOf, gridRentOf } from "@contracts/gridLayout";
 import { WHATSAPP_DISPLAY, whatsappLink } from "@/const";
 
-/** 資料庫未就緒時嘅靜態格仔牆：同真實佈局一致（7 層 × 10 直行，編號 001–070；第 3、4 層嘅第 2–10 直行係大格 $700，其餘中格 $500） */
+/** 資料庫未就緒時嘅靜態格仔牆：同真實佈局一致（7 層 × 10 直行，編號 001–070；第 3、4 層（全部 10 直行）係大格 $700，其餘中格 $500） */
 const FALLBACK_WALL: WallGrid[] = allGridCodes().map((code) => ({
   code,
   size: gridSizeOf(code),

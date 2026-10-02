@@ -2,7 +2,7 @@
  * 格仔牆佈局（前後端共用）：
  * 7 層（橫）× 10 行（直）= 70 格，編號 001–070，由上到下、再由左到右：
  * 第 1 直行 = 001–007，第 2 直行 = 008–014 … 第 10 直行 = 064–070。
- * 大格：第 3、4 層（當眼位置）嘅第 2–10 直行 → 010、011、017、018 … 066、067，共 18 格；其餘係中格。
+ * 大格：第 3、4 層（當眼位置）全部 10 直行 → 003、004、010、011 … 066、067，共 20 格；其餘係中格。
  * 中格 $500/月，大格統一 $700/月。
  */
 /** 每一直行有幾多層（由上到下） */
@@ -12,7 +12,7 @@ export const GRID_COLUMNS = 10;
 export const GRID_TOTAL = GRID_SHELVES * GRID_COLUMNS;
 /** 大格所在層數（1-based，由上到下）同直行範圍（1-based，由左到右） */
 export const LARGE_SHELVES: ReadonlySet<number> = new Set([3, 4]);
-export const LARGE_COLUMN_RANGE = { from: 2, to: 10 } as const;
+export const LARGE_COLUMN_RANGE = { from: 1, to: 10 } as const;
 
 export const GRID_RENT = { M: 500, L: 700 } as const;
 export type GridSize = keyof typeof GRID_RENT;

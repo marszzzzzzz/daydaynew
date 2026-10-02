@@ -239,7 +239,7 @@ export const shopRouter = createRouter({
       }),
     ),
 
-    /** 初始化 / 補齊 70 格佈局（7 層 × 10 直行，編號 001–070；第 3、4 層第 2–10 直行係大格；已存在跳過） */
+    /** 初始化 / 補齊 70 格佈局（7 層 × 10 直行，編號 001–070；第 3、4 層（全部 10 直行）係大格；已存在跳過） */
     initGrids: adminQuery.mutation(() =>
       withDbRetry(async () => {
         const added = await ensureGridLayout(getDb());
