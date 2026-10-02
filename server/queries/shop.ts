@@ -808,3 +808,26 @@ export async function tenantSaleMonths(tenantId: number) {
     .where(eq(sales.tenantId, tenantId));
   return rows.map((r) => r.m).sort().reverse();
 }
+
+/**
+ * 自動配對：有格仔但未有租戶嘅銷售，按「銷售日期落喺邊份租約期間」計入該租約租戶。
+ * 租約（生效中或已完結）都計。可以重複執行，只會郁 tenantId 為 null 嘅記錄。
+ * 回傳配對咗幾多筆。
+ */
+export async function assignSalesToLeases(): Promise<number> {
+  const res: unknown = await getDb().execute(sql`
+    UPDATE gridbox.sales s SET "tenantId" = l."tenantId", "updatedAt" = now()
+    FROM gridbox.leases l
+    WHERE s."gridId" = l."gridId" AND s."tenantId" IS NULL
+      AND s."saleDate" >= l."startDate" AND s."saleDate" <= l."endDate"`);
+  return Number((res as { rowCount?: number; affectedRows?: number }).rowCount ?? (res as { affectedRows?: number }).affectedRows ?? 0);
+}
+
+/** 租約日期改咗：先將呢份租約之外日期嘅銷售撤回，再重新配對 */
+export async function unassignSalesOutsideLease(leaseId: number) {
+  await getDb().execute(sql`
+    UPDATE gridbox.sales s SET "tenantId" = NULL, "updatedAt" = now()
+    FROM gridbox.leases l
+    WHERE l.id = ${leaseId} AND s."gridId" = l."gridId" AND s."tenantId" = l."tenantId"
+      AND (s."saleDate" < l."startDate" OR s."saleDate" > l."endDate")`);
+}

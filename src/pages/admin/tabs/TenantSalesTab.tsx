@@ -4,6 +4,7 @@ import type { AppRouter } from "../../../../server/router";
 import { trpc } from "@/providers/trpc";
 import { fmtMoney, todayStr } from "@/lib/format";
 import { downloadCsv } from "@/lib/csv";
+import { toast } from "sonner";
 import { SectionTitle, Field, ActionButton, EmptyRow } from "../ui";
 
 /** 11 租戶銷售：揀期間，比較每個租戶（同未有租約嘅格仔）嘅銷售 */
@@ -59,6 +60,14 @@ export default function TenantSalesTab() {
   const [open, setOpen] = useState<string | null>(null);
   const [showDirect, setShowDirect] = useState(true);
 
+  const utils = trpc.useUtils();
+  const rematch = trpc.shop.admin.assignSalesToLeases.useMutation({
+    onSuccess: (r) => {
+      toast.success(r.assigned ? `已將 ${r.assigned} 筆銷售按租約期間計入租戶` : "冇需要配對嘅銷售（未有租約涵蓋嗰啲日期）");
+      void utils.shop.admin.tenantSalesReport.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
   const d = report.data;
   const groups = useMemo(() => (d?.groups ?? []).filter((g) => showDirect || g.kind !== "direct"), [d, showDirect]);
   const maxAmount = Math.max(1, ...groups.map((g) => g.amount));
@@ -134,7 +143,14 @@ export default function TenantSalesTab() {
       )}
       {d && d.totals.unassignedGrids > 0 && (
         <p className="mt-3 border border-ochre-deep/50 bg-ochre/10 px-4 py-2.5 text-[12.5px] leading-[1.8] text-ink/75">
-          ⚠ 有 {d.totals.unassignedGrids} 個格仔有銷售但未有租約，所以未計入任何租戶。喺「05 租約管理」建立租約後，新匯入嘅銷售就會計入租戶。
+          ⚠ 有 {d.totals.unassignedGrids} 個格仔有銷售但未有租約涵蓋，所以未計入任何租戶。喺「05 租約管理」建立租約後，租約期間內嘅銷售（包括以前匯入嘅）會自動計入租戶。
+          <button
+            onClick={() => rematch.mutate()}
+            disabled={rematch.isPending}
+            className="ml-2 font-mono text-[12px] text-ochre-deep underline underline-offset-2 disabled:opacity-40"
+          >
+            {rematch.isPending ? "配對中…" : "立即重新配對"}
+          </button>
         </p>
       )}
 

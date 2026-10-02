@@ -30,8 +30,9 @@ export default function LeasesTab() {
   };
 
   const create = trpc.shop.admin.createLease.useMutation({
-    onSuccess: () => {
-      toast.success("租約已建立，格仔已標記為已租出");
+    onSuccess: (r) => {
+      toast.success(`租約已建立，格仔已標記為已租出${r.assigned ? `；${r.assigned} 筆之前匯入嘅銷售已自動計入呢個租戶` : ""}`);
+      utils.shop.admin.tenantSalesReport.invalidate();
       setFGrid("");
       setFTenant("");
       setFEnd("");

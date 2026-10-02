@@ -400,7 +400,9 @@ export const shopRouter = createRouter({
         }
         const id = await q.createLease(input);
         await q.setGridStatus(input.gridId, "occupied");
-        return { id };
+        // 之前已經匯入、日期落喺租約期間嘅銷售，自動計入呢個租戶
+        const assigned = await q.assignSalesToLeases();
+        return { id, assigned };
       }),
     updateLease: adminQuery
       .input(
@@ -417,7 +419,9 @@ export const shopRouter = createRouter({
       .mutation(async ({ input }) => {
         const { id, ...data } = input;
         await q.updateLease(id, data);
-        return { ok: true };
+        if (data.startDate || data.endDate) await q.unassignSalesOutsideLease(id);
+        const assigned = await q.assignSalesToLeases();
+        return { ok: true, assigned };
       }),
     endLease: adminQuery
       .input(z.object({ id: z.number() }))
@@ -445,6 +449,9 @@ export const shopRouter = createRouter({
         const { mine, ...filters } = input;
         return q.listSales({ ...filters, createdBy: mine ? ctx.user.id : undefined }, mine ? 5000 : 500);
       }),
+
+    /** 手動重新配對：將未有租戶嘅格仔銷售按租約期間計入租戶 */
+    assignSalesToLeases: adminQuery.mutation(async () => ({ assigned: await q.assignSalesToLeases() })),
 
     /** 租戶銷售情況：按租戶（或未有租約嘅格仔）統計期間銷售，同上一段期間比較 */
     tenantSalesReport: adminQuery
@@ -778,6 +785,7 @@ export const shopRouter = createRouter({
           });
           inserted += 1;
         }
+        if (inserted > 0) await q.assignSalesToLeases();
         return { inserted, directCount, errors };
       }),
 
@@ -831,7 +839,8 @@ export const shopRouter = createRouter({
             const lease = leaseByGrid.get(g.id);
             gridId = g.id;
             gridCode = g.code;
-            tenantId = lease?.tenantId ?? null;
+            // 只有記帳日期落喺租約期間先計入租戶（匯入舊資料時唔會錯計入新租戶）
+            tenantId = lease && input.saleDate >= lease.startDate && input.saleDate <= lease.endDate ? lease.tenantId : null;
           } else {
             directCount++;
           }
@@ -862,7 +871,7 @@ export const shopRouter = createRouter({
           if (code === "店舖直銷") continue;
           const r = rows.find((x) => x.gridId === gridByCode.get(code)?.id);
           agg.tenantName = r?.tenantId ? tenantNames.get(r.tenantId) ?? null : null;
-          if (!r?.tenantId) warnings.push(`格仔 ${code} 未有生效租約：${agg.count} 筆已記錄喺格仔，但未計入任何租戶`);
+          if (!r?.tenantId) warnings.push(`格仔 ${code} 喺 ${input.saleDate} 未有租約：${agg.count} 筆會先記錄喺格仔；之後建立涵蓋呢個日期嘅租約就會自動計入租戶`);
         }
 
         // 防止重複匯入同一期間
@@ -891,6 +900,8 @@ export const shopRouter = createRouter({
         };
         if (input.dryRun) return { ...summary, inserted: 0 };
         await q.createSalesBatch(rows);
+        // 用已完結租約都配對埋（例如匯入舊月份，當時格仔由另一個租戶租用）
+        await q.assignSalesToLeases();
         return { ...summary, inserted: rows.length };
       }),
 

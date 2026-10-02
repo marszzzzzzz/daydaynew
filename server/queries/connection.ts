@@ -1,5 +1,5 @@
 import path from "node:path";
-import { drizzle as drizzlePg } from "drizzle-orm/postgres-js";
+import { drizzle as drizzleNodePg } from "drizzle-orm/node-postgres";
 import { env } from "../lib/env";
 import * as schema from "@db/schema";
 import * as relations from "@db/relations";
@@ -8,11 +8,13 @@ const fullSchema = { ...schema, ...relations };
 
 /**
  * 資料庫連線：
- * - 有 DATABASE_URL → 連 Supabase Postgres（正式環境必須）
+ * - 有 DATABASE_URL → 連 Supabase Postgres（正式環境必須），用 node-postgres（pg）連線池
+ *   注意：唔好用 postgres-js —— 佢會將平行查詢「pipeline」喺同一條連線，
+ *   Supabase transaction pooler（6543）會因此卡死，請求等到 Vercel 30 秒超時。
+ *   pg 每條連線一次只行一條查詢，平行查詢會排隊或者用另一條連線，唔會卡。
  * - 冇 DATABASE_URL（只限本機開發 / 測試）→ 用 PGlite（嵌入式 Postgres），數據存喺 data/pglite
- *   同 Supabase 係同一套 SQL，本機測得過嘅，上 Supabase 一樣行得
  */
-type Db = ReturnType<typeof drizzlePg<typeof fullSchema>>;
+type Db = ReturnType<typeof drizzleNodePg<typeof fullSchema>>;
 
 let instance: Db | null = null;
 let rawExec: ((sql: string) => Promise<unknown>) | null = null;
@@ -23,23 +25,22 @@ export async function initDb(): Promise<void> {
   if (instance) return;
 
   if (env.databaseUrl) {
-    const { default: postgres } = await import("postgres");
-    // Supabase pooler（6543，transaction mode）唔支援 prepared statement
-    const client = postgres(env.databaseUrl, {
-      prepare: false,
+    const { default: pg } = await import("pg");
+    const local = /localhost|127\.0\.0\.1/.test(env.databaseUrl);
+    const pool = new pg.Pool({
+      connectionString: env.databaseUrl,
       // Vercel 每個 function instance 開少量連線（Supabase pooler 負責共用）
-      max: process.env.VERCEL ? 3 : 10,
-      idle_timeout: 20, // 閒置 20 秒自動斷開，避免用到已經被 pooler 斷咗嘅連線
-      max_lifetime: 60 * 5,
-      connect_timeout: 10,
+      max: process.env.VERCEL ? 5 : 10,
+      idleTimeoutMillis: 20_000, // 閒置 20 秒自動斷開，避免用到已經被 pooler 斷咗嘅連線
+      connectionTimeoutMillis: 10_000,
       // 單條查詢最長 15 秒，唔會拖到 Vercel 30 秒超時
-      connection: { statement_timeout: 15000 },
-      ssl: /localhost|127\.0\.0\.1/.test(env.databaseUrl) ? false : "require",
-      onnotice: () => {},
+      query_timeout: 15_000,
+      ssl: local ? false : { rejectUnauthorized: false },
     });
-    instance = drizzlePg(client, { schema: fullSchema });
-    rawExec = (sql) => client.unsafe(sql);
-    closeFn = () => client.end({ timeout: 5 });
+    pool.on("error", (e) => console.warn("[db] idle client error:", e.message));
+    instance = drizzleNodePg(pool, { schema: fullSchema });
+    rawExec = (sql) => pool.query(sql);
+    closeFn = () => pool.end();
     dbDriver = "postgres";
     return;
   }
