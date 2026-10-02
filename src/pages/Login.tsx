@@ -94,7 +94,7 @@ export default function Login() {
           </p>
         </div>
         <p className="relative font-mono text-[10px] uppercase tracking-[0.2em] text-cream/40">
-          旺角 · 每日 13:00 – 21:00
+          北角 · 每日 11:30 – 19:30
         </p>
       </div>
 

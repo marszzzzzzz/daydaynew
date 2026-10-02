@@ -230,7 +230,7 @@ export default function Home() {
         <footer className="border-t border-cream/15">
           <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 px-5 py-8 font-mono text-[11px] uppercase tracking-[0.16em] text-cream/50 md:flex-row md:items-center">
             <span>日日新格仔鋪 DayDayNew.HK</span>
-            <span>旺角 · 每日 13:00 – 21:00</span>
+            <span>北角 · 每日 11:30 – 19:30</span>
             <span>© {new Date().getFullYear()} DayDayNew.HK</span>
           </div>
         </footer>
