@@ -197,6 +197,18 @@ vercel deploy --prod   # 正式版
 - 租戶 / 格仔有租約、銷售或租金記錄時唔可以刪除（資料庫外鍵保護，避免留低孤兒記錄）
 - 仍然建議店主定期用「07 匯入匯出」匯出 CSV 做額外備份；Supabase 免費版冇自動每日備份
 
+## 備份資料庫
+
+```bash
+npm run db:backup
+```
+
+- 只讀 Supabase `gridbox` 全部 9 張表，輸出去 `backups/gridbox-YYYYMMDD-HHMMSS/`
+- `restore.sql`：貼入 Supabase SQL Editor 就可以還原（會先清空 gridbox 表，包喺一個 transaction）
+- `<表>.json` 方便查閱；`manifest.json` 記錄每張表行數同 SHA-256
+- `backups/` 已喺 `.gitignore` 同 `.vercelignore`：入面有密碼雜湊同租戶資料，**唔會**上 GitHub / Vercel，請另外存一份去安全地方（例如加密硬碟）
+- 建議：每次上線前同每月最少行一次；Supabase 免費版冇自動每日備份
+
 ## 項目結構
 
 ```javascript

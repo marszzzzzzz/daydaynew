@@ -15,7 +15,8 @@
     "owner:create": "esbuild db/create-owner.ts --platform=node --bundle --format=esm --packages=external --outfile=dist/create-owner.mjs --log-level=warning && node dist/create-owner.mjs",
     "setup": "node scripts/setup-env.mjs",
     "build:vercel": "node scripts/build-vercel.mjs",
-    "vercel:env": "node scripts/vercel-env.mjs"
+    "vercel:env": "node scripts/vercel-env.mjs",
+    "db:backup": "node scripts/backup-db.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",
