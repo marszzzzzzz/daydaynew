@@ -1,0 +1,37 @@
+import fs from "node:fs";
+const B = "http://localhost:3200/api/trpc/";
+let pass = 0, fail = 0;
+const ck = (l, c, d) => { c ? pass++ : fail++; console.log(`  ${c ? "✓" : "✗"} ${l}${c ? "" : "  → " + JSON.stringify(d).slice(0, 300)}`); };
+function client() { let cookie = ""; return async (p, input, get) => {
+  const url = B + p + (get ? `?input=${encodeURIComponent(JSON.stringify({ json: input }))}` : "");
+  const r = await fetch(url, { method: get ? "GET" : "POST", headers: { "content-type": "application/json", cookie }, body: get ? undefined : JSON.stringify({ json: input ?? null }) });
+  for (const c of r.headers.getSetCookie()) if (c.startsWith("gridbox_sid=")) cookie = c.split(";")[0];
+  const j = await r.json(); return j.error ? { err: j.error.json.message } : j.result.data.json; }; }
+const boss = client(); await boss("account.login", { username: "boss", password: "BossPass!2026" });
+const dir = process.env.HOME + "/2026ai/";
+const file = (k) => fs.readFileSync(dir + fs.readdirSync(dir).find((f) => f.startsWith("商品銷售_明細") && f.includes(k)), "utf8");
+await boss("shop.admin.importPosSales", { csvText: file("2026-02-01"), saleDate: "2026-06-29" });
+await boss("shop.admin.importPosSales", { csvText: file("2026-07-01"), saleDate: "2026-07-30" });
+await boss("shop.admin.importPosSales", { csvText: file("2026-08-01"), saleDate: "2026-08-31" });
+const grids = await boss("shop.admin.listGrids", undefined, true);
+const gid = (c) => grids.find((g) => g.code === c).id;
+const chris = await boss("shop.admin.createTenant", { name: "Chris" });
+const other = await boss("shop.admin.createTenant", { name: "Other" });
+await boss("shop.admin.createLease", { gridId: gid("038"), tenantId: chris, startDate: "2026-03-03", endDate: "2027-03-31", rentFreeDays: 0, monthlyRent: 700, deposit: 700 });
+await boss("shop.admin.createLease", { gridId: gid("045"), tenantId: chris, startDate: "2026-02-01", endDate: "2027-03-31", rentFreeDays: 0, monthlyRent: 700, deposit: 700 });
+await boss("shop.admin.createLease", { gridId: gid("024"), tenantId: other, startDate: "2026-01-01", endDate: "2027-03-31", rentFreeDays: 0, monthlyRent: 700, deposit: 700 });
+const acc = await boss("account.createAccount", { username: "chris", password: "chris123", name: "Chris", role: "user" });
+await boss("shop.admin.updateTenant", { id: chris, userId: acc.id });
+const t = client(); await t("account.login", { username: "chris", password: "chris123" });
+const all = await t("shop.myItems", {}, true);
+ck("格仔選單有 038、045", JSON.stringify(all.gridOptions) === JSON.stringify(["038", "045"]), all.gridOptions);
+const g38 = await t("shop.myItems", { gridCode: "038" }, true);
+const g45 = await t("shop.myItems", { gridCode: "045" }, true);
+ck("全部 = 038 + 045", all.totalAmount === g38.totalAmount + g45.totalAmount, [all.totalAmount, g38.totalAmount, g45.totalAmount]);
+ck("038 = $9,460（$5,200 + $1,500 + $2,760）", g38.totalAmount === 9460 && g38.gridCode === "038", g38.totalAmount);
+ck("045 = $6,850（2–6 月 POS）", g45.totalAmount === 6850, g45.totalAmount);
+const g45jun = await t("shop.myItems", { gridCode: "045", month: "2026-06" }, true);
+ck("格仔 + 月份一齊篩", g45jun.totalAmount === 6850 && (await t("shop.myItems", { gridCode: "045", month: "2026-07" }, true)).totalAmount === 0, g45jun.totalAmount);
+const steal = await t("shop.myItems", { gridCode: "024" }, true);
+ck("揀人哋嘅格仔 024 → 唔會睇到（返回自己全部）", steal.gridCode === null && steal.totalAmount === all.totalAmount, { gridCode: steal.gridCode, total: steal.totalAmount });
+console.log(`  → ${pass} 通過 / ${fail} 失敗`);

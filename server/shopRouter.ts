@@ -207,13 +207,28 @@ export const shopRouter = createRouter({
 
   /** 租戶專區：總銷售 + 按貨品合計（month 留空 = 全部） */
   myItems: authedQuery
-    .input(z.object({ month: monthStr.optional() }))
+    .input(z.object({ month: monthStr.optional(), gridCode: z.string().regex(/^\d{3}$/).optional() }))
     .query(async ({ ctx, input }) => {
       const tenant = await q.findTenantByUserId(ctx.user.id);
       if (!tenant) return null;
-      const [summary, months] = await Promise.all([q.tenantItemSummary(tenant.id, input.month), q.tenantSaleMonths(tenant.id)]);
-      const leases = await q.findActiveLeasesByTenant(tenant.id);
-      return { tenant: { name: tenant.name }, grids: leases.map((l) => l.gridCode).filter(Boolean), months, ...summary };
+      const [months, saleGrids, leases] = await Promise.all([
+        q.tenantSaleMonths(tenant.id),
+        q.tenantSaleGrids(tenant.id),
+        q.findActiveLeasesByTenant(tenant.id),
+      ]);
+      // 格仔選單 = 現時租緊嘅格仔 + 以前有銷售嘅格仔
+      const gridCodes = [...new Set([...leases.map((l) => l.gridCode).filter((c): c is string => !!c), ...saleGrids])].sort();
+      // 只可以揀自己嘅格仔；銷售查詢本身亦限死 tenantId
+      const grid = input.gridCode && gridCodes.includes(input.gridCode) ? await q.findGridByCode(input.gridCode) : null;
+      const summary = await q.tenantItemSummary(tenant.id, input.month, grid?.id);
+      return {
+        tenant: { name: tenant.name },
+        grids: leases.map((l) => l.gridCode).filter(Boolean),
+        gridOptions: gridCodes,
+        gridCode: grid?.code ?? null,
+        months,
+        ...summary,
+      };
     }),
 
   mySummary: authedQuery.query(async ({ ctx }) => {

@@ -778,9 +778,10 @@ export async function tenantSalesReport(from: string, to: string) {
 }
 
 /** 租戶專區：總銷售 + 按貨品合計（唔包備註／條碼等內部資料） */
-export async function tenantItemSummary(tenantId: number, month?: string) {
+export async function tenantItemSummary(tenantId: number, month?: string, gridId?: number) {
   const conds = [eq(sales.tenantId, tenantId)];
   if (month) conds.push(like(sales.saleDate, `${month}%`));
+  if (gridId) conds.push(eq(sales.gridId, gridId));
   const items = await getDb()
     .select({
       name: sales.productName,
@@ -798,6 +799,16 @@ export async function tenantItemSummary(tenantId: number, month?: string) {
     totalQty: list.reduce((a, i) => a + i.qty, 0),
     items: list,
   };
+}
+
+/** 租戶有銷售嘅格仔（編號細至大），畀格仔選單用 */
+export async function tenantSaleGrids(tenantId: number) {
+  const rows = await getDb()
+    .selectDistinct({ code: grids.code })
+    .from(sales)
+    .innerJoin(grids, eq(sales.gridId, grids.id))
+    .where(eq(sales.tenantId, tenantId));
+  return rows.map((r) => r.code);
 }
 
 /** 租戶有銷售嘅月份（新至舊），畀月份選單用 */

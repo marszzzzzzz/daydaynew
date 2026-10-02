@@ -8,7 +8,11 @@ import { fmtMoney } from "@/lib/format";
 export default function TenantDashboard() {
   const { user, isLoading } = useAuth({ redirectOnUnauthenticated: true });
   const [month, setMonth] = useState<string>("");
-  const data = trpc.shop.myItems.useQuery({ month: month || undefined }, { enabled: !!user, placeholderData: (prev) => prev });
+  const [gridCode, setGridCode] = useState<string>("");
+  const data = trpc.shop.myItems.useQuery(
+    { month: month || undefined, gridCode: gridCode || undefined },
+    { enabled: !!user, placeholderData: (prev) => prev },
+  );
 
   if (isLoading || (data.isLoading && !data.data)) {
     return (
@@ -46,9 +50,9 @@ export default function TenantDashboard() {
         <h1 className="font-display mt-2 text-3xl font-black tracking-tight sm:text-4xl">{d.tenant.name}</h1>
         {d.grids.length > 0 && <p className="mt-2 font-mono text-[12.5px] text-ink/60">格仔 {d.grids.join(" · ")}</p>}
 
-        {/* 期間 */}
+        {/* 期間 + 格仔 */}
         <div className="mt-8 flex items-center gap-3">
-          <span className="font-mono text-[12px] text-ink/60">期間</span>
+          <span className="w-8 font-mono text-[12px] text-ink/60">期間</span>
           <select
             value={month}
             onChange={(e) => setMonth(e.target.value)}
@@ -62,10 +66,30 @@ export default function TenantDashboard() {
             ))}
           </select>
         </div>
+        {d.gridOptions.length > 1 && (
+          <div className="mt-3 flex items-center gap-3">
+            <span className="w-8 font-mono text-[12px] text-ink/60">格仔</span>
+            <select
+              value={gridCode}
+              onChange={(e) => setGridCode(e.target.value)}
+              className="border border-ink/30 bg-cream px-3 py-2 font-mono text-[13.5px] outline-none focus:border-ink"
+            >
+              <option value="">全部格仔</option>
+              {d.gridOptions.map((c) => (
+                <option key={c} value={c}>
+                  格仔 {c}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* 總銷售 */}
         <div className="mt-6 border-2 border-ink p-6 sm:p-8">
-          <p className="text-[13px] text-ink/60">{month ? `${month} 總銷售` : "累計總銷售"}</p>
+          <p className="text-[13px] text-ink/60">
+            {d.gridCode ? `格仔 ${d.gridCode} · ` : ""}
+            {month ? `${month} 總銷售` : "累計總銷售"}
+          </p>
           <p className="mt-2 font-mono text-4xl font-bold tracking-tight sm:text-5xl">${fmtMoney(d.totalAmount)}</p>
           <p className="mt-2 font-mono text-[13px] text-ink/60">
             共售出 {d.totalQty} 件 · {d.items.length} 款貨品
@@ -79,8 +103,8 @@ export default function TenantDashboard() {
             <thead>
               <tr className="text-left">
                 <th className="py-3 pl-5 pr-4">貨品</th>
-                <th className="py-3 pr-4 text-right">數量</th>
-                <th className="py-3 pr-5 text-right">銷售額</th>
+                <th className="whitespace-nowrap py-3 pr-4 text-right">數量</th>
+                <th className="whitespace-nowrap py-3 pr-5 text-right">銷售額</th>
               </tr>
             </thead>
             <tbody>
