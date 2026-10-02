@@ -106,6 +106,10 @@
   .grid-cell-occupied {
     @apply bg-cream;
   }
+  /* 大格：赭金邊 + 淡赭底，同中格分得出 */
+  .grid-cell-large {
+    @apply border-ochre-deep/60 bg-ochre/15;
+  }
   .grid-cell-vacant {
     background-image: repeating-linear-gradient(
       -45deg,

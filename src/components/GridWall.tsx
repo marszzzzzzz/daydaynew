@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { GRID_SIZE_LABEL, GRID_STATUS_LABEL } from "@/lib/format";
+import { whatsappLink } from "@/const";
+import { GRID_SHELVES, GRID_COLUMNS } from "@contracts/gridLayout";
 
 export type WallGrid = {
   code: string;
@@ -11,7 +13,8 @@ export type WallGrid = {
 
 /**
  * 格仔牆 — 宣傳頁主角。真實格仔狀態：招租 / 已租出 / 已預留。
- * hover 時彈出規格 tooltip；stagger 入場動畫。
+ * 7 層 × 10 直行，編號由上到下、再由左到右（001–007 係第 1 直行）。
+ * hover 時彈出規格 tooltip；撳落去開 WhatsApp 查詢租格。
  */
 export default function GridWall({ grids }: { grids: WallGrid[] }) {
   const [active, setActive] = useState<string | null>(null);
@@ -29,13 +32,17 @@ export default function GridWall({ grids }: { grids: WallGrid[] }) {
       <CornerMark className="-bottom-3 -left-3 border-b-2 border-l-2" />
       <CornerMark className="-bottom-3 -right-3 border-b-2 border-r-2" />
 
-      <div className="grid grid-cols-5 gap-[3px] sm:grid-cols-7">
+      <div className={WALL_CLASS}>
         {grids.map((g, i) => {
           const isActive = active === g.code;
+          const col = Math.floor(i / GRID_SHELVES);
           return (
-            <button
+            <a
               key={g.code}
-              type="button"
+              href={whatsappLink(g.code)}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`格仔 ${g.code}（${GRID_SIZE_LABEL[g.size] ?? g.size}）— WhatsApp 查詢租格`}
               onMouseEnter={() => setActive(g.code)}
               onMouseLeave={() => setActive(null)}
               onFocus={() => setActive(g.code)}
@@ -45,6 +52,7 @@ export default function GridWall({ grids }: { grids: WallGrid[] }) {
                 g.status === "occupied" && "grid-cell-occupied",
                 g.status === "vacant" && "grid-cell-vacant",
                 g.status === "reserved" && "bg-ochre/15",
+                g.size === "L" && "grid-cell-large",
                 isActive && "border-ink z-10",
               )}
               style={{ animationDelay: `${Math.min(i * 14, 900)}ms` }}
@@ -70,15 +78,14 @@ export default function GridWall({ grids }: { grids: WallGrid[] }) {
                 <span
                   className={cn(
                     "pointer-events-none absolute -top-2 z-20 -translate-y-full whitespace-nowrap border border-ink bg-ink px-2 py-1 font-mono text-[10px] text-cream",
-                    tipAlign(i % 5, 5),
-                    tipAlignSm(i % 7, 7),
+                    tipAlign(col, GRID_COLUMNS),
                   )}
                 >
                   {g.code} · {GRID_SIZE_LABEL[g.size] ?? g.size} · {GRID_STATUS_LABEL[g.status] ?? g.status}
-                  {g.status === "vacant" && ` · $${Number(g.monthlyRent).toFixed(0)}/月`}
+                  {g.status === "vacant" && ` · $${Number(g.monthlyRent).toFixed(0)}/月`} · 撳入 WhatsApp 查詢
                 </span>
               )}
-            </button>
+            </a>
           );
         })}
       </div>
@@ -92,8 +99,8 @@ function CornerMark({ className }: { className: string }) {
 
 function GridWallSkeleton() {
   return (
-    <div className="grid grid-cols-5 gap-[3px] sm:grid-cols-7">
-      {Array.from({ length: 70 }).map((_, i) => (
+    <div className={WALL_CLASS}>
+      {Array.from({ length: GRID_SHELVES * GRID_COLUMNS }).map((_, i) => (
         <div
           key={i}
           className="grid-cell grid-cell-vacant animate-cell-in"
@@ -110,8 +117,6 @@ function tipAlign(col: number, cols: number) {
   if (col >= cols - 2) return "right-0";
   return "left-1/2 -translate-x-1/2";
 }
-function tipAlignSm(col: number, cols: number) {
-  if (col <= 1) return "sm:left-0 sm:right-auto sm:translate-x-0";
-  if (col >= cols - 2) return "sm:left-auto sm:right-0 sm:translate-x-0";
-  return "sm:left-1/2 sm:right-auto sm:-translate-x-1/2";
-}
+
+/** 7 行高、由上到下排滿再去下一直行（grid-auto-flow: column） */
+const WALL_CLASS = "grid grid-flow-col grid-cols-10 gap-[2px] [grid-template-rows:repeat(7,minmax(0,1fr))] sm:gap-[3px]";

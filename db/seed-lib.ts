@@ -26,7 +26,7 @@ const addDays = (d: Date, n: number) => {
 };
 
 /**
- * 建立 70 個格仔（10 排 × 7，編號 001–070；第 2–10 排第 3、4 格係大格）。已存在嘅編號會跳過。
+ * 建立 70 個格仔（7 層 × 10 直行，編號 001–070；第 3、4 層第 2–10 直行係大格）。已存在嘅編號會跳過。
  * 回傳新增數量。
  */
 export async function ensureGridLayout(db: Db): Promise<number> {

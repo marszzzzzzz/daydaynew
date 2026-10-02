@@ -6,8 +6,9 @@ import GridWall, { type WallGrid } from "@/components/GridWall";
 import StrokeButton from "@/components/StrokeButton";
 import { fmtMoney } from "@/lib/format";
 import { allGridCodes, gridSizeOf, gridRentOf } from "@contracts/gridLayout";
+import { WHATSAPP_DISPLAY, whatsappLink } from "@/const";
 
-/** 資料庫未就緒時嘅靜態格仔牆：同真實佈局一致（10 排 × 7，編號 001–070；第 2–10 排嘅第 3、4 格係大格 $700，其餘中格 $500） */
+/** 資料庫未就緒時嘅靜態格仔牆：同真實佈局一致（7 層 × 10 直行，編號 001–070；第 3、4 層嘅第 2–10 直行係大格 $700，其餘中格 $500） */
 const FALLBACK_WALL: WallGrid[] = allGridCodes().map((code) => ({
   code,
   size: gridSizeOf(code),
@@ -96,7 +97,13 @@ export default function Home() {
             </p>
           </div>
           <GridWall grids={wall} />
-          <div className="mt-5 flex items-center gap-6 font-mono text-[10px] uppercase tracking-[0.16em] text-ink/55">
+          <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-[10px] uppercase tracking-[0.16em] text-ink/55">
+            <span className="flex items-center gap-2">
+              <span className="inline-block h-2.5 w-2.5 border border-ochre-deep/60 bg-ochre/15" /> 大格 $700
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="inline-block h-2.5 w-2.5 border border-ink/25" /> 中格 $500
+            </span>
             <span className="flex items-center gap-2">
               <span className="inline-block h-2.5 w-2.5 border border-ink/40 bg-cream" /> 招租中
             </span>
@@ -107,6 +114,9 @@ export default function Home() {
               <span className="inline-block h-2.5 w-2.5 bg-ochre/40" /> 已預留
             </span>
           </div>
+          <p className="mt-3 text-[12.5px] text-ink/60">
+            👆 撳任何一格，即刻 WhatsApp 查詢租格及租格優惠（{WHATSAPP_DISPLAY}）
+          </p>
         </div>
       </section>
 
@@ -186,6 +196,19 @@ export default function Home() {
           <Step no="2" title="簽約" body="同店主傾好租期同免租期，交按金，格仔即刻屬於你。" />
           <Step no="3" title="入貨開賣" body="交貨畀店員上架，你嘅格仔正式開張。" />
           <Step no="4" title="每日對數" body="登入租戶專區，每日售出幾多、賣幾多錢，日日更新。" />
+        </div>
+        <div className="mt-14 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-ink/15 pt-10">
+          <a
+            href={whatsappLink()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-3 rounded-full bg-[#25D366] px-7 py-4 text-[15px] font-semibold text-white transition-transform hover:-translate-y-0.5"
+            style={{ boxShadow: "4px 4px 0 0 rgba(29,29,29,0.9)" }}
+          >
+            <WhatsAppIcon />
+            WhatsApp 查詢租格及租格優惠
+          </a>
+          <span className="font-mono text-[12.5px] tracking-wide text-ink/60">{WHATSAPP_DISPLAY}</span>
         </div>
       </section>
 
@@ -268,5 +291,13 @@ function Step({ no, title, body }: { no: string; title: string; body: string }) 
       <h3 className="font-display mt-5 text-xl font-bold tracking-tight">{title}</h3>
       <p className="mt-3 text-[13.5px] leading-[1.85] text-ink/70">{body}</p>
     </div>
+  );
+}
+
+function WhatsAppIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+      <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2Zm5.8 14.13c-.24.68-1.42 1.3-1.95 1.35-.5.05-.97.23-3.28-.68-2.78-1.1-4.55-3.95-4.69-4.13-.13-.18-1.12-1.49-1.12-2.84 0-1.35.71-2.02.96-2.29.25-.27.55-.34.73-.34h.52c.17 0 .4-.06.62.47.24.56.79 1.92.86 2.06.07.14.11.3.02.48-.09.18-.14.3-.27.46-.14.16-.29.35-.41.47-.14.14-.28.29-.12.56.16.27.71 1.17 1.52 1.89 1.04.93 1.92 1.22 2.19 1.35.27.14.43.12.59-.07.16-.18.68-.79.86-1.07.18-.27.36-.23.61-.14.25.09 1.58.75 1.85.88.27.14.45.2.52.32.07.11.07.66-.17 1.33Z" />
+    </svg>
   );
 }
