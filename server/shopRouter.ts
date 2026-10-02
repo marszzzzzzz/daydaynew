@@ -205,6 +205,17 @@ export const shopRouter = createRouter({
       return q.listSalesByTenant(tenant.id, input.month);
     }),
 
+  /** 租戶專區：總銷售 + 按貨品合計（month 留空 = 全部） */
+  myItems: authedQuery
+    .input(z.object({ month: monthStr.optional() }))
+    .query(async ({ ctx, input }) => {
+      const tenant = await q.findTenantByUserId(ctx.user.id);
+      if (!tenant) return null;
+      const [summary, months] = await Promise.all([q.tenantItemSummary(tenant.id, input.month), q.tenantSaleMonths(tenant.id)]);
+      const leases = await q.findActiveLeasesByTenant(tenant.id);
+      return { tenant: { name: tenant.name }, grids: leases.map((l) => l.gridCode).filter(Boolean), months, ...summary };
+    }),
+
   mySummary: authedQuery.query(async ({ ctx }) => {
     const tenant = await q.findTenantByUserId(ctx.user.id);
     if (!tenant) return null;

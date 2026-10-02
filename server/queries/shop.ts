@@ -776,3 +776,35 @@ export async function tenantSalesReport(from: string, to: string) {
     groups: list,
   };
 }
+
+/** 租戶專區：總銷售 + 按貨品合計（唔包備註／條碼等內部資料） */
+export async function tenantItemSummary(tenantId: number, month?: string) {
+  const conds = [eq(sales.tenantId, tenantId)];
+  if (month) conds.push(like(sales.saleDate, `${month}%`));
+  const items = await getDb()
+    .select({
+      name: sales.productName,
+      qty: sql<number>`sum(${sales.quantity})::int`,
+      amount: sql<string>`sum(${sales.totalAmount})`,
+    })
+    .from(sales)
+    .where(and(...conds))
+    .groupBy(sales.productName)
+    .orderBy(sql`sum(${sales.totalAmount}) desc`);
+  const list = items.map((i) => ({ name: i.name, qty: Number(i.qty), amount: Number(i.amount) }));
+  return {
+    month: month ?? null,
+    totalAmount: Math.round(list.reduce((a, i) => a + i.amount, 0) * 100) / 100,
+    totalQty: list.reduce((a, i) => a + i.qty, 0),
+    items: list,
+  };
+}
+
+/** 租戶有銷售嘅月份（新至舊），畀月份選單用 */
+export async function tenantSaleMonths(tenantId: number) {
+  const rows = await getDb()
+    .selectDistinct({ m: sql<string>`substr(${sales.saleDate}, 1, 7)` })
+    .from(sales)
+    .where(eq(sales.tenantId, tenantId));
+  return rows.map((r) => r.m).sort().reverse();
+}
