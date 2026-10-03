@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { askConfirm } from "@/components/AppDialog";
 import { trpc } from "@/providers/trpc";
 import { toast } from "sonner";
 import { fmtMoney, currentMonthStr } from "@/lib/format";
@@ -143,7 +144,7 @@ export default function RentTab() {
                         改回未收
                       </button>
                     )}
-                    <button onClick={() => { if (confirm("確定刪除呢條記錄？")) del.mutate({ id: r.id }); }} className="px-2 py-1 font-mono text-[11.5px] text-red-800/80 underline-offset-2 hover:underline">
+                    <button onClick={async () => { if (await askConfirm("確定刪除呢條記錄？", { danger: true, confirmLabel: "刪除" })) del.mutate({ id: r.id }); }} className="px-2 py-1 font-mono text-[11.5px] text-red-800/80 underline-offset-2 hover:underline">
                       刪除
                     </button>
                   </div>

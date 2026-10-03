@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router";
 import { Toaster } from "@/components/ui/sonner";
+import { DialogHost } from "@/components/AppDialog";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import DashboardRedirect from "./pages/DashboardRedirect";
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="*" element={<NotFound />} />
       </Routes>
       <Toaster position="top-center" />
+      <DialogHost />
     </>
   );
 }

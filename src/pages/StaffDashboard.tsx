@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { askConfirm } from "@/components/AppDialog";
 import { trpc } from "@/providers/trpc";
 import { toast } from "sonner";
 import DashHeader from "@/components/DashHeader";
@@ -189,7 +190,7 @@ function MySales({ userId }: { userId: number }) {
           </thead>
           <tbody>
             {mine.map((r) => (
-              <MySaleRow key={r.id} row={r} onDelete={() => { if (confirm("確定刪除呢筆記錄？")) del.mutate({ id: r.id }); }} onSaved={invalidate} />
+              <MySaleRow key={r.id} row={r} onDelete={async () => { if (await askConfirm("確定刪除呢筆記錄？", { danger: true, confirmLabel: "刪除" })) del.mutate({ id: r.id }); }} onSaved={invalidate} />
             ))}
             {mine.length === 0 && <EmptyRow colSpan={7} text={sales.isLoading ? "載入中…" : "你仲未輸入任何記錄"} />}
           </tbody>

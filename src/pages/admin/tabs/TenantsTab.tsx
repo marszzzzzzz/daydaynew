@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { askConfirm, askPrompt } from "@/components/AppDialog";
 import { trpc } from "@/providers/trpc";
 import { toast } from "sonner";
 import { SectionTitle, Field, ActionButton, EmptyRow } from "../ui";
@@ -174,8 +175,8 @@ export default function TenantsTab() {
                       )}
                       <button
                         disabled={setAnalytics.isPending}
-                        onClick={() => {
-                          if (confirm(`取消 ${t.name} 嘅銷售分析？佢喺租戶專區會即時睇唔到走勢圖。`)) setAnalytics.mutate({ id: t.id, enabled: false });
+                        onClick={async () => {
+                          if (await askConfirm(`取消 ${t.name} 嘅銷售分析？佢喺租戶專區會即時睇唔到走勢圖。`, { danger: true, confirmLabel: "取消開通" })) setAnalytics.mutate({ id: t.id, enabled: false });
                         }}
                         className="mt-1 block font-mono text-[11px] text-ink/50 underline-offset-2 hover:underline"
                       >
@@ -185,8 +186,8 @@ export default function TenantsTab() {
                   ) : (
                     <button
                       disabled={setAnalytics.isPending}
-                      onClick={() => {
-                        if (confirm(`批准 ${t.name} 使用銷售分析？\n佢會喺租戶專區睇到自己格仔嘅銷售走勢圖、頭 5 位貨品同時段明細。`)) setAnalytics.mutate({ id: t.id, enabled: true });
+                      onClick={async () => {
+                        if (await askConfirm(`批准 ${t.name} 使用銷售分析？\n佢會喺租戶專區睇到自己格仔嘅銷售走勢圖、頭 5 位貨品同時段明細。`, { confirmLabel: "批准開通" })) setAnalytics.mutate({ id: t.id, enabled: true });
                       }}
                       className="border border-ochre-deep/70 px-2.5 py-1 font-mono text-[11.5px] text-ochre-deep transition-colors hover:bg-ochre-deep hover:text-cream disabled:opacity-40"
                     >
@@ -197,7 +198,7 @@ export default function TenantsTab() {
                 <td className="py-3 pr-4 text-ink/55">{t.note ?? ""}</td>
                 <td className="py-3 text-right">
                   <button
-                    onClick={() => { if (confirm(`確定刪除租戶 ${t.name}？（有租約／銷售／租金記錄嘅租戶唔可以刪除）`)) del.mutate({ id: t.id }); }}
+                    onClick={async () => { if (await askConfirm(`確定刪除租戶 ${t.name}？（有租約／銷售／租金記錄嘅租戶唔可以刪除）`, { danger: true, confirmLabel: "刪除" })) del.mutate({ id: t.id }); }}
                     className="px-2 py-1 font-mono text-[11.5px] text-red-800/80 underline-offset-2 hover:underline"
                   >
                     刪除
@@ -292,8 +293,8 @@ export default function TenantsTab() {
                           {u.role === "staff" ? "降為租客" : "升為店員"}
                         </button>
                         <button
-                          onClick={() => {
-                            const pw = window.prompt(`為 ${displayUsername(u.unionId)} 設定新密碼（最少 6 個字符）`);
+                          onClick={async () => {
+                            const pw = await askPrompt(`為 ${displayUsername(u.unionId)} 設定新密碼（最少 6 個字符）`);
                             if (pw) resetPw.mutate({ userId: u.id, password: pw });
                           }}
                           className="px-2 py-1 text-ink/60 underline-offset-2 hover:underline"

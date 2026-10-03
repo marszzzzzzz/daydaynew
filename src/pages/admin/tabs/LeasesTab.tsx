@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { askConfirm } from "@/components/AppDialog";
 import { trpc } from "@/providers/trpc";
 import { toast } from "sonner";
 import { fmtMoney, todayStr } from "@/lib/format";
@@ -162,7 +163,7 @@ export default function LeasesTab() {
                 <td className="py-3 text-right">
                   {l.status === "active" && (
                     <button
-                      onClick={() => { if (confirm(`確定終止 ${l.gridCode} · ${l.tenantName} 嘅租約？`)) end.mutate({ id: l.id }); }}
+                      onClick={async () => { if (await askConfirm(`確定終止 ${l.gridCode} · ${l.tenantName} 嘅租約？`, { danger: true, confirmLabel: "終止租約" })) end.mutate({ id: l.id }); }}
                       className="px-2 py-1 font-mono text-[11.5px] text-red-800/80 underline-offset-2 hover:underline"
                     >
                       終止租約

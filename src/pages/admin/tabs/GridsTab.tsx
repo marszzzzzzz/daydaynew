@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { askConfirm, askPrompt } from "@/components/AppDialog";
 import { trpc } from "@/providers/trpc";
 import { toast } from "sonner";
 import { fmtMoney } from "@/lib/format";
@@ -114,8 +115,8 @@ export default function GridsTab() {
                       <option value="reserved">已預留</option>
                     </select>
                     <button
-                      onClick={() => {
-                        const v = prompt(`格仔 ${g.code} 新月租（HKD）`, String(Number(g.monthlyRent)));
+                      onClick={async () => {
+                        const v = await askPrompt(`格仔 ${g.code} 新月租（HKD）`, String(Number(g.monthlyRent)));
                         if (v === null) return;
                         const n = Number(v);
                         if (!Number.isFinite(n) || n < 0) return toast.error("租金格式錯誤");
@@ -126,8 +127,8 @@ export default function GridsTab() {
                       改租
                     </button>
                     <button
-                      onClick={() => {
-                        if (confirm(`確定刪除格仔 ${g.code}？`)) del.mutate({ id: g.id });
+                      onClick={async () => {
+                        if (await askConfirm(`確定刪除格仔 ${g.code}？`, { danger: true, confirmLabel: "刪除" })) del.mutate({ id: g.id });
                       }}
                       className="px-2 py-1 font-mono text-[11.5px] text-red-800/80 underline-offset-2 hover:underline"
                     >

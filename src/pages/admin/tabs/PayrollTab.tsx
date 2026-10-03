@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { askConfirm, askPrompt } from "@/components/AppDialog";
 import { toast } from "sonner";
 import { trpc } from "@/providers/trpc";
 import { fmtMoney, currentMonthStr, todayStr } from "@/lib/format";
@@ -148,7 +149,7 @@ function MonthSummary({ month }: { month: string }) {
                     <div className="font-mono text-[11.5px]">
                       <span className="badge-frame border border-ink/60">已出糧 {r.paid.paidAt}</span>
                       <button
-                        onClick={() => confirm(`取消 ${r.name} ${month} 嘅出糧記錄？更表會解鎖，人工會重新計。`) && unmark.mutate({ employeeId: r.employeeId, month })}
+                        onClick={async () => (await askConfirm(`取消 ${r.name} ${month} 嘅出糧記錄？更表會解鎖，人工會重新計。`)) && unmark.mutate({ employeeId: r.employeeId, month })}
                         className="mt-1 block w-full text-right text-ink/50 underline-offset-2 hover:underline"
                       >
                         取消出糧
@@ -369,7 +370,7 @@ function Shifts({ month }: { month: string }) {
                     {locked ? (
                       <span className="text-ink/40">已出糧 · 鎖定</span>
                     ) : (
-                      <button onClick={() => confirm("確定刪除呢更？") && del.mutate({ id: s.id })} className="px-2 py-1 text-red-800/80 underline-offset-2 hover:underline">
+                      <button onClick={async () => (await askConfirm("確定刪除呢更？", { danger: true, confirmLabel: "刪除" })) && del.mutate({ id: s.id })} className="px-2 py-1 text-red-800/80 underline-offset-2 hover:underline">
                         刪除
                       </button>
                     )}
@@ -416,7 +417,7 @@ function Employees() {
     onError: (e) => toast.error(e.message),
   });
   const del = trpc.payroll.deleteEmployee.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("已刪除");
       invalidate();
     },
@@ -430,12 +431,12 @@ function Employees() {
 
       <form
         className="grid gap-4 border border-ink/25 p-5 sm:grid-cols-2 lg:grid-cols-[1.2fr_1fr_.8fr_auto_auto] lg:items-end"
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
           const r = Number(rate);
           if (!name.trim()) return toast.error("請輸入姓名");
           if (!rate.trim() || !Number.isFinite(r) || r < 0) return toast.error("請輸入時薪");
-          if (r < minWage && !confirm(`時薪 $${r} 低過法定最低工資 $${minWage}，確定？`)) return;
+          if (r < minWage && !(await askConfirm(`時薪 $${r} 低過法定最低工資 $${minWage}，確定？`))) return;
           create.mutate({ name: name.trim(), phone: phone || undefined, hourlyRate: r, mpfEnrolled: mpf });
         }}
       >
@@ -490,12 +491,12 @@ function Employees() {
                 <td className="py-2.5 pr-5 text-right font-mono text-[11.5px]">
                   <button
                     className="px-2 py-1 text-ochre-deep underline-offset-2 hover:underline"
-                    onClick={() => {
-                      const v = window.prompt(`${e.name} 嘅新時薪（只影響之後新加嘅更）`, String(Number(e.hourlyRate)));
+                    onClick={async () => {
+                      const v = await askPrompt(`${e.name} 嘅新時薪（只影響之後新加嘅更）`, String(Number(e.hourlyRate)));
                       if (v == null) return;
                       const r = Number(v);
                       if (!Number.isFinite(r) || r < 0) return toast.error("時薪錯誤");
-                      if (r < minWage && !confirm(`時薪 $${r} 低過法定最低工資 $${minWage}，確定？`)) return;
+                      if (r < minWage && !(await askConfirm(`時薪 $${r} 低過法定最低工資 $${minWage}，確定？`))) return;
                       update.mutate({ id: e.id, hourlyRate: r });
                     }}
                   >
@@ -504,7 +505,7 @@ function Employees() {
                   <button className="px-2 py-1 text-ink/60 underline-offset-2 hover:underline" onClick={() => update.mutate({ id: e.id, active: !e.active })}>
                     {e.active ? "停用" : "恢復"}
                   </button>
-                  <button className="px-2 py-1 text-red-800/80 underline-offset-2 hover:underline" onClick={() => confirm(`確定刪除 ${e.name}？`) && del.mutate({ id: e.id })}>
+                  <button className="px-2 py-1 text-red-800/80 underline-offset-2 hover:underline" onClick={async () => (await askConfirm(`確定刪除 ${e.name}？`, { danger: true, confirmLabel: "刪除" })) && del.mutate({ id: e.id })}>
                     刪除
                   </button>
                 </td>

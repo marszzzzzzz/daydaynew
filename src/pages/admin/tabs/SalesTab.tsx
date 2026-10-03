@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { askConfirm } from "@/components/AppDialog";
 import { trpc } from "@/providers/trpc";
 import { toast } from "sonner";
 import { fmtMoney, todayStr } from "@/lib/format";
@@ -161,7 +162,7 @@ export default function SalesTab() {
           </thead>
           <tbody>
             {(sales.data ?? []).map((r) => (
-              <SaleRow key={r.id} row={r} onDelete={() => { if (confirm("確定刪除呢筆記錄？")) del.mutate({ id: r.id }); }} onSaved={invalidate} />
+              <SaleRow key={r.id} row={r} onDelete={async () => { if (await askConfirm("確定刪除呢筆記錄？", { danger: true, confirmLabel: "刪除" })) del.mutate({ id: r.id }); }} onSaved={invalidate} />
             ))}
             {(sales.data ?? []).length === 0 && <EmptyRow colSpan={8} text={sales.isLoading ? "載入中…" : "冇符合條件嘅記錄"} />}
           </tbody>

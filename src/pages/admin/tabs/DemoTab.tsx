@@ -1,4 +1,5 @@
 import { trpc } from "@/providers/trpc";
+import { askConfirm } from "@/components/AppDialog";
 import { toast } from "sonner";
 import { SectionTitle, ActionButton } from "../ui";
 
@@ -110,8 +111,8 @@ export default function DemoTab() {
             <ActionButton
               tone="ghost"
               disabled={pending}
-              onClick={() => {
-                if (window.confirm("確定清除所有【示範】租戶及相關租約、銷售、租金記錄？真實數據不受影響。")) {
+              onClick={async () => {
+                if (await askConfirm("確定清除所有【示範】租戶及相關租約、銷售、租金記錄？真實數據不受影響。", { danger: true, confirmLabel: "清除" })) {
                   clear.mutate();
                 }
               }}
