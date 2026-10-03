@@ -1,6 +1,6 @@
 import { getDb } from "./connection";
 import { grids, leases, rentRecords, sales, tenants, users } from "@db/schema";
-import { and, desc, eq, gte, like, lte, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNotNull, isNull, like, lte, ne, sql, type SQL } from "drizzle-orm";
 
 // ─── 公用 ────────────────────────────────────────────────────
 
@@ -883,10 +883,44 @@ function bucketLabel(start: string, g: Granularity): string {
  * 每個時段亦附上貨品明細（畀「時段列表」下鑽用）。冇銷售嘅時段都會列出（0）。
  */
 export async function tenantTrend(tenantId: number, g: Granularity, from: string, to: string, gridId?: number) {
-  const conds = [eq(sales.tenantId, tenantId), gte(sales.saleDate, from), lte(sales.saleDate, to)];
+  const conds = [eq(sales.tenantId, tenantId)];
   if (gridId) conds.push(eq(sales.gridId, gridId));
+  return salesTrend(conds, g, from, to);
+}
+
+/** 全店走勢（店主）：scope = 全店／只計格仔／只計店舖直銷；可再按租戶或格仔篩 */
+export async function shopTrend(
+  g: Granularity,
+  from: string,
+  to: string,
+  filter: { scope: "all" | "grids" | "direct"; tenantId?: number; gridId?: number },
+) {
+  const conds: SQL[] = [];
+  if (filter.scope === "grids") conds.push(isNotNull(sales.gridId));
+  if (filter.scope === "direct") conds.push(isNull(sales.gridId));
+  if (filter.tenantId) conds.push(eq(sales.tenantId, filter.tenantId));
+  if (filter.gridId) conds.push(eq(sales.gridId, filter.gridId));
+  return salesTrend(conds, g, from, to);
+}
+
+/** 最早／最遲銷售日期（店主走勢圖揀「最近」期間用） */
+export async function salesDateRange() {
+  const [r] = await getDb()
+    .select({ min: sql<string | null>`min(${sales.saleDate})`, max: sql<string | null>`max(${sales.saleDate})` })
+    .from(sales);
+  return { min: r?.min ?? null, max: r?.max ?? null };
+}
+
+async function salesTrend(baseConds: SQL[], g: Granularity, from: string, to: string) {
+  const conds = [...baseConds, gte(sales.saleDate, from), lte(sales.saleDate, to)];
   const rows = await getDb()
-    .select({ saleDate: sales.saleDate, productName: sales.productName, quantity: sales.quantity, totalAmount: sales.totalAmount })
+    .select({
+      gridId: sales.gridId,
+      saleDate: sales.saleDate,
+      productName: sales.productName,
+      quantity: sales.quantity,
+      totalAmount: sales.totalAmount,
+    })
     .from(sales)
     .where(and(...conds));
 
@@ -902,7 +936,9 @@ export async function tenantTrend(tenantId: number, g: Granularity, from: string
     const label = g === "week" ? `${bFrom.slice(5)}–${bTo.slice(5)}` : bucketLabel(s, g);
     buckets.push({ key: s, from: bFrom, to: bTo, label });
   }
-  const byBucket = new Map(buckets.map((b) => [b.key, { amount: 0, qty: 0, items: new Map<string, { qty: number; amount: number }>() }]));
+  const byBucket = new Map(
+    buckets.map((b) => [b.key, { amount: 0, qty: 0, directAmount: 0, items: new Map<string, { qty: number; amount: number }>() }]),
+  );
   const productTotals = new Map<string, number>();
   for (const r of rows) {
     const b = byBucket.get(bucketStart(r.saleDate, g));
@@ -910,6 +946,7 @@ export async function tenantTrend(tenantId: number, g: Granularity, from: string
     const amt = Number(r.totalAmount) || 0;
     b.amount += amt;
     b.qty += r.quantity;
+    if (r.gridId == null) b.directAmount += amt;
     const it = b.items.get(r.productName) ?? { qty: 0, amount: 0 };
     it.qty += r.quantity;
     it.amount += amt;
@@ -934,6 +971,9 @@ export async function tenantTrend(tenantId: number, g: Granularity, from: string
         ...b,
         amount: r2(v.amount),
         qty: v.qty,
+        /** 其中店舖直銷（冇格仔）同格仔銷售 */
+        directAmount: r2(v.directAmount),
+        gridAmount: r2(v.amount - v.directAmount),
         /** 頭 5 位貨品喺呢個時段嘅銷售額（同 topProducts 次序一樣） */
         top: topProducts.map((p) => r2(v.items.get(p.name)?.amount ?? 0)),
         items: [...v.items.entries()]

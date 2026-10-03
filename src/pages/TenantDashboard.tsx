@@ -3,7 +3,7 @@ import { trpc } from "@/providers/trpc";
 import { useAuth } from "@/hooks/useAuth";
 import DashHeader from "@/components/DashHeader";
 import { fmtMoney } from "@/lib/format";
-import TenantTrend from "@/components/TenantTrend";
+import SalesTrend from "@/components/SalesTrend";
 
 /** 租戶專區（唯讀）：只顯示總銷售同按貨品合計 */
 export default function TenantDashboard() {
@@ -99,7 +99,7 @@ export default function TenantDashboard() {
 
         {/* 走勢圖（跟住上面揀嘅格仔） */}
         {d.analyticsEnabled ? (
-          <TenantTrend key={gridCode || "all"} gridCode={gridCode} latestMonth={d.months[0] ?? null} />
+          <SalesTrend key={gridCode || "all"} source={{ kind: "tenant", gridCode }} latestMonth={d.months[0] ?? null} />
         ) : (
           <p className="mt-10 border border-dashed border-ink/25 px-4 py-3 text-[12.5px] leading-[1.8] text-ink/55">
             銷售走勢分析（日／週／月走勢、熱賣貨品）未開通。如需要，請聯絡店主申請開通。

@@ -511,6 +511,29 @@ export const shopRouter = createRouter({
     /** 手動重新配對：將未有租戶嘅格仔銷售按租約期間計入租戶 */
     assignSalesToLeases: adminQuery.mutation(async () => ({ assigned: await q.assignSalesToLeases() })),
 
+    /** 全店銷售分析（走勢圖）：日／週／月總銷售 + 頭 5 位貨品，可按範圍／租戶／格仔篩 */
+    shopTrend: adminQuery
+      .input(
+        z.object({
+          granularity: z.enum(["day", "week", "month"]),
+          from: dateStr,
+          to: dateStr,
+          scope: z.enum(["all", "grids", "direct"]).default("all"),
+          tenantId: z.number().optional(),
+          gridCode: z.string().regex(/^\d{3}$/).optional(),
+        }),
+      )
+      .query(async ({ input }) => {
+        if (input.from > input.to) throw new TRPCError({ code: "BAD_REQUEST", message: "開始日期唔可以遲過結束日期" });
+        const days = (Date.parse(input.to) - Date.parse(input.from)) / 86400000;
+        const cap = { day: 186, week: 3 * 366, month: 10 * 366 }[input.granularity];
+        if (days > cap) throw new TRPCError({ code: "BAD_REQUEST", message: "期間太長，請揀較粗嘅時段（週／月）" });
+        const grid = input.gridCode ? await q.findGridByCode(input.gridCode) : null;
+        if (input.gridCode && !grid) throw new TRPCError({ code: "NOT_FOUND", message: `搵唔到格仔 ${input.gridCode}` });
+        return q.shopTrend(input.granularity, input.from, input.to, { scope: input.scope, tenantId: input.tenantId, gridId: grid?.id });
+      }),
+    salesDateRange: adminQuery.query(() => q.salesDateRange()),
+
     /** 租戶銷售情況：按租戶（或未有租約嘅格仔）統計期間銷售，同上一段期間比較 */
     tenantSalesReport: adminQuery
       .input(z.object({ from: dateStr, to: dateStr }))

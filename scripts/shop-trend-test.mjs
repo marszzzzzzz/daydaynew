@@ -1,0 +1,40 @@
+// 全店銷售分析 API 測試（先行 scripts/tenant-multigrid-test.mjs；要喺 approval / trend 測試之前或者新資料庫行）
+const B = "http://localhost:3200/api/trpc/";
+let pass = 0, fail = 0;
+const ck = (l, c, d) => { c ? pass++ : fail++; console.log(`  ${c ? "✓" : "✗"} ${l}${c ? "" : "  → " + JSON.stringify(d).slice(0, 260)}`); };
+function client() { let cookie = ""; return async (p, input, get) => {
+  const url = B + p + (get ? `?input=${encodeURIComponent(JSON.stringify({ json: input }))}` : "");
+  const r = await fetch(url, { method: get ? "GET" : "POST", headers: { "content-type": "application/json", cookie }, body: get ? undefined : JSON.stringify({ json: input ?? null }) });
+  for (const c of r.headers.getSetCookie()) if (c.startsWith("gridbox_sid=")) cookie = c.split(";")[0];
+  const j = await r.json(); return j.error ? { err: j.error.json.message, code: j.error.json.data?.code } : j.result.data.json; }; }
+const boss = client(); await boss("account.login", { username: "boss", password: "BossPass!2026" });
+const R = { granularity: "month", from: "2025-09-01", to: "2026-08-31" };
+const all = await boss("shop.admin.shopTrend", { ...R, scope: "all" }, true);
+const gr = await boss("shop.admin.shopTrend", { ...R, scope: "grids" }, true);
+const di = await boss("shop.admin.shopTrend", { ...R, scope: "direct" }, true);
+ck("全店 = $115,919（3 個 POS 檔）", all.totalAmount === 115919, all.totalAmount);
+ck("店舖直銷 = $39,467", di.totalAmount === 39467, di.totalAmount);
+ck("格仔 + 直銷 = 全店", Math.abs(gr.totalAmount + di.totalAmount - all.totalAmount) < 0.01, [gr.totalAmount, di.totalAmount]);
+ck("每個時段：格仔 + 直銷 = 時段總數", all.buckets.every((b) => Math.abs(b.gridAmount + b.directAmount - b.amount) < 0.01), null);
+ck("6 月 $64,673、7 月 $19,730、8 月 $31,516", [["2026-06-01", 64673], ["2026-07-01", 19730], ["2026-08-01", 31516]].every(([k, v]) => all.buckets.find((b) => b.key === k).amount === v), all.buckets.filter((b) => b.amount).map((b) => [b.key, b.amount]));
+ck("頭 5 位貨品係全店（按金額排）", all.topProducts.length === 5 && all.topProducts.every((p, i, a) => !i || a[i - 1].amount >= p.amount), all.topProducts);
+const ts = await boss("shop.admin.listTenants", undefined, true);
+const chris = ts.find((t) => t.name === "Chris");
+const ct = await boss("shop.admin.shopTrend", { ...R, scope: "grids", tenantId: chris.id }, true);
+ck("篩租戶 Chris = $16,310", ct.totalAmount === 16310, ct.totalAmount);
+const g24 = await boss("shop.admin.shopTrend", { ...R, scope: "grids", gridCode: "024" }, true);
+ck("篩格仔 024 = $8,910 + $3,300 + $2,100", g24.totalAmount === 14310, g24.totalAmount);
+const bad = await boss("shop.admin.shopTrend", { ...R, scope: "grids", gridCode: "999" }, true);
+ck("唔存在嘅格仔 → 錯誤", !!bad.err, bad);
+const wk = await boss("shop.admin.shopTrend", { granularity: "week", from: "2026-08-01", to: "2026-08-31", scope: "all" }, true);
+ck("下鑽 8 月按週 = $31,516", wk.totalAmount === 31516, wk.totalAmount);
+const dr = await boss("shop.admin.salesDateRange", undefined, true);
+ck("銷售日期範圍 2026-06-29 → 2026-08-31", dr.min === "2026-06-29" && dr.max === "2026-08-31", dr);
+const t = client(); await t("account.login", { username: "chris", password: "chris123" });
+const tt = await t("shop.admin.shopTrend", { ...R, scope: "all" }, true);
+ck("租戶打全店分析 → FORBIDDEN", tt.code === "FORBIDDEN", tt);
+await boss("account.createAccount", { username: "staff8", password: "staff123", name: "店員", role: "staff" });
+const st = client(); await st("account.login", { username: "staff8", password: "staff123" });
+const sr = await st("shop.admin.shopTrend", { ...R, scope: "all" }, true);
+ck("店員打全店分析 → FORBIDDEN", sr.code === "FORBIDDEN", sr);
+console.log(`  → ${pass} 通過 / ${fail} 失敗`);

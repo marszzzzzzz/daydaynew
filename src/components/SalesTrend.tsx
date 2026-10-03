@@ -46,7 +46,22 @@ const compact = (v: number) => (v >= 1000 ? `$${Number((v / 1000).toFixed(1))}k`
 
 type Crumb = { g: G; from: string; to: string; label: string };
 
-export default function TenantTrend({ gridCode, latestMonth }: { gridCode: string; latestMonth: string | null }) {
+/** 資料來源：租戶專區（只限自己）或者店主全店分析 */
+export type TrendSource =
+  | { kind: "tenant"; gridCode: string }
+  | { kind: "shop"; scope: "all" | "grids" | "direct"; tenantId?: number; gridCode?: string };
+
+const ITEM_LIMIT = 30;
+
+export default function SalesTrend({
+  source,
+  latestMonth,
+  title = "銷售走勢",
+}: {
+  source: TrendSource;
+  latestMonth: string | null;
+  title?: string;
+}) {
   // 「最近」以最後一個有銷售嘅月份月尾為準（POS 資料未必去到今日）
   const anchor = useMemo(() => {
     const today = todayStr();
@@ -64,11 +79,21 @@ export default function TenantTrend({ gridCode, latestMonth }: { gridCode: strin
   const [selected, setSelected] = useState<string | null>(null);
   const [showEmpty, setShowEmpty] = useState(false);
 
-  const q = trpc.shop.myTrend.useQuery(
-    { granularity: g, from: range.from, to: range.to, gridCode: gridCode || undefined },
-    { placeholderData: (prev) => prev },
+  const base = { granularity: g, from: range.from, to: range.to };
+  const tenantQ = trpc.shop.myTrend.useQuery(
+    { ...base, gridCode: source.kind === "tenant" ? source.gridCode || undefined : undefined },
+    { enabled: source.kind === "tenant", placeholderData: (prev) => prev },
   );
-  const d = q.data;
+  const shopQ = trpc.shop.admin.shopTrend.useQuery(
+    source.kind === "shop"
+      ? { ...base, scope: source.scope, tenantId: source.tenantId, gridCode: source.gridCode || undefined }
+      : { ...base },
+    { enabled: source.kind === "shop", placeholderData: (prev) => prev },
+  );
+  const q = source.kind === "shop" ? shopQ : tenantQ;
+  const d = q.data ?? undefined;
+  const isShop = source.kind === "shop";
+  const [showAllItems, setShowAllItems] = useState<string | null>(null);
 
   // 貨品 → 顏色：第一次見到嘅貨品攞下一隻未用嘅色，之後一直跟住佢（切換日／週／月或者下鑽都唔會變色）
   const colorOf = useRef(new Map<string, string>());
@@ -132,7 +157,7 @@ export default function TenantTrend({ gridCode, latestMonth }: { gridCode: strin
     <section className="mt-12">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="font-display text-xl font-black tracking-tight">銷售走勢</h2>
+          <h2 className="font-display text-xl font-black tracking-tight">{title}</h2>
           {d && (
             <p className="mt-1 font-mono text-[11.5px] text-ink/55">
               {d.from} 至 {d.to} · 共 ${fmtMoney(d.totalAmount)} · {d.totalQty} 件
@@ -263,7 +288,13 @@ export default function TenantTrend({ gridCode, latestMonth }: { gridCode: strin
               >
                 <span className="w-4 font-mono text-[11px] text-ink/45">{open ? "▾" : "▸"}</span>
                 <span className="min-w-[5.5rem] font-mono text-[13px]">{b.label}</span>
-                <span className="hidden flex-1 truncate text-[12px] text-ink/55 sm:block">{b.items[0] ? `最好賣：${b.items[0].name}` : ""}</span>
+                <span className="hidden flex-1 truncate text-[12px] text-ink/55 sm:block">
+                  {isShop && b.amount > 0
+                    ? `格仔 $${fmtMoney(b.gridAmount)} · 直銷 $${fmtMoney(b.directAmount)}`
+                    : b.items[0]
+                      ? `最好賣：${b.items[0].name}`
+                      : ""}
+                </span>
                 <span className="ml-auto font-mono text-[12px] text-ink/55">{b.qty} 件</span>
                 <span className="w-24 text-right font-mono text-[13.5px] font-semibold">${fmtMoney(b.amount)}</span>
               </button>
@@ -274,7 +305,7 @@ export default function TenantTrend({ gridCode, latestMonth }: { gridCode: strin
                   ) : (
                     <table className="w-full text-[13px]">
                       <tbody>
-                        {b.items.map((it) => (
+                        {(showAllItems === b.key ? b.items : b.items.slice(0, ITEM_LIMIT)).map((it) => (
                           <tr key={it.name} className="border-b border-ink/10 last:border-b-0">
                             <td className="py-1.5 pr-3">{it.name}</td>
                             <td className="whitespace-nowrap py-1.5 pr-3 text-right font-mono text-ink/60">× {it.qty}</td>
@@ -283,6 +314,14 @@ export default function TenantTrend({ gridCode, latestMonth }: { gridCode: strin
                         ))}
                       </tbody>
                     </table>
+                  )}
+                  {b.items.length > ITEM_LIMIT && (
+                    <button
+                      onClick={() => setShowAllItems(showAllItems === b.key ? null : b.key)}
+                      className="mt-2 font-mono text-[11.5px] text-ochre-deep underline-offset-2 hover:underline"
+                    >
+                      {showAllItems === b.key ? "只顯示頭 30 款" : `顯示全部 ${b.items.length} 款貨品`}
+                    </button>
                   )}
                   {FINER[g] && b.amount > 0 && (
                     <button onClick={() => drill(b)} className="mt-3 border border-ink px-3 py-1.5 font-mono text-[12px] hover:bg-ink hover:text-cream">
