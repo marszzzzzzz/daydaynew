@@ -98,7 +98,13 @@ export default function TenantDashboard() {
         </div>
 
         {/* 走勢圖（跟住上面揀嘅格仔） */}
-        <TenantTrend key={gridCode || "all"} gridCode={gridCode} latestMonth={d.months[0] ?? null} />
+        {d.analyticsEnabled ? (
+          <TenantTrend key={gridCode || "all"} gridCode={gridCode} latestMonth={d.months[0] ?? null} />
+        ) : (
+          <p className="mt-10 border border-dashed border-ink/25 px-4 py-3 text-[12.5px] leading-[1.8] text-ink/55">
+            銷售走勢分析（日／週／月走勢、熱賣貨品）未開通。如需要，請聯絡店主申請開通。
+          </p>
+        )}
 
         {/* 貨品 */}
         <h2 className="font-display mt-12 text-xl font-black tracking-tight">貨品銷售</h2>

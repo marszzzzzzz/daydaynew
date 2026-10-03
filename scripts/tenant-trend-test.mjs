@@ -8,6 +8,11 @@ async function call(p, input, get) {
   for (const c of r.headers.getSetCookie()) if (c.startsWith("gridbox_sid=")) cookie = c.split(";")[0];
   const j = await r.json(); return j.error ? { err: j.error.json.message } : j.result.data.json;
 }
+// 走勢圖要店主先批准
+await call("account.login", { username: "boss", password: "BossPass!2026" });
+const ts = await call("shop.admin.listTenants", undefined, true);
+await call("shop.admin.setTenantAnalytics", { id: ts.find((x) => x.name === "Chris").id, enabled: true });
+cookie = "";
 await call("account.login", { username: "chris", password: "chris123" });
 const m = await call("shop.myTrend", { granularity: "month", from: "2025-09-01", to: "2026-08-31" }, true);
 ck("月：12 個時段（包括冇銷售）", m.buckets.length === 12, m.buckets.map((b) => b.key));

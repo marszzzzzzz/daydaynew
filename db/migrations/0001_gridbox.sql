@@ -27,6 +27,12 @@ CREATE TABLE IF NOT EXISTS gridbox.tenants (
     "updatedAt" timestamptz NOT NULL DEFAULT now()
   );
 
+ALTER TABLE gridbox.tenants ADD COLUMN IF NOT EXISTS "analyticsEnabled" boolean NOT NULL DEFAULT false;
+
+ALTER TABLE gridbox.tenants ADD COLUMN IF NOT EXISTS "analyticsApprovedAt" timestamptz;
+
+ALTER TABLE gridbox.tenants ADD COLUMN IF NOT EXISTS "analyticsApprovedBy" integer REFERENCES gridbox.users(id) ON DELETE SET NULL;
+
 CREATE TABLE IF NOT EXISTS gridbox.grids (
     id serial PRIMARY KEY,
     code text NOT NULL UNIQUE,

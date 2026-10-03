@@ -61,6 +61,8 @@ export async function listTenants() {
       phone: tenants.phone,
       email: tenants.email,
       note: tenants.note,
+      analyticsEnabled: tenants.analyticsEnabled,
+      analyticsApprovedAt: tenants.analyticsApprovedAt,
       createdAt: tenants.createdAt,
       accountName: users.name,
       accountEmail: users.email,

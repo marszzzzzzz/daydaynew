@@ -223,6 +223,8 @@ export const shopRouter = createRouter({
       const summary = await q.tenantItemSummary(tenant.id, input.month, grid?.id);
       return {
         tenant: { name: tenant.name },
+        /** 店主有冇批准銷售分析（走勢圖） */
+        analyticsEnabled: tenant.analyticsEnabled,
         grids: leases.map((l) => l.gridCode).filter(Boolean),
         gridOptions: gridCodes,
         gridCode: grid?.code ?? null,
@@ -248,6 +250,9 @@ export const shopRouter = createRouter({
       if (days > cap) throw new TRPCError({ code: "BAD_REQUEST", message: "期間太長，請揀較粗嘅時段（週／月）" });
       const tenant = await q.findTenantByUserId(ctx.user.id);
       if (!tenant) return null;
+      if (!tenant.analyticsEnabled) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "銷售分析未開通，請聯絡店主" });
+      }
       // 只可以篩自己有份嘅格仔（銷售查詢本身已經限死 tenantId）
       const grid = input.gridCode ? await q.findGridByCode(input.gridCode) : null;
       return q.tenantTrend(tenant.id, input.granularity, input.from, input.to, grid?.id);
@@ -404,6 +409,22 @@ export const shopRouter = createRouter({
         const { id, ...data } = input;
         await q.updateTenant(id, data);
         return { ok: true };
+      }),
+    /** 店主批准／取消租戶嘅銷售分析（走勢圖） */
+    setTenantAnalytics: adminQuery
+      .input(z.object({ id: z.number(), enabled: z.boolean() }))
+      .mutation(async ({ ctx, input }) => {
+        const t = await q.findTenantById(input.id);
+        if (!t) throw new TRPCError({ code: "NOT_FOUND", message: "搵唔到呢個租戶" });
+        await getDb()
+          .update(tenants)
+          .set({
+            analyticsEnabled: input.enabled,
+            analyticsApprovedAt: input.enabled ? new Date() : null,
+            analyticsApprovedBy: input.enabled ? ctx.user.id : null,
+          })
+          .where(eq(tenants.id, input.id));
+        return { ok: true, enabled: input.enabled };
       }),
     deleteTenant: adminQuery
       .input(z.object({ id: z.number() }))

@@ -39,6 +39,14 @@ export default function TenantsTab() {
     onError: (e) => toast.error(e.message),
   });
 
+  const setAnalytics = trpc.shop.admin.setTenantAnalytics.useMutation({
+    onSuccess: (r) => {
+      toast.success(r.enabled ? "已開通銷售分析，租戶專區即時顯示走勢圖" : "已取消銷售分析");
+      invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const del = trpc.shop.admin.deleteTenant.useMutation({
     onSuccess: () => {
       toast.success("已刪除");
@@ -129,6 +137,7 @@ export default function TenantsTab() {
               <th className="py-3 pr-4">電話</th>
               <th className="py-3 pr-4">電郵</th>
               <th className="py-3 pr-4">連結戶口</th>
+              <th className="py-3 pr-4">銷售分析</th>
               <th className="py-3 pr-4">備註</th>
               <th className="py-3 text-right">操作</th>
             </tr>
@@ -156,6 +165,35 @@ export default function TenantsTab() {
                     <p className="mt-1 font-mono text-[10.5px] text-ink/45">{t.accountName ?? t.accountEmail ?? `#${t.userId}`}</p>
                   )}
                 </td>
+                <td className="py-3 pr-4">
+                  {t.analyticsEnabled ? (
+                    <div>
+                      <span className="badge-frame border border-ink/60 text-ink">已開通</span>
+                      {t.analyticsApprovedAt && (
+                        <p className="mt-1 font-mono text-[10.5px] text-ink/45">批准於 {new Date(t.analyticsApprovedAt).toLocaleDateString("en-CA")}</p>
+                      )}
+                      <button
+                        disabled={setAnalytics.isPending}
+                        onClick={() => {
+                          if (confirm(`取消 ${t.name} 嘅銷售分析？佢喺租戶專區會即時睇唔到走勢圖。`)) setAnalytics.mutate({ id: t.id, enabled: false });
+                        }}
+                        className="mt-1 block font-mono text-[11px] text-ink/50 underline-offset-2 hover:underline"
+                      >
+                        取消
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      disabled={setAnalytics.isPending}
+                      onClick={() => {
+                        if (confirm(`批准 ${t.name} 使用銷售分析？\n佢會喺租戶專區睇到自己格仔嘅銷售走勢圖、頭 5 位貨品同時段明細。`)) setAnalytics.mutate({ id: t.id, enabled: true });
+                      }}
+                      className="border border-ochre-deep/70 px-2.5 py-1 font-mono text-[11.5px] text-ochre-deep transition-colors hover:bg-ochre-deep hover:text-cream disabled:opacity-40"
+                    >
+                      批准開通
+                    </button>
+                  )}
+                </td>
                 <td className="py-3 pr-4 text-ink/55">{t.note ?? ""}</td>
                 <td className="py-3 text-right">
                   <button
@@ -167,7 +205,7 @@ export default function TenantsTab() {
                 </td>
               </tr>
             ))}
-            {rows.length === 0 && <EmptyRow colSpan={6} text={tenants.isLoading ? "載入中…" : "未有租戶"} />}
+            {rows.length === 0 && <EmptyRow colSpan={7} text={tenants.isLoading ? "載入中…" : "未有租戶"} />}
           </tbody>
         </table>
       </div>

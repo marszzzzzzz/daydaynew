@@ -47,6 +47,10 @@ export const tenants = gridbox.table("tenants", {
   phone: text("phone"),
   email: text("email"),
   note: text("note"),
+  /** 銷售分析（走勢圖、熱賣貨品、時段下鑽）：要店主批准先會喺租戶專區顯示 */
+  analyticsEnabled: boolean("analyticsEnabled").notNull().default(false),
+  analyticsApprovedAt: timestamp("analyticsApprovedAt", { withTimezone: true, mode: "date" }),
+  analyticsApprovedBy: integer("analyticsApprovedBy"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });

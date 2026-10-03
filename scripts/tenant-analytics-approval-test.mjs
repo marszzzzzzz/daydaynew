@@ -1,0 +1,40 @@
+// 銷售分析開通（店主批准）測試（先行 scripts/tenant-multigrid-test.mjs 準備 chris）
+const B = "http://localhost:3200/api/trpc/";
+let pass = 0, fail = 0;
+const ck = (l, c, d) => { c ? pass++ : fail++; console.log(`  ${c ? "✓" : "✗"} ${l}${c ? "" : "  → " + JSON.stringify(d).slice(0, 250)}`); };
+function client() { let cookie = ""; return async (p, input, get) => {
+  const url = B + p + (get ? `?input=${encodeURIComponent(JSON.stringify({ json: input }))}` : "");
+  const r = await fetch(url, { method: get ? "GET" : "POST", headers: { "content-type": "application/json", cookie }, body: get ? undefined : JSON.stringify({ json: input ?? null }) });
+  for (const c of r.headers.getSetCookie()) if (c.startsWith("gridbox_sid=")) cookie = c.split(";")[0];
+  const j = await r.json(); return j.error ? { err: j.error.json.message, code: j.error.json.data?.code } : j.result.data.json; }; }
+const boss = client(); await boss("account.login", { username: "boss", password: "BossPass!2026" });
+const t = client(); await t("account.login", { username: "chris", password: "chris123" });
+const trend = () => t("shop.myTrend", { granularity: "month", from: "2025-09-01", to: "2026-08-31" }, true);
+const items0 = await t("shop.myItems", {}, true);
+ck("預設：未開通（analyticsEnabled=false）", items0.analyticsEnabled === false, items0.analyticsEnabled);
+ck("未開通：總銷售同貨品照睇到", items0.totalAmount === 16310 && items0.items.length > 0, items0.totalAmount);
+const t0 = await trend();
+ck("未開通：直接打走勢 API → FORBIDDEN「銷售分析未開通」", t0.code === "FORBIDDEN" && /未開通/.test(t0.err), t0);
+const self = await t("shop.admin.setTenantAnalytics", { id: 1, enabled: true });
+ck("租戶自己批准自己 → 被拒", !!self.err, self);
+await boss("account.createAccount", { username: "staff9", password: "staff123", name: "店員", role: "staff" });
+const staff = client(); await staff("account.login", { username: "staff9", password: "staff123" });
+const tenants = await boss("shop.admin.listTenants", undefined, true);
+const chris = tenants.find((x) => x.name === "Chris");
+const st = await staff("shop.admin.setTenantAnalytics", { id: chris.id, enabled: true });
+ck("店員批准 → FORBIDDEN（只限店主）", st.code === "FORBIDDEN", st);
+ck("店主列表見到未開通", chris.analyticsEnabled === false, chris);
+const ap = await boss("shop.admin.setTenantAnalytics", { id: chris.id, enabled: true });
+const after = (await boss("shop.admin.listTenants", undefined, true)).find((x) => x.name === "Chris");
+ck("店主批准 → 已開通 + 記錄批准時間", ap.ok && after.analyticsEnabled === true && !!after.analyticsApprovedAt, after);
+const t1 = await trend();
+ck("開通後：走勢圖有數（$16,310）", t1.totalAmount === 16310, t1.err ?? t1.totalAmount);
+ck("開通後：租戶頁 analyticsEnabled=true", (await t("shop.myItems", {}, true)).analyticsEnabled === true, null);
+const other = tenants.find((x) => x.name === "Other");
+ck("只開通 Chris，其他租戶仍然未開通", other.analyticsEnabled === false, other);
+await boss("shop.admin.setTenantAnalytics", { id: chris.id, enabled: false });
+const t2 = await trend();
+ck("取消後：即時睇唔到（FORBIDDEN）", t2.code === "FORBIDDEN", t2);
+const cleared = (await boss("shop.admin.listTenants", undefined, true)).find((x) => x.name === "Chris");
+ck("取消後清走批准時間", cleared.analyticsApprovedAt == null, cleared);
+console.log(`  → ${pass} 通過 / ${fail} 失敗`);
