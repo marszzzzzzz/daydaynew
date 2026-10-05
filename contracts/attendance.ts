@@ -13,6 +13,7 @@
  * - 「工時」= 時:分:秒，可以超過 24 小時
  * - 「合計」行用嚟核對：逐行加埋要等於合計，唔啱就唔准匯入
  * - 日期範圍嘅開始日決定月份（例如 2026-09-01 10:00 至 2026-10-01 10:00 → 2026-09）
+ * - 只計整個鐘頭：工時向下取整（24:07:13 → 24 小時），唔足一個鐘嘅分鐘唔計錢
  */
 
 export type AttendanceRow = {
@@ -24,7 +25,7 @@ export type AttendanceRow = {
   shiftCount: number;
   /** 總工作秒數 */
   seconds: number;
-  /** 工時（小時，2 位小數） */
+  /** 計薪工時（整數小時，向下取整） */
   hours: number;
 };
 
@@ -40,8 +41,6 @@ export type ParsedAttendance = {
   errors: string[];
 };
 
-const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
-
 /** "24:07:13" → 86833；"8:10" 亦接受（當冇秒） */
 export function durationToSeconds(s: string): number | null {
   const m = s.trim().match(/^(\d+):([0-5]\d)(?::([0-5]\d))?$/);
@@ -49,8 +48,9 @@ export function durationToSeconds(s: string): number | null {
   return Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3] ?? 0);
 }
 
+/** 計薪工時：只計整個鐘頭（向下取整） */
 export function secondsToHours(sec: number): number {
-  return round2(sec / 3600);
+  return Math.floor(sec / 3600);
 }
 
 /** 86833 → "24:07:13" */

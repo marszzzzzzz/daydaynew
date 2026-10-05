@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { and, asc, eq, inArray, like, sql } from "drizzle-orm";
 import { employees, shifts, payrollPayments, attendance } from "@db/schema";
-import { computeMonthPay, shiftPay, MIN_WAGE_HKD } from "@contracts/payroll";
+import { attendancePay, computeMonthPay, shiftPay, MIN_WAGE_HKD } from "@contracts/payroll";
 import { parseAttendanceCsv } from "@contracts/attendance";
 import { createRouter, adminQuery } from "./middleware";
 import { getDb } from "./queries/connection";
@@ -242,7 +242,7 @@ export const payrollRouter = createRouter({
           hourlyRate,
           pay: hourlyRate === null ? null : shiftPay(r.hours, hourlyRate),
           status: !emp ? ("new" as const) : paidIds.has(emp.id) ? ("locked" as const) : prev ? ("replace" as const) : ("create" as const),
-          previous: prev ? { hours: Number(prev.hours), pay: shiftPay(Number(prev.hours), Number(prev.hourlyRate)) } : null,
+          previous: prev ? { hours: Number(prev.hours), pay: attendancePay(prev), edited: !!prev.editedAt } : null,
           /** 同月仲有手動輸入嘅更（會一齊計，小心重複） */
           manualShifts: emp ? manual.filter((s) => s.employeeId === emp.id).length : 0,
           belowMinWage: hourlyRate !== null && hourlyRate < MIN_WAGE_HKD,
@@ -291,6 +291,10 @@ export const payrollRouter = createRouter({
             hourlyRate: r.hourlyRate!.toFixed(2),
             period,
             createdBy: ctx.user.id,
+            // 重新匯入 = 以考勤機數字為準，清走之前嘅手動修改
+            payOverride: null,
+            editedAt: null,
+            note: null,
           };
           await tx
             .insert(attendance)
@@ -315,12 +319,45 @@ export const payrollRouter = createRouter({
           ...a,
           employeeName: e?.name ?? `#${a.employeeId}`,
           staffCode: e?.staffCode ?? null,
-          pay: shiftPay(Number(a.hours), Number(a.hourlyRate)),
+          pay: attendancePay(a),
+          /** 考勤機原始工時（未取整） */
+          rawSeconds: a.seconds,
           locked: paidIds.has(a.employeeId),
         };
       })
       .sort((x, y) => (x.staffCode ?? x.employeeName).localeCompare(y.staffCode ?? y.employeeName));
   }),
+
+  /** 店主手動改考勤：工時、時薪；人工唔填 = 工時 × 時薪，填咗 = 以呢個數為準 */
+  updateAttendance: adminQuery
+    .input(
+      z.object({
+        id: z.number(),
+        hours: z.number().min(0, "工時不可為負數").max(744, "一個月最多 744 小時"),
+        hourlyRate: rate,
+        /** null / 唔填 = 自動計 */
+        pay: z.number().min(0, "人工不可為負數").max(1_000_000).nullable().optional(),
+        note: z.string().max(200).optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const [old] = await getDb().select().from(attendance).where(eq(attendance.id, input.id)).limit(1);
+      if (!old) throw new TRPCError({ code: "NOT_FOUND", message: "搵唔到呢條考勤記錄" });
+      await assertMonthOpen(old.employeeId, `${old.month}-01`);
+      const auto = shiftPay(input.hours, input.hourlyRate);
+      const override = input.pay === null || input.pay === undefined || Math.abs(input.pay - auto) < 0.005 ? null : input.pay;
+      await getDb()
+        .update(attendance)
+        .set({
+          hours: input.hours.toFixed(2),
+          hourlyRate: input.hourlyRate.toFixed(2),
+          payOverride: override === null ? null : override.toFixed(2),
+          editedAt: new Date(),
+          note: input.note?.trim() || null,
+        })
+        .where(eq(attendance.id, input.id));
+      return { ok: true, pay: override ?? auto };
+    }),
 
   deleteAttendance: adminQuery.input(z.object({ id: z.number() })).mutation(async ({ input }) => {
     const [old] = await getDb().select().from(attendance).where(eq(attendance.id, input.id)).limit(1);

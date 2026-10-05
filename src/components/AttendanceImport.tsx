@@ -28,7 +28,7 @@ type Preview = {
     hourlyRate: number | null;
     pay: number | null;
     status: "new" | "locked" | "replace" | "create";
-    previous: { hours: number; pay: number } | null;
+    previous: { hours: number; pay: number; edited: boolean } | null;
     manualShifts: number;
     belowMinWage: boolean;
   }[];
@@ -229,6 +229,9 @@ export default function AttendanceImport({ month, minWage, onImported }: { month
                             舊記錄 {r.previous.hours} 小時 / ${fmtMoney(r.previous.pay)}
                           </p>
                         )}
+                        {r.previous?.edited && r.status === "replace" && (
+                          <p className="font-mono text-[10.5px] text-ochre-deep">⚠ 舊記錄有手動修改，匯入後會用返考勤機數字</p>
+                        )}
                       </td>
                       <td className="py-2 pr-3 text-right font-mono">{r.shiftCount}</td>
                       <td className="py-2 pr-3 text-right font-mono">
@@ -263,7 +266,7 @@ export default function AttendanceImport({ month, minWage, onImported }: { month
             </table>
           </div>
           <p className="mt-2 font-mono text-[10.5px] leading-[1.8] text-ink/45">
-            工時已經核對檔案「合計」行。人工 = 工時（小時，2 位小數）× 時薪。
+            工時已經核對檔案「合計」行。只計整個鐘頭（向下取整，例如 24:07:13 → 24 小時）；人工 = 工時 × 時薪。匯入後可以喺「考勤記錄」逐個修改。
             {shown.keptOthers > 0 && ` 呢個月另有 ${shown.keptOthers} 位員工嘅考勤唔喺呢個檔，會保留唔變。`}
           </p>
         </div>

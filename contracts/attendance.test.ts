@@ -24,9 +24,11 @@ describe("parseAttendanceCsv", () => {
     expect(p.periodFrom).toBe("2026-09-01");
     expect(p.periodTo).toBe("2026-10-01");
     expect(p.rows).toHaveLength(6);
-    expect(p.rows[0]).toEqual({ line: 1, code: "107", name: "Angel", shiftCount: 3, seconds: 24 * 3600 + 7 * 60 + 13, hours: 24.12 });
+    expect(p.rows[0]).toEqual({ line: 1, code: "107", name: "Angel", shiftCount: 3, seconds: 24 * 3600 + 7 * 60 + 13, hours: 24 });
     expect(p.rows[1].name).toBe("Yanki");
-    expect(p.rows[5]).toMatchObject({ code: "110", name: "Esme", shiftCount: 9, hours: 72.07 });
+    expect(p.rows[5]).toMatchObject({ code: "110", name: "Esme", shiftCount: 9, hours: 72 });
+    // 只計整個鐘頭：24+15+8+32+55+72
+    expect(p.rows.reduce((a, r) => a + r.hours, 0)).toBe(206);
     expect(p.total).toEqual({ shiftCount: 26, seconds: 208 * 3600 + 42 * 60 + 58 });
   });
   it("合計對唔上 → 錯誤", () => {

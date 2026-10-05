@@ -5,6 +5,7 @@ import { trpc } from "@/providers/trpc";
 import { fmtMoney, currentMonthStr, todayStr } from "@/lib/format";
 import { downloadCsv } from "@/lib/csv";
 import { shiftHours, shiftPay } from "@contracts/payroll";
+import { formatDuration } from "@contracts/attendance";
 import AttendanceImport from "@/components/AttendanceImport";
 import { SectionTitle, Field, ActionButton, EmptyRow } from "../ui";
 
@@ -215,6 +216,22 @@ function Stat({ label, value, strong }: { label: string; value: string; strong?:
 function AttendanceList({ month }: { month: string }) {
   const invalidate = useInvalidate();
   const list = trpc.payroll.listAttendance.useQuery({ month });
+  const rules = trpc.payroll.rules.useQuery();
+  const minWage = rules.data?.minWage ?? 0;
+  const [editing, setEditing] = useState<number | null>(null);
+  const [fHours, setFHours] = useState("");
+  const [fRate, setFRate] = useState("");
+  const [fPay, setFPay] = useState("");
+  const [fNote, setFNote] = useState("");
+
+  const update = trpc.payroll.updateAttendance.useMutation({
+    onSuccess: (r) => {
+      toast.success(`已更新：人工 $${fmtMoney(r.pay)}`);
+      setEditing(null);
+      invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
   const del = trpc.payroll.deleteAttendance.useMutation({
     onSuccess: () => {
       toast.success("已刪除考勤記錄");
@@ -224,51 +241,119 @@ function AttendanceList({ month }: { month: string }) {
   });
   const rows = list.data ?? [];
 
+  const startEdit = (a: (typeof rows)[number]) => {
+    setEditing(a.id);
+    setFHours(String(Number(a.hours)));
+    setFRate(String(Number(a.hourlyRate)));
+    setFPay(a.payOverride !== null ? String(Number(a.payOverride)) : "");
+    setFNote(a.note ?? "");
+  };
+  const h = Number(fHours);
+  const r = Number(fRate);
+  const autoPay = Number.isFinite(h) && Number.isFinite(r) ? shiftPay(h, r) : 0;
+
+  const save = (id: number) => {
+    if (!fHours.trim() || !Number.isFinite(h) || h < 0) return toast.error("工時錯誤");
+    if (!fRate.trim() || !Number.isFinite(r) || r < 0) return toast.error("時薪錯誤");
+    const p = fPay.trim() ? Number(fPay) : null;
+    if (p !== null && (!Number.isFinite(p) || p < 0)) return toast.error("人工錯誤");
+    update.mutate({ id, hours: h, hourlyRate: r, pay: p, note: fNote || undefined });
+  };
+
+  const cell = "w-full border border-ink/40 bg-cream px-2 py-1 text-right font-mono text-[13px] outline-none focus:border-ink";
+
   return (
     <section>
       <p className="spec-label">Attendance</p>
-      <h3 className="font-display mb-4 mt-1 text-xl font-black tracking-tight">{month} 考勤記錄</h3>
+      <h3 className="font-display mt-1 text-xl font-black tracking-tight">{month} 考勤記錄</h3>
+      <p className="mb-4 mt-1.5 text-[13px] text-ink/60">按「修改」可以改工時、時薪或者直接改人工（例如補鐘、扣錢）。人工留空 = 自動按 工時 × 時薪 計。</p>
       <div className="overflow-x-auto border border-ink/25">
-        <table className="ledger-table w-full min-w-[720px] text-[13.5px]">
+        <table className="ledger-table w-full min-w-[820px] text-[13.5px]">
           <thead>
             <tr className="text-left">
               <th className="py-3 pl-5 pr-4">工號</th>
               <th className="py-3 pr-4">員工</th>
               <th className="py-3 pr-4 text-right">上班次數</th>
-              <th className="py-3 pr-4 text-right">工時</th>
-              <th className="py-3 pr-4 text-right">時薪</th>
-              <th className="py-3 pr-4 text-right">人工</th>
+              <th className="w-28 py-3 pr-4 text-right">工時</th>
+              <th className="w-28 py-3 pr-4 text-right">時薪</th>
+              <th className="w-32 py-3 pr-4 text-right">人工</th>
               <th className="py-3 pr-5 text-right">操作</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((a) => (
-              <tr key={a.id} className="transition-colors hover:bg-ochre/10">
-                <td className="py-2.5 pl-5 pr-4 font-mono text-[12.5px]">{a.staffCode ?? "—"}</td>
-                <td className="py-2.5 pr-4">
-                  {a.employeeName}
-                  {a.period && <p className="font-mono text-[10.5px] text-ink/45">{a.period}</p>}
-                </td>
-                <td className="py-2.5 pr-4 text-right font-mono">{a.shiftCount}</td>
-                <td className="py-2.5 pr-4 text-right font-mono">{Number(a.hours)}</td>
-                <td className="py-2.5 pr-4 text-right font-mono">${Number(a.hourlyRate)}</td>
-                <td className="py-2.5 pr-4 text-right font-mono font-semibold">${fmtMoney(a.pay)}</td>
-                <td className="py-2.5 pr-5 text-right font-mono text-[11.5px]">
-                  {a.locked ? (
-                    <span className="text-ink/40">已出糧 · 鎖定</span>
-                  ) : (
-                    <button
-                      onClick={async () =>
-                        (await askConfirm(`刪除 ${a.employeeName} ${month} 嘅考勤記錄？`, { danger: true, confirmLabel: "刪除" })) && del.mutate({ id: a.id })
-                      }
-                      className="px-2 py-1 text-red-800/80 underline-offset-2 hover:underline"
-                    >
-                      刪除
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {rows.map((a) =>
+              editing === a.id ? (
+                <tr key={a.id} className="bg-ochre/10 align-top">
+                  <td className="py-2.5 pl-5 pr-4 font-mono text-[12.5px]">{a.staffCode ?? "—"}</td>
+                  <td className="py-2.5 pr-4">
+                    <span className="font-semibold">{a.employeeName}</span>
+                    <input className="underline-input mt-1.5 !py-1 text-[12.5px]" value={fNote} onChange={(e) => setFNote(e.target.value)} placeholder="修改原因（可留空）" />
+                  </td>
+                  <td className="py-2.5 pr-4 text-right font-mono">{a.shiftCount}</td>
+                  <td className="py-2.5 pr-4 text-right">
+                    <input className={cell} inputMode="decimal" value={fHours} onChange={(e) => setFHours(e.target.value)} aria-label="工時" />
+                    <p className="mt-1 font-mono text-[10.5px] text-ink/45">打卡 {formatDuration(a.rawSeconds)}</p>
+                  </td>
+                  <td className="py-2.5 pr-4 text-right">
+                    <input className={cell} inputMode="decimal" value={fRate} onChange={(e) => setFRate(e.target.value)} aria-label="時薪" />
+                    {r < minWage && <p className="mt-1 font-mono text-[10.5px] text-red-800">⚠ 低過最低工資</p>}
+                  </td>
+                  <td className="py-2.5 pr-4 text-right">
+                    <input className={cell} inputMode="decimal" value={fPay} onChange={(e) => setFPay(e.target.value)} placeholder={fmtMoney(autoPay)} aria-label="人工" />
+                    <p className="mt-1 font-mono text-[10.5px] text-ink/45">{fPay.trim() ? `自動計係 $${fmtMoney(autoPay)}` : "留空 = 自動計"}</p>
+                  </td>
+                  <td className="py-2.5 pr-5 text-right">
+                    <div className="flex justify-end gap-2">
+                      <ActionButton tone="ghost" onClick={() => setEditing(null)}>
+                        取消
+                      </ActionButton>
+                      <ActionButton tone="ochre" disabled={update.isPending} onClick={() => save(a.id)}>
+                        儲存
+                      </ActionButton>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                <tr key={a.id} className="transition-colors hover:bg-ochre/10">
+                  <td className="py-2.5 pl-5 pr-4 font-mono text-[12.5px]">{a.staffCode ?? "—"}</td>
+                  <td className="py-2.5 pr-4">
+                    {a.employeeName}
+                    {a.editedAt && <span className="badge-frame ml-2 border border-ochre-deep font-mono text-[10px] text-ochre-deep">已手動修改</span>}
+                    {a.note && <p className="font-mono text-[10.5px] text-ink/55">{a.note}</p>}
+                    {a.period && <p className="font-mono text-[10.5px] text-ink/45">{a.period}</p>}
+                  </td>
+                  <td className="py-2.5 pr-4 text-right font-mono">{a.shiftCount}</td>
+                  <td className="py-2.5 pr-4 text-right font-mono">
+                    {Number(a.hours)}
+                    <p className="text-[10.5px] text-ink/45">打卡 {formatDuration(a.rawSeconds)}</p>
+                  </td>
+                  <td className="py-2.5 pr-4 text-right font-mono">${Number(a.hourlyRate)}</td>
+                  <td className="py-2.5 pr-4 text-right font-mono font-semibold">
+                    ${fmtMoney(a.pay)}
+                    {a.payOverride !== null && <p className="text-[10.5px] font-normal text-ochre-deep">手動金額</p>}
+                  </td>
+                  <td className="py-2.5 pr-5 text-right font-mono text-[11.5px]">
+                    {a.locked ? (
+                      <span className="text-ink/40">已出糧 · 鎖定</span>
+                    ) : (
+                      <>
+                        <button onClick={() => startEdit(a)} className="px-2 py-1 text-ochre-deep underline-offset-2 hover:underline">
+                          修改
+                        </button>
+                        <button
+                          onClick={async () =>
+                            (await askConfirm(`刪除 ${a.employeeName} ${month} 嘅考勤記錄？`, { danger: true, confirmLabel: "刪除" })) && del.mutate({ id: a.id })
+                          }
+                          className="px-2 py-1 text-red-800/80 underline-offset-2 hover:underline"
+                        >
+                          刪除
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ),
+            )}
             {rows.length === 0 && <EmptyRow colSpan={7} text={list.isLoading ? "載入中…" : `${month} 未有匯入考勤；喺上面揀 CSV 檔匯入`} />}
           </tbody>
         </table>

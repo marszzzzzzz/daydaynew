@@ -30,8 +30,14 @@ export function shiftPay(hours: number, hourlyRate: number): number {
 }
 
 export type PayrollShift = { startTime: string; endTime: string; breakMinutes: number; hourlyRate: number | string };
-/** 考勤機匯入嘅月度工時（hours 已經係 2 位小數） */
-export type PayrollAttendance = { shiftCount: number; hours: number | string; hourlyRate: number | string };
+/** 考勤機匯入嘅月度工時；payOverride = 店主手動改咗人工（冇就用 工時 × 時薪） */
+export type PayrollAttendance = { shiftCount: number; hours: number | string; hourlyRate: number | string; payOverride?: number | string | null };
+
+/** 考勤記錄嘅人工 */
+export function attendancePay(a: Pick<PayrollAttendance, "hours" | "hourlyRate" | "payOverride">): number {
+  if (a.payOverride !== null && a.payOverride !== undefined && a.payOverride !== "") return round2(Number(a.payOverride));
+  return shiftPay(Number(a.hours), Number(a.hourlyRate));
+}
 
 /** 一個員工一個月嘅人工 */
 export function computeMonthPay(shifts: PayrollShift[], attendance: PayrollAttendance | null = null, adjustment = 0) {
@@ -51,7 +57,7 @@ export function computeMonthPay(shifts: PayrollShift[], attendance: PayrollAtten
     const rate = Number(attendance.hourlyRate);
     if (rate < MIN_WAGE_HKD) belowMinWage = true;
     hours += h;
-    base += shiftPay(h, rate);
+    base += attendancePay(attendance);
     count += attendance.shiftCount;
   }
   base = round2(base);

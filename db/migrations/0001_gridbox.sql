@@ -175,6 +175,12 @@ CREATE TABLE IF NOT EXISTS gridbox.attendance (
 
 CREATE UNIQUE INDEX IF NOT EXISTS attendance_emp_month_uq ON gridbox.attendance ("employeeId", month);
 
+ALTER TABLE gridbox.attendance ADD COLUMN IF NOT EXISTS "payOverride" numeric(12,2) CHECK ("payOverride" >= 0);
+
+ALTER TABLE gridbox.attendance ADD COLUMN IF NOT EXISTS "editedAt" timestamptz;
+
+ALTER TABLE gridbox.attendance ADD COLUMN IF NOT EXISTS note text;
+
 ALTER TABLE gridbox.users ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE gridbox.tenants ENABLE ROW LEVEL SECURITY;

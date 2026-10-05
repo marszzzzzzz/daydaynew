@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeMonthPay, shiftHours } from "./payroll";
+import { attendancePay, computeMonthPay, shiftHours } from "./payroll";
 
 describe("shiftHours", () => {
   it("普通更", () => expect(shiftHours("10:00", "18:00", 60)).toBe(7));
@@ -23,6 +23,11 @@ describe("computeMonthPay", () => {
   it("考勤匯入 + 手動更一齊計", () => {
     const r = computeMonthPay([s("10:00", "14:00", 0, 50)], { shiftCount: 3, hours: "24.12", hourlyRate: "60.00" });
     expect(r).toMatchObject({ shifts: 4, hours: 28.12, base: 1447.2 + 200, gross: 1647.2 });
+  });
+  it("手動改人工優先", () => {
+    expect(attendancePay({ hours: "24.00", hourlyRate: "60.00", payOverride: null })).toBe(1440);
+    expect(attendancePay({ hours: "24.00", hourlyRate: "60.00", payOverride: "1500.00" })).toBe(1500);
+    expect(computeMonthPay([], { shiftCount: 3, hours: 24, hourlyRate: 60, payOverride: 1500 })).toMatchObject({ hours: 24, gross: 1500 });
   });
   it("時薪低過最低工資會標記", () => {
     expect(computeMonthPay([s("10:00", "11:00", 0, 40)]).belowMinWage).toBe(true);

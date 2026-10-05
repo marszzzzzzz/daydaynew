@@ -154,6 +154,10 @@ export const DDL: string[] = [
     "updatedAt" timestamptz NOT NULL DEFAULT now()
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS attendance_emp_month_uq ON gridbox.attendance ("employeeId", month)`,
+  // 店主手動修改考勤（工時／時薪／人工）
+  `ALTER TABLE gridbox.attendance ADD COLUMN IF NOT EXISTS "payOverride" numeric(12,2) CHECK ("payOverride" >= 0)`,
+  `ALTER TABLE gridbox.attendance ADD COLUMN IF NOT EXISTS "editedAt" timestamptz`,
+  `ALTER TABLE gridbox.attendance ADD COLUMN IF NOT EXISTS note text`,
   `ALTER TABLE gridbox.users ENABLE ROW LEVEL SECURITY`,
   `ALTER TABLE gridbox.tenants ENABLE ROW LEVEL SECURITY`,
   `ALTER TABLE gridbox.grids ENABLE ROW LEVEL SECURITY`,

@@ -235,10 +235,15 @@ export const attendance = gridbox.table(
     shiftCount: integer("shiftCount").notNull().default(0),
     /** 總工作秒數（原始數字） */
     seconds: integer("seconds").notNull(),
-    /** 工時（小時，2 位小數；人工 = hours × hourlyRate） */
+    /** 計薪工時（匯入時向下取整到整個鐘頭；店主可以改；人工 = hours × hourlyRate） */
     hours: numeric("hours", { precision: 8, scale: 2 }).notNull(),
-    /** 匯入時嘅時薪（快照） */
+    /** 匯入時嘅時薪（快照；店主可以改） */
     hourlyRate: money("hourlyRate").notNull(),
+    /** 店主手動改嘅人工；null = 工時 × 時薪 */
+    payOverride: money("payOverride"),
+    /** 最後手動修改時間；null = 未改過（純匯入數字） */
+    editedAt: timestamp("editedAt", { withTimezone: true, mode: "date" }),
+    note: text("note"),
     /** 考勤期間，例如 "2026-09-01 至 2026-10-01" */
     period: text("period"),
     createdBy: integer("createdBy"),

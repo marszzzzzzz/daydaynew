@@ -73,9 +73,9 @@ const csv = fs.readFileSync(path.join(dir, file), "utf8");
 // 預先有一位按名對應嘅員工（冇工號）→ 匯入後應該記低工號 102
 const eva = await boss("payroll.createEmployee", { name: "eva", hourlyRate: 55 });
 let pv = await boss("payroll.importAttendance", { csvText: csv, dryRun: true });
-ck("預覽：讀到 6 人、月份 2026-09、總工時 208.72", pv.rows?.length === 6 && pv.month === "2026-09" && Math.abs(pv.total.hours - 208.72) < 0.02, pv.err ?? pv.total);
+ck("預覽：讀到 6 人、月份 2026-09、整鐘總工時 206", pv.rows?.length === 6 && pv.month === "2026-09" && pv.total.hours === 206, pv.err ?? pv.total);
 const pvEva = pv.rows?.find((r) => r.code === "102");
-ck("Eva 按名對應到現有員工，用佢 $55 時薪", pvEva?.employeeId === eva.id && pvEva.matchedBy === "name" && pvEva.pay === Math.round(32.8 * 55 * 100) / 100, pvEva);
+ck("Eva 按名對應到現有員工，用佢 $55 時薪", pvEva?.employeeId === eva.id && pvEva.matchedBy === "name" && pvEva.hours === 32 && pvEva.pay === 32 * 55, pvEva);
 ck("其餘 5 位係新員工", pv.rows?.filter((r) => r.status === "new").length === 5, pv.rows?.map((r) => r.status));
 let noRate = await boss("payroll.importAttendance", { csvText: csv, dryRun: false });
 ck("新員工冇時薪 → 唔准匯入", noRate.err && /時薪/.test(noRate.err), noRate);
@@ -84,19 +84,32 @@ let im = await boss("payroll.importAttendance", { csvText: csv, newRates: rates,
 ck("正式匯入：6 位、新增 5 位員工", im.imported === 6 && im.created === 5, im.err ?? im);
 let att = await boss("payroll.listAttendance", { month: "2026-09" }, true);
 const angel = att.find((x) => x.staffCode === "107");
-ck("Angel 107：3 次、24.12 小時 × $60 = $1,447.20", angel && angel.shiftCount === 3 && Number(angel.hours) === 24.12 && angel.pay === 1447.2, angel);
+ck("Angel 107：3 次、24:07:13 只計 24 小時 × $60 = $1,440", angel && angel.shiftCount === 3 && Number(angel.hours) === 24 && angel.pay === 1440 && angel.rawSeconds === 86833, angel);
 const emps = await boss("payroll.listEmployees", undefined, true);
 ck("Eva 自動記低工號 102", emps.find((e) => e.id === eva.id)?.staffCode === "102", emps.find((e) => e.id === eva.id));
 s = await boss("payroll.monthSummary", { month: "2026-09" }, true);
 const sAngel = s.rows.find((r) => r.staffCode === "107");
-ck("月結包含考勤人工", sAngel?.hours === 24.12 && sAngel.gross === 1447.2 && sAngel.shifts === 3, sAngel);
+ck("月結包含考勤人工", sAngel?.hours === 24 && sAngel.gross === 1440 && sAngel.shifts === 3, sAngel);
+// 手動修改：改工時 → 人工自動跟；直接改人工 → 以手動金額為準
+let up = await boss("payroll.updateAttendance", { id: angel.id, hours: 25, hourlyRate: 60, pay: null, note: "補一個鐘" });
+ck("改工時 25 → 人工自動 $1,500", up.pay === 1500, up);
+up = await boss("payroll.updateAttendance", { id: angel.id, hours: 25, hourlyRate: 60, pay: 1520 });
+let a2 = (await boss("payroll.listAttendance", { month: "2026-09" }, true)).find((x) => x.id === angel.id);
+ck("直接改人工 $1,520 → 記錄手動金額同修改時間", a2.pay === 1520 && Number(a2.payOverride) === 1520 && a2.editedAt, a2);
+s = await boss("payroll.monthSummary", { month: "2026-09" }, true);
+ck("月結用手動金額", s.rows.find((r) => r.staffCode === "107").gross === 1520, s.rows.find((r) => r.staffCode === "107"));
+const badEdit = await boss("payroll.updateAttendance", { id: angel.id, hours: -1, hourlyRate: 60 });
+ck("工時負數 → 拒絕", badEdit.err, badEdit);
+pv = await boss("payroll.importAttendance", { csvText: csv, dryRun: true });
+ck("再匯入預覽會提示舊記錄有手動修改", pv.rows.find((r) => r.code === "107").previous?.edited === true, pv.rows.find((r) => r.code === "107"));
 // 再匯入同一個檔 → 覆蓋，唔會重複
 await boss("payroll.updateEmployee", { id: angel.employeeId, hourlyRate: 70 });
 pv = await boss("payroll.importAttendance", { csvText: csv, dryRun: true });
 ck("再匯入預覽：全部係「覆蓋」、冇新員工", pv.rows.every((r) => r.status === "replace"), pv.rows.map((r) => r.status));
 im = await boss("payroll.importAttendance", { csvText: csv, dryRun: false });
 att = await boss("payroll.listAttendance", { month: "2026-09" }, true);
-ck("覆蓋後仍然 6 條，Angel 用新時薪 $70", att.length === 6 && att.find((x) => x.staffCode === "107").pay === Math.round(24.12 * 70 * 100) / 100, att.map((x) => [x.staffCode, x.pay]));
+const a3 = att.find((x) => x.staffCode === "107");
+ck("覆蓋後仍然 6 條，Angel 用新時薪 24 × $70、清走手動修改", att.length === 6 && a3.pay === 1680 && a3.payOverride === null && a3.editedAt === null, a3);
 // 出糧後鎖定
 const sEva = s.rows.find((r) => r.employeeId === eva.id);
 await boss("payroll.markPaid", { employeeId: eva.id, month: "2026-09", paidAt: "2026-10-07" });
@@ -105,6 +118,8 @@ ck("已出糧員工再匯入 → 跳過", pv.rows.find((r) => r.code === "102").
 const evaAtt = att.find((x) => x.employeeId === eva.id);
 const delLockedAtt = await boss("payroll.deleteAttendance", { id: evaAtt.id });
 ck("已出糧員工嘅考勤唔可以刪", delLockedAtt.err && /鎖定/.test(delLockedAtt.err), delLockedAtt);
+const editLocked = await boss("payroll.updateAttendance", { id: evaAtt.id, hours: 40, hourlyRate: 55 });
+ck("已出糧員工嘅考勤唔可以改", editLocked.err && /鎖定/.test(editLocked.err), editLocked);
 ck("出糧金額 = 考勤人工", sEva && (await boss("payroll.monthSummary", { month: "2026-09" }, true)).rows.find((r) => r.employeeId === eva.id).gross === sEva.gross, sEva);
 const dupCode = await boss("payroll.createEmployee", { name: "冒牌", staffCode: "107", hourlyRate: 50 });
 ck("工號唔可以重複", dupCode.err && /工號 107/.test(dupCode.err), dupCode);
