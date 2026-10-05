@@ -5,10 +5,12 @@ import { trpc } from "@/providers/trpc";
 import { fmtMoney, currentMonthStr, todayStr } from "@/lib/format";
 import { downloadCsv } from "@/lib/csv";
 import { shiftHours, shiftPay } from "@contracts/payroll";
+import AttendanceImport from "@/components/AttendanceImport";
 import { SectionTitle, Field, ActionButton, EmptyRow } from "../ui";
 
 /**
- * 10 兼職人工：員工時薪 → 每更返工記錄 → 每月人工（含強積金）→ 出糧鎖定
+ * 10 兼職人工：匯入考勤機 CSV（或者手動加更）→ 每月人工 → 出糧鎖定
+ * 店舖兼職員工冇供強積金，實收 = 總人工。
  */
 export default function PayrollTab() {
   const [month, setMonth] = useState(currentMonthStr());
@@ -19,20 +21,17 @@ export default function PayrollTab() {
       <SectionTitle
         no="10 · Part-time Payroll"
         title="兼職人工"
-        desc="記錄兼職員工每更返工時間，系統自動計工時、人工同強積金。出糧後該月更表會鎖定，數字唔會再變。"
+        desc="匯入考勤機嘅「員工考勤_明細」CSV，系統自動記錄每位員工當月工時同計人工；考勤機冇記到嘅更可以手動補。出糧後該月記錄會鎖定，數字唔會再變。"
       />
       <div className="flex flex-wrap items-end gap-5 border border-ink/25 p-5">
         <Field label="月份">
           <input type="month" className="underline-input !w-auto font-mono" value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} />
         </Field>
-        {rules.data && (
-          <p className="font-mono text-[11px] leading-[1.8] text-ink/55">
-            法定最低工資 ${rules.data.minWage}/小時 · 強積金 {rules.data.mpf.rate * 100}%（月入低過 ${fmtMoney(rules.data.mpf.minRelevantIncome)} 僱員唔使供；
-            上限 ${fmtMoney(rules.data.mpf.maxRelevantIncome)}）
-          </p>
-        )}
+        {rules.data && <p className="font-mono text-[11px] leading-[1.8] text-ink/55">法定最低工資 ${rules.data.minWage}/小時 · 人工 = 工時 × 時薪（冇強積金）</p>}
       </div>
+      <AttendanceImport month={month} minWage={rules.data?.minWage ?? 0} onImported={setMonth} />
       <MonthSummary month={month} />
+      <AttendanceList month={month} />
       <Shifts month={month} />
       <Employees />
     </div>
@@ -44,6 +43,7 @@ function useInvalidate() {
   return () => {
     void utils.payroll.listEmployees.invalidate();
     void utils.payroll.listShifts.invalidate();
+    void utils.payroll.listAttendance.invalidate();
     void utils.payroll.monthSummary.invalidate();
   };
 }
@@ -60,7 +60,7 @@ function MonthSummary({ month }: { month: string }) {
 
   const markPaid = trpc.payroll.markPaid.useMutation({
     onSuccess: (r) => {
-      toast.success(`已出糧：實收 $${fmtMoney(r.net)}`);
+      toast.success(`已出糧：$${fmtMoney(r.gross)}`);
       setPaying(null);
       setAdj("");
       setNote("");
@@ -70,7 +70,7 @@ function MonthSummary({ month }: { month: string }) {
   });
   const unmark = trpc.payroll.unmarkPaid.useMutation({
     onSuccess: () => {
-      toast.success("已取消出糧，該月更表已解鎖");
+      toast.success("已取消出糧，該月記錄已解鎖");
       invalidate();
     },
     onError: (e) => toast.error(e.message),
@@ -80,9 +80,9 @@ function MonthSummary({ month }: { month: string }) {
   const t = summary.data?.totals;
 
   const exportCsv = () => {
-    const head = ["月份", "員工", "更數", "工時", "基本人工", "調整", "總人工", "僱員強積金", "僱主強積金", "實收", "狀態", "出糧日期"];
+    const head = ["月份", "工號", "員工", "上班次數", "工時", "基本人工", "調整", "人工", "狀態", "出糧日期"];
     const lines = rows.map((r) =>
-      [month, r.name, r.shifts, r.hours, r.base, r.adjustment, r.gross, r.mpfEmployee, r.mpfEmployer, r.net, r.paid ? "已出糧" : "未出糧", r.paid?.paidAt ?? ""]
+      [month, r.staffCode ?? "", r.name, r.shifts, r.hours, r.base, r.adjustment, r.gross, r.paid ? "已出糧" : "未出糧", r.paid?.paidAt ?? ""]
         .map((v) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v)))
         .join(","),
     );
@@ -104,23 +104,20 @@ function MonthSummary({ month }: { month: string }) {
       {t && (
         <div className="mb-5 grid gap-[3px] border border-ink/25 bg-ink/10 sm:grid-cols-4">
           <Stat label="總工時" value={`${t.hours} 小時`} />
-          <Stat label="總人工" value={`$${fmtMoney(t.gross)}`} />
-          <Stat label="僱主強積金" value={`$${fmtMoney(t.mpfEmployer)}`} />
-          <Stat label="店舖人工成本" value={`$${fmtMoney(t.employerCost)}`} strong />
+          <Stat label="總人工" value={`$${fmtMoney(t.gross)}`} strong />
+          <Stat label="已出糧" value={`$${fmtMoney(t.paidGross)}`} />
+          <Stat label="未出糧" value={`${t.unpaidCount} 位`} />
         </div>
       )}
 
       <div className="overflow-x-auto border border-ink/25">
-        <table className="ledger-table w-full min-w-[860px] text-[13.5px]">
+        <table className="ledger-table w-full min-w-[640px] text-[13.5px]">
           <thead>
             <tr className="text-left">
               <th className="py-3 pl-5 pr-4">員工</th>
-              <th className="py-3 pr-4 text-right">更數</th>
+              <th className="py-3 pr-4 text-right">上班次數</th>
               <th className="py-3 pr-4 text-right">工時</th>
-              <th className="py-3 pr-4 text-right">總人工</th>
-              <th className="py-3 pr-4 text-right">僱員強積金</th>
-              <th className="py-3 pr-4 text-right">僱主強積金</th>
-              <th className="py-3 pr-4 text-right">實收</th>
+              <th className="py-3 pr-4 text-right">人工</th>
               <th className="py-3 pr-5 text-right">出糧</th>
             </tr>
           </thead>
@@ -128,8 +125,13 @@ function MonthSummary({ month }: { month: string }) {
             {rows.map((r) => (
               <tr key={r.employeeId} className="align-top">
                 <td className="py-3 pl-5 pr-4">
+                  {r.staffCode && <span className="mr-2 font-mono text-[11px] text-ink/50">{r.staffCode}</span>}
                   <span className="font-semibold">{r.name}</span>
-                  {!r.mpfEnrolled && <span className="ml-2 font-mono text-[10.5px] text-ink/45">冇強積金</span>}
+                  {r.sources.attendanceHours > 0 && r.sources.manualShifts > 0 && (
+                    <p className="font-mono text-[10.5px] text-ink/50">
+                      考勤 {r.sources.attendanceHours} 小時 + 手動 {r.sources.manualShifts} 更
+                    </p>
+                  )}
                   {r.belowMinWage && <p className="font-mono text-[10.5px] text-red-800">⚠ 有更時薪低過法定最低工資</p>}
                   {r.adjustment !== 0 && (
                     <p className="font-mono text-[10.5px] text-ink/50">
@@ -140,16 +142,13 @@ function MonthSummary({ month }: { month: string }) {
                 </td>
                 <td className="py-3 pr-4 text-right font-mono">{r.shifts}</td>
                 <td className="py-3 pr-4 text-right font-mono">{r.hours}</td>
-                <td className="py-3 pr-4 text-right font-mono">${fmtMoney(r.gross)}</td>
-                <td className="py-3 pr-4 text-right font-mono">${fmtMoney(r.mpfEmployee)}</td>
-                <td className="py-3 pr-4 text-right font-mono">${fmtMoney(r.mpfEmployer)}</td>
-                <td className="py-3 pr-4 text-right font-mono font-semibold">${fmtMoney(r.net)}</td>
+                <td className="py-3 pr-4 text-right font-mono font-semibold">${fmtMoney(r.gross)}</td>
                 <td className="py-3 pr-5 text-right">
                   {r.paid ? (
                     <div className="font-mono text-[11.5px]">
                       <span className="badge-frame border border-ink/60">已出糧 {r.paid.paidAt}</span>
                       <button
-                        onClick={async () => (await askConfirm(`取消 ${r.name} ${month} 嘅出糧記錄？更表會解鎖，人工會重新計。`)) && unmark.mutate({ employeeId: r.employeeId, month })}
+                        onClick={async () => (await askConfirm(`取消 ${r.name} ${month} 嘅出糧記錄？考勤同更表會解鎖，人工會重新計。`)) && unmark.mutate({ employeeId: r.employeeId, month })}
                         className="mt-1 block w-full text-right text-ink/50 underline-offset-2 hover:underline"
                       >
                         取消出糧
@@ -184,19 +183,19 @@ function MonthSummary({ month }: { month: string }) {
                       </div>
                     </div>
                   ) : (
-                    <ActionButton tone="ochre" disabled={r.shifts === 0} onClick={() => setPaying(r.employeeId)}>
+                    <ActionButton tone="ochre" disabled={r.hours === 0} onClick={() => setPaying(r.employeeId)}>
                       出糧
                     </ActionButton>
                   )}
                 </td>
               </tr>
             ))}
-            {rows.length === 0 && <EmptyRow colSpan={8} text={summary.isLoading ? "載入中…" : "未有員工；請喺下面「員工」新增"} />}
+            {rows.length === 0 && <EmptyRow colSpan={5} text={summary.isLoading ? "載入中…" : "未有員工；匯入考勤 CSV 會自動新增"} />}
           </tbody>
         </table>
       </div>
       <p className="mt-2 font-mono text-[10.5px] leading-[1.8] text-ink/45">
-        實收 = 總人工 − 僱員強積金。法定假日薪酬、有薪年假、獎金或扣減，請喺「出糧」時用「調整」加減（會計入強積金有關入息）。
+        人工 = 考勤工時 × 時薪 + 手動加更。法定假日薪酬、有薪年假、獎金或扣減，請喺「出糧」時用「調整」加減。
       </p>
     </section>
   );
@@ -208,6 +207,73 @@ function Stat({ label, value, strong }: { label: string; value: string; strong?:
       <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50">{label}</p>
       <p className={`mt-1.5 font-mono text-[16px] ${strong ? "font-bold" : "font-semibold"}`}>{value}</p>
     </div>
+  );
+}
+
+// ─── 考勤記錄（CSV 匯入） ─────────────────────────────────
+
+function AttendanceList({ month }: { month: string }) {
+  const invalidate = useInvalidate();
+  const list = trpc.payroll.listAttendance.useQuery({ month });
+  const del = trpc.payroll.deleteAttendance.useMutation({
+    onSuccess: () => {
+      toast.success("已刪除考勤記錄");
+      invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const rows = list.data ?? [];
+
+  return (
+    <section>
+      <p className="spec-label">Attendance</p>
+      <h3 className="font-display mb-4 mt-1 text-xl font-black tracking-tight">{month} 考勤記錄</h3>
+      <div className="overflow-x-auto border border-ink/25">
+        <table className="ledger-table w-full min-w-[720px] text-[13.5px]">
+          <thead>
+            <tr className="text-left">
+              <th className="py-3 pl-5 pr-4">工號</th>
+              <th className="py-3 pr-4">員工</th>
+              <th className="py-3 pr-4 text-right">上班次數</th>
+              <th className="py-3 pr-4 text-right">工時</th>
+              <th className="py-3 pr-4 text-right">時薪</th>
+              <th className="py-3 pr-4 text-right">人工</th>
+              <th className="py-3 pr-5 text-right">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((a) => (
+              <tr key={a.id} className="transition-colors hover:bg-ochre/10">
+                <td className="py-2.5 pl-5 pr-4 font-mono text-[12.5px]">{a.staffCode ?? "—"}</td>
+                <td className="py-2.5 pr-4">
+                  {a.employeeName}
+                  {a.period && <p className="font-mono text-[10.5px] text-ink/45">{a.period}</p>}
+                </td>
+                <td className="py-2.5 pr-4 text-right font-mono">{a.shiftCount}</td>
+                <td className="py-2.5 pr-4 text-right font-mono">{Number(a.hours)}</td>
+                <td className="py-2.5 pr-4 text-right font-mono">${Number(a.hourlyRate)}</td>
+                <td className="py-2.5 pr-4 text-right font-mono font-semibold">${fmtMoney(a.pay)}</td>
+                <td className="py-2.5 pr-5 text-right font-mono text-[11.5px]">
+                  {a.locked ? (
+                    <span className="text-ink/40">已出糧 · 鎖定</span>
+                  ) : (
+                    <button
+                      onClick={async () =>
+                        (await askConfirm(`刪除 ${a.employeeName} ${month} 嘅考勤記錄？`, { danger: true, confirmLabel: "刪除" })) && del.mutate({ id: a.id })
+                      }
+                      className="px-2 py-1 text-red-800/80 underline-offset-2 hover:underline"
+                    >
+                      刪除
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {rows.length === 0 && <EmptyRow colSpan={7} text={list.isLoading ? "載入中…" : `${month} 未有匯入考勤；喺上面揀 CSV 檔匯入`} />}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -254,8 +320,9 @@ function Shifts({ month }: { month: string }) {
 
   return (
     <section>
-      <p className="spec-label">Shifts</p>
-      <h3 className="font-display mb-4 mt-1 text-xl font-black tracking-tight">返工記錄</h3>
+      <p className="spec-label">Manual shifts</p>
+      <h3 className="font-display mt-1 text-xl font-black tracking-tight">手動加更</h3>
+      <p className="mb-4 mt-1.5 text-[13px] text-ink/60">考勤機冇記錄到嘅更（例如忘記打卡）先喺度補；已經喺考勤 CSV 嘅唔好重複加。</p>
 
       <form
         className="grid gap-4 border border-ink/25 p-5 sm:grid-cols-2 lg:grid-cols-[1.2fr_1fr_.8fr_.8fr_.7fr_.7fr_auto] lg:items-end"
@@ -378,7 +445,7 @@ function Shifts({ month }: { month: string }) {
                 </tr>
               );
             })}
-            {rows.length === 0 && <EmptyRow colSpan={8} text={list.isLoading ? "載入中…" : `${month} 未有返工記錄`} />}
+            {rows.length === 0 && <EmptyRow colSpan={8} text={list.isLoading ? "載入中…" : `${month} 冇手動加更`} />}
           </tbody>
         </table>
       </div>
@@ -395,14 +462,15 @@ function Employees() {
   const minWage = rules.data?.minWage ?? 0;
 
   const [name, setName] = useState("");
+  const [code, setCode] = useState("");
   const [phone, setPhone] = useState("");
   const [rate, setRate] = useState("");
-  const [mpf, setMpf] = useState(true);
 
   const create = trpc.payroll.createEmployee.useMutation({
     onSuccess: () => {
       toast.success("已新增員工");
       setName("");
+      setCode("");
       setPhone("");
       setRate("");
       invalidate();
@@ -430,16 +498,19 @@ function Employees() {
       <h3 className="font-display mb-4 mt-1 text-xl font-black tracking-tight">兼職員工</h3>
 
       <form
-        className="grid gap-4 border border-ink/25 p-5 sm:grid-cols-2 lg:grid-cols-[1.2fr_1fr_.8fr_auto_auto] lg:items-end"
+        className="grid gap-4 border border-ink/25 p-5 sm:grid-cols-2 lg:grid-cols-[.6fr_1.2fr_1fr_.8fr_auto] lg:items-end"
         onSubmit={async (e) => {
           e.preventDefault();
           const r = Number(rate);
           if (!name.trim()) return toast.error("請輸入姓名");
           if (!rate.trim() || !Number.isFinite(r) || r < 0) return toast.error("請輸入時薪");
           if (r < minWage && !(await askConfirm(`時薪 $${r} 低過法定最低工資 $${minWage}，確定？`))) return;
-          create.mutate({ name: name.trim(), phone: phone || undefined, hourlyRate: r, mpfEnrolled: mpf });
+          create.mutate({ name: name.trim(), staffCode: code.trim() || undefined, phone: phone || undefined, hourlyRate: r });
         }}
       >
+        <Field label="工號">
+          <input className="underline-input font-mono" value={code} onChange={(e) => setCode(e.target.value)} placeholder="107" />
+        </Field>
         <Field label="姓名">
           <input className="underline-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="陳大文" />
         </Field>
@@ -449,26 +520,22 @@ function Employees() {
         <Field label="時薪（港幣）">
           <input className="underline-input font-mono" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} placeholder={String(minWage || "")} />
         </Field>
-        <label className="flex items-center gap-2 pb-2 text-[13px]">
-          <input type="checkbox" checked={mpf} onChange={(e) => setMpf(e.target.checked)} />
-          供強積金
-        </label>
         <ActionButton tone="ochre" disabled={create.isPending}>
           新增員工
         </ActionButton>
       </form>
       <p className="mt-2 font-mono text-[10.5px] leading-[1.8] text-ink/45">
-        受僱少於 60 日嘅員工一般可以豁免強積金（飲食及建造業除外），可以取消剔「供強積金」；做滿 60 日要記得改返。
+        工號要同考勤機一樣（例如「107-Angel」嘅 107），匯入 CSV 先對得到。匯入時遇到新工號會自動新增員工。
       </p>
 
       <div className="mt-5 overflow-x-auto border border-ink/25">
         <table className="ledger-table w-full min-w-[680px] text-[13.5px]">
           <thead>
             <tr className="text-left">
-              <th className="py-3 pl-5 pr-4">姓名</th>
+              <th className="py-3 pl-5 pr-4">工號</th>
+              <th className="py-3 pr-4">姓名</th>
               <th className="py-3 pr-4">電話</th>
               <th className="py-3 pr-4 text-right">時薪</th>
-              <th className="py-3 pr-4">強積金</th>
               <th className="py-3 pr-4">狀態</th>
               <th className="py-3 pr-5 text-right">操作</th>
             </tr>
@@ -476,23 +543,32 @@ function Employees() {
           <tbody>
             {(emps.data ?? []).map((e) => (
               <tr key={e.id} className={e.active ? "" : "text-ink/40"}>
-                <td className="py-2.5 pl-5 pr-4 font-semibold">{e.name}</td>
+                <td className="py-2.5 pl-5 pr-4 font-mono text-[12.5px]">
+                  <button
+                    className="underline-offset-2 hover:underline"
+                    title="改工號"
+                    onClick={async () => {
+                      const v = await askPrompt(`${e.name} 嘅考勤機工號（留空 = 冇）`, e.staffCode ?? "");
+                      if (v == null) return;
+                      if (v.trim() && !/^\d{1,10}$/.test(v.trim())) return toast.error("工號只可以係數字");
+                      update.mutate({ id: e.id, staffCode: v.trim() });
+                    }}
+                  >
+                    {e.staffCode ?? "＋工號"}
+                  </button>
+                </td>
+                <td className="py-2.5 pr-4 font-semibold">{e.name}</td>
                 <td className="py-2.5 pr-4 font-mono text-[12.5px]">{e.phone ?? "—"}</td>
                 <td className="py-2.5 pr-4 text-right font-mono">
                   ${Number(e.hourlyRate)}
                   {Number(e.hourlyRate) < minWage && <span className="ml-1 text-red-800">⚠</span>}
-                </td>
-                <td className="py-2.5 pr-4">
-                  <button className="font-mono text-[12px] underline-offset-2 hover:underline" onClick={() => update.mutate({ id: e.id, mpfEnrolled: !e.mpfEnrolled })}>
-                    {e.mpfEnrolled ? "有供" : "豁免"}
-                  </button>
                 </td>
                 <td className="py-2.5 pr-4 font-mono text-[12px]">{e.active ? "在職" : "停用"}</td>
                 <td className="py-2.5 pr-5 text-right font-mono text-[11.5px]">
                   <button
                     className="px-2 py-1 text-ochre-deep underline-offset-2 hover:underline"
                     onClick={async () => {
-                      const v = await askPrompt(`${e.name} 嘅新時薪（只影響之後新加嘅更）`, String(Number(e.hourlyRate)));
+                      const v = await askPrompt(`${e.name} 嘅新時薪（只影響之後匯入嘅考勤同新加嘅更）`, String(Number(e.hourlyRate)));
                       if (v == null) return;
                       const r = Number(v);
                       if (!Number.isFinite(r) || r < 0) return toast.error("時薪錯誤");

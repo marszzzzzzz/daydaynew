@@ -11,7 +11,7 @@ import "dotenv/config";
 import pg from "pg";
 
 // 次序跟外鍵：先父後子（還原時按呢個次序插入）
-const TABLES = ["users", "tenants", "grids", "leases", "sales", "rent_records", "employees", "shifts", "payroll_payments"];
+const TABLES = ["users", "tenants", "grids", "leases", "sales", "rent_records", "employees", "shifts", "payroll_payments", "attendance"];
 
 if (!process.env.DATABASE_URL) {
   console.error("✗ .env 入面冇 DATABASE_URL，請先行 npm run setup");
@@ -40,7 +40,13 @@ const sql = [
 ];
 
 try {
-  for (const t of TABLES) {
+  // 新功能嘅表喺 server 開機後先會建立；未存在就略過（唔當失敗）
+  const { rows: existing } = await pool.query(`SELECT table_name FROM information_schema.tables WHERE table_schema = 'gridbox'`);
+  const have = new Set(existing.map((r) => r.table_name));
+  const present = TABLES.filter((t) => have.has(t));
+  for (const t of TABLES.filter((x) => !have.has(x))) console.log(`  – ${t.padEnd(17)} 未建立，略過`);
+  sql[3] = `TRUNCATE ${present.map((t) => `gridbox.${t}`).join(", ")} RESTART IDENTITY;`;
+  for (const t of present) {
     // 一條連線逐張表讀，唔會平行
     const { rows, fields } = await pool.query(`SELECT * FROM gridbox.${t} ORDER BY id`);
     const json = JSON.stringify(rows, null, 2);
@@ -61,7 +67,7 @@ try {
   fs.writeFileSync(path.join(dir, "restore.sql"), sql.join("\n") + "\n", { mode: 0o600 });
   fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify(manifest, null, 2), { mode: 0o600 });
   const total = Object.values(manifest.tables).reduce((a, x) => a + x.rows, 0);
-  console.log(`\n✓ 備份完成：${dir}（${TABLES.length} 張表，共 ${total} 行）`);
+  console.log(`\n✓ 備份完成：${dir}（${Object.keys(manifest.tables).length} 張表，共 ${total} 行）`);
 } catch (e) {
   console.error("✗ 備份失敗：", e.message);
   process.exitCode = 1;

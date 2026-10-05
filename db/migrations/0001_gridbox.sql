@@ -151,6 +151,30 @@ CREATE TABLE IF NOT EXISTS gridbox.payroll_payments (
 
 CREATE UNIQUE INDEX IF NOT EXISTS payroll_emp_month_uq ON gridbox.payroll_payments ("employeeId", month);
 
+ALTER TABLE gridbox.employees ADD COLUMN IF NOT EXISTS "staffCode" text;
+
+CREATE UNIQUE INDEX IF NOT EXISTS employees_staff_code_uq ON gridbox.employees ("staffCode") WHERE "staffCode" IS NOT NULL;
+
+ALTER TABLE gridbox.payroll_payments ALTER COLUMN "mpfEmployee" SET DEFAULT 0;
+
+ALTER TABLE gridbox.payroll_payments ALTER COLUMN "mpfEmployer" SET DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS gridbox.attendance (
+    id serial PRIMARY KEY,
+    "employeeId" integer NOT NULL REFERENCES gridbox.employees(id),
+    month text NOT NULL,
+    "shiftCount" integer NOT NULL DEFAULT 0 CHECK ("shiftCount" >= 0),
+    seconds integer NOT NULL CHECK (seconds >= 0),
+    hours numeric(8,2) NOT NULL,
+    "hourlyRate" numeric(12,2) NOT NULL CHECK ("hourlyRate" >= 0),
+    period text,
+    "createdBy" integer REFERENCES gridbox.users(id) ON DELETE SET NULL,
+    "createdAt" timestamptz NOT NULL DEFAULT now(),
+    "updatedAt" timestamptz NOT NULL DEFAULT now()
+  );
+
+CREATE UNIQUE INDEX IF NOT EXISTS attendance_emp_month_uq ON gridbox.attendance ("employeeId", month);
+
 ALTER TABLE gridbox.users ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE gridbox.tenants ENABLE ROW LEVEL SECURITY;
@@ -168,6 +192,8 @@ ALTER TABLE gridbox.employees ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gridbox.shifts ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE gridbox.payroll_payments ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE gridbox.attendance ENABLE ROW LEVEL SECURITY;
 
 -- 只限 Supabase：確保公開 API 角色（anon / authenticated）完全掂唔到 gridbox
 REVOKE ALL ON SCHEMA gridbox FROM anon, authenticated;

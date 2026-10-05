@@ -161,9 +161,11 @@ export const employees = gridbox.table("employees", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   phone: text("phone"),
+  /** 考勤機工號（例如 "107"），匯入考勤 CSV 時用嚟對應員工 */
+  staffCode: text("staffCode"),
   /** 預設時薪（新增更表時帶入；每更會另外記低當時時薪） */
   hourlyRate: money("hourlyRate").notNull(),
-  /** 有冇參加強積金（受僱少於 60 日可豁免） */
+  /** 已停用：店舖兼職員工冇供強積金（保留欄位只為兼容舊資料） */
   mpfEnrolled: boolean("mpfEnrolled").notNull().default(true),
   active: boolean("active").notNull().default(true),
   note: text("note"),
@@ -221,4 +223,31 @@ export const payrollPayments = gridbox.table(
 
 export type PayrollPayment = typeof payrollPayments.$inferSelect;
 
-export const ALL_TABLES = ["users", "tenants", "grids", "leases", "sales", "rent_records", "employees", "shifts", "payroll_payments"] as const;
+/** 考勤機匯入嘅月度工時（每人每月一條；同月再匯入會覆蓋） */
+export const attendance = gridbox.table(
+  "attendance",
+  {
+    id: serial("id").primaryKey(),
+    employeeId: integer("employeeId").notNull(),
+    /** YYYY-MM */
+    month: text("month").notNull(),
+    /** 上班次數 */
+    shiftCount: integer("shiftCount").notNull().default(0),
+    /** 總工作秒數（原始數字） */
+    seconds: integer("seconds").notNull(),
+    /** 工時（小時，2 位小數；人工 = hours × hourlyRate） */
+    hours: numeric("hours", { precision: 8, scale: 2 }).notNull(),
+    /** 匯入時嘅時薪（快照） */
+    hourlyRate: money("hourlyRate").notNull(),
+    /** 考勤期間，例如 "2026-09-01 至 2026-10-01" */
+    period: text("period"),
+    createdBy: integer("createdBy"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [uniqueIndex("attendance_emp_month_uq").on(table.employeeId, table.month)],
+);
+
+export type Attendance = typeof attendance.$inferSelect;
+
+export const ALL_TABLES = ["users", "tenants", "grids", "leases", "sales", "rent_records", "employees", "shifts", "payroll_payments", "attendance"] as const;
