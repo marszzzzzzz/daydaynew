@@ -126,7 +126,6 @@ const D = {
   'form.delete.confirm': ['刪除後，相片會一併刪除，進行中的交易會被取消。確定刪除？', 'Deleting it removes its photos and cancels its live deals. Delete it?'],
   'form.photoFailed': ['卡已儲存，但相片上載失敗：{msg}', 'Card saved, but the photo upload failed: {msg}'],
   'form.listFailed': ['卡已儲存，但未能公開出售：{msg}', 'Card saved, but it could not be listed: {msg}'],
-  'form.partial': ['卡已儲存，但部分步驟未完成（相片或公開出售）。請檢查下面的資料，再按儲存。', 'Card saved, but some steps did not finish (photos or listing). Check below and save again.'],
   'form.nameShort': ['卡名最少 2 個字元', 'Card name needs at least 2 characters'],
   'form.notFound': ['找不到這張卡。', 'Card not found.'],
   // deals

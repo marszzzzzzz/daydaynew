@@ -72,7 +72,8 @@ function Market() {
   if (query) params.set('q', query);
   if (category) params.set('category', category);
   if (sort !== 'new') params.set('sort', sort);
-  const key = `real-market${params.size ? `?${params}` : ''}`;
+  const qs = params.toString(); // not params.size: missing before Safari 17
+  const key = `real-market${qs ? `?${qs}` : ''}`;
   const { data, error, isLoading, mutate } = useSWR<Listing[] | null>(key, fetcher, { keepPreviousData: true, refreshInterval: 60_000 });
   const closed = error instanceof ApiError && error.code === 'MARKET_CLOSED';
   const categories = config?.categories.filter((c) => c.active) ?? [];

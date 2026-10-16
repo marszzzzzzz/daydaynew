@@ -41,7 +41,13 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
 
   // Sign-in: keep the token server-side.
   if (TOKEN_ROUTES.has(sub) && res.ok) {
-    const { token: newToken, ...rest } = (await res.json()) as { token?: string };
+    let data: { token?: string };
+    try {
+      data = await res.json();
+    } catch {
+      return fail(502, 'Card Pool sent an unexpected reply', 'UPSTREAM_UNAVAILABLE');
+    }
+    const { token: newToken, ...rest } = data;
     const out = NextResponse.json(rest);
     if (newToken) setSession(out, newToken);
     return out;

@@ -1,12 +1,13 @@
 'use client';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import useSWR from 'swr';
 import { CardPhoto } from '@/components/CardPhoto';
 import { RequireSignIn } from '@/components/RequireSignIn';
 import { Badge, Button, ButtonLink, Field, Input, Loading, LoadError, Notice, Panel, Textarea } from '@/components/ui';
 import { api, fetcher } from '@/lib/api';
+import { clampInt } from '@/lib/cards';
 import { useT } from '@/lib/i18n';
 import type { Deal, Listing, Me, PhotoSide } from '@/lib/types';
 
@@ -100,13 +101,14 @@ function OfferForm({ listing: l, onDone }: { listing: Listing; onDone: () => voi
   const { t, money, errorText } = useT();
   const router = useRouter();
   const [price, setPrice] = useState(String(l.askingPrice));
-  const [qty, setQty] = useState(1);
+  const [qtyS, setQty] = useState('1');
+  const qty = clampInt(qtyS, 1, l.available);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const total = Number(price) * qty;
 
-  async function submit(e: React.FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setErr(null);
@@ -129,8 +131,8 @@ function OfferForm({ listing: l, onDone }: { listing: Listing; onDone: () => voi
             <Input type="number" inputMode="decimal" min="0.01" step="0.01" required value={price} onChange={(e) => setPrice(e.target.value)} />
           </Field>
           <Field label={t('offer.qty')}>
-            <Input type="number" inputMode="numeric" min={1} max={l.available} step={1} required value={qty}
-              onChange={(e) => setQty(Math.max(1, Math.min(l.available, Math.floor(Number(e.target.value) || 1))))} />
+            <Input type="number" inputMode="numeric" min={1} max={l.available} step={1} required value={qtyS}
+              onChange={(e) => setQty(e.target.value)} onBlur={() => setQty(String(qty))} />
           </Field>
         </div>
         <Field label={t('offer.message')}>

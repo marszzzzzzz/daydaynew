@@ -4,8 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useSWRConfig } from 'swr';
 import { api } from '@/lib/api';
-import { CARD_LANGUAGES, CONDITIONS, glyph, photoUrl } from '@/lib/cards';
-import { useConfig, useDebounced } from '@/lib/hooks';
+import { CARD_LANGUAGES, CONDITIONS, clampInt, glyph, photoUrl, sellerReady } from '@/lib/cards';
+import { useConfig, useDebounced, useMe } from '@/lib/hooks';
 import { useT } from '@/lib/i18n';
 import { shrinkPhoto } from '@/lib/image';
 import type { CardLanguage, Condition, PhotoSide, RealCard, Suggestion } from '@/lib/types';
@@ -20,6 +20,7 @@ export function CardForm({ card }: { card?: RealCard }) {
   const router = useRouter();
   const { mutate } = useSWRConfig();
   const config = useConfig();
+  const { me } = useMe();
   const currency = card?.currency ?? config?.config.realCards.currency ?? 'HKD';
 
   const [name, setName] = useState(card?.name ?? '');
@@ -30,12 +31,17 @@ export function CardForm({ card }: { card?: RealCard }) {
   const [language, setLanguage] = useState<CardLanguage>(card?.language ?? 'en');
   const [condition, setCondition] = useState<Condition>(card?.condition ?? 'NEAR_MINT');
   const [grade, setGrade] = useState(card?.grade ?? '');
-  const [quantity, setQuantity] = useState(card?.quantity ?? 1);
+  const [quantityS, setQuantity] = useState(String(card?.quantity ?? 1));
   const [asking, setAsking] = useState(card?.askingPrice?.toString() ?? '');
-  const [listed, setListed] = useState(card?.listedQuantity ?? 1);
+  const [listedS, setListed] = useState(String(card?.listedQuantity ?? 1));
   const [cost, setCost] = useState(card?.costPrice?.toString() ?? '');
   const [notes, setNotes] = useState(card?.notes ?? '');
-  const [isPublic, setIsPublic] = useState(card?.marketPublic ?? true);
+  // New cards go public by default only when the account can sell (else the listing step would fail).
+  const [isPublic, setIsPublic] = useState(() => card?.marketPublic ?? sellerReady(me));
+  // Set once the record exists, so a retry after a partial save edits it instead of adding a duplicate.
+  const [savedId, setSavedId] = useState<string | null>(card?.id ?? null);
+  const quantity = clampInt(quantityS, 1, 999);
+  const listed = clampInt(listedS, 0, quantity);
   const [photos, setPhotos] = useState<Record<PhotoSide, PhotoState>>(() => {
     const at = (s: PhotoSide) => card?.photos.find((p) => p.side === s)?.uploadedAt ?? null;
     return { FRONT: { blob: null, preview: null, existing: at('FRONT'), remove: false }, BACK: { blob: null, preview: null, existing: at('BACK'), remove: false } };
@@ -92,26 +98,36 @@ export function CardForm({ card }: { card?: RealCard }) {
     const body = {
       name: name.trim(), cardId: name.trim() === picked.current ? cardId : null, categoryId: categoryId || null,
       setName: setNameV, number, language, condition, grade, quantity, notes,
-      askingPrice: priceOrNull(asking), costPrice: priceOrNull(cost), listedQuantity: Math.min(listed, quantity),
-      ...(card ? {} : { source: 'MANUAL' }),
+      askingPrice: priceOrNull(asking), costPrice: priceOrNull(cost), listedQuantity: listed,
+      ...(savedId ? {} : { source: 'MANUAL' }),
     };
     let saved: RealCard;
     try {
-      saved = card
-        ? await api<RealCard>(`real-cards/${encodeURIComponent(card.id)}`, { method: 'PATCH', body })
+      saved = savedId
+        ? await api<RealCard>(`real-cards/${encodeURIComponent(savedId)}`, { method: 'PATCH', body })
         : await api<RealCard>('real-cards', { body });
     } catch (e) {
       setErr(errorText(e));
       setBusy(false);
       return;
     }
+    if (!savedId) {
+      setSavedId(saved.id);
+      // Reloading now opens the edit page for this record, not a blank form.
+      window.history.replaceState(null, '', `/sell/${encodeURIComponent(saved.id)}`);
+    }
     const path = `real-cards/${encodeURIComponent(saved.id)}`;
     const problems: string[] = [];
     for (const side of SIDES) {
       const p = photos[side];
       try {
-        if (p.blob) await api(`${path}/photos/${side.toLowerCase()}`, { method: 'PUT', body: p.blob });
-        else if (p.remove && p.existing) await api(`${path}/photos/${side.toLowerCase()}`, { method: 'DELETE' });
+        if (p.blob) {
+          const r = await api<{ uploadedAt: number }>(`${path}/photos/${side.toLowerCase()}`, { method: 'PUT', body: p.blob });
+          setPhotos((s) => ({ ...s, [side]: { ...s[side], blob: null, existing: r.uploadedAt, remove: false } }));
+        } else if (p.remove && p.existing) {
+          await api(`${path}/photos/${side.toLowerCase()}`, { method: 'DELETE' });
+          setPhotos((s) => ({ ...s, [side]: { ...s[side], existing: null, remove: false } }));
+        }
       } catch (e) {
         problems.push(t('form.photoFailed', { msg: errorText(e) }));
       }
@@ -123,23 +139,23 @@ export function CardForm({ card }: { card?: RealCard }) {
         problems.push(t('form.listFailed', { msg: errorText(e) }));
       }
     }
-    await Promise.all([mutate('real-cards'), mutate('me'), mutate((k) => typeof k === 'string' && k.startsWith('real-market'))]);
+    await refresh();
     if (problems.length) {
       setErr(problems.join('\n'));
       setBusy(false);
-      // The record exists now: carry on from its edit page so a retry cannot create a duplicate.
-      if (!card) router.replace(`/sell/${encodeURIComponent(saved.id)}?saved=partial`);
       return;
     }
     router.push('/sell');
   }
+
+  const refresh = () => Promise.all([mutate('real-cards'), mutate('me'), mutate((k) => typeof k === 'string' && k.startsWith('real-market'))]);
 
   async function remove() {
     if (!card) return;
     setBusy(true);
     try {
       await api(`real-cards/${encodeURIComponent(card.id)}`, { method: 'DELETE' });
-      await mutate('real-cards');
+      await refresh();
       router.push('/sell');
     } catch (e) {
       setErr(errorText(e));
@@ -158,7 +174,7 @@ export function CardForm({ card }: { card?: RealCard }) {
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
           {SIDES.map((side) => {
             const p = photos[side];
-            const src = p.preview ?? (p.existing && !p.remove && card ? photoUrl(card.id, side, p.existing) : null);
+            const src = p.preview ?? (p.existing && !p.remove && savedId ? photoUrl(savedId, side, p.existing) : null);
             return (
               <div key={side}>
                 <p className="mb-1.5 text-sm font-medium">{t(`form.photo.${side}`)}</p>
@@ -227,8 +243,8 @@ export function CardForm({ card }: { card?: RealCard }) {
             </Field>
             <Field label={t('field.grade')}><Input maxLength={20} value={grade} onChange={(e) => setGrade(e.target.value)} placeholder={t('form.grade.ph')} /></Field>
             <Field label={t('form.quantity')}>
-              <Input type="number" inputMode="numeric" min={1} max={999} step={1} required value={quantity}
-                onChange={(e) => setQuantity(Math.max(1, Math.min(999, Math.floor(Number(e.target.value) || 1))))} />
+              <Input type="number" inputMode="numeric" min={1} max={999} step={1} required value={quantityS}
+                onChange={(e) => setQuantity(e.target.value)} onBlur={() => setQuantity(String(quantity))} />
             </Field>
           </Grid>
         </Panel>
@@ -240,8 +256,8 @@ export function CardForm({ card }: { card?: RealCard }) {
               <Input type="number" inputMode="decimal" min={0} step="0.01" value={asking} onChange={(e) => setAsking(e.target.value)} />
             </Field>
             <Field label={t('form.listed')}>
-              <Input type="number" inputMode="numeric" min={0} max={quantity} step={1} value={Math.min(listed, quantity)}
-                onChange={(e) => setListed(Math.max(0, Math.min(quantity, Math.floor(Number(e.target.value) || 0))))} />
+              <Input type="number" inputMode="numeric" min={0} max={quantity} step={1} value={listedS}
+                onChange={(e) => setListed(e.target.value)} onBlur={() => setListed(String(listed))} />
             </Field>
             <Field label={t('form.cost')}>
               <Input type="number" inputMode="decimal" min={0} step="0.01" value={cost} onChange={(e) => setCost(e.target.value)} />

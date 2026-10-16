@@ -48,3 +48,6 @@ export function listingState(c: RealCard, me: Me | null | undefined): ListingSta
 
 export const cardDetail = (c: { setName?: string; number?: string; grade?: string }) =>
   [c.setName, c.number, c.grade].filter(Boolean).join(' · ');
+
+/** Whole number in [min, max] from what the user typed (the field may be empty mid-edit). */
+export const clampInt = (s: string, min: number, max: number) => Math.max(min, Math.min(max, Math.floor(Number(s)) || min));
