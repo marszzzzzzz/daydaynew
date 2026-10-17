@@ -7,6 +7,7 @@ import { RequireSignIn } from '@/components/RequireSignIn';
 import { Badge, ButtonLink, Loading, LoadError, Notice, PageTitle, Panel } from '@/components/ui';
 import { ApiError, api, fetcher } from '@/lib/api';
 import { cardDetail, coverSide, listingState, sellerReady, type ListingState } from '@/lib/cards';
+import { isDone, useBatch } from '@/lib/batch';
 import { useT } from '@/lib/i18n';
 import type { Me, RealCard } from '@/lib/types';
 
@@ -24,12 +25,24 @@ const STATE_TONE: Record<ListingState, 'ok' | 'neutral' | 'warn' | 'danger'> = {
 function MyCards({ me }: { me: Me }) {
   const { t, money } = useT();
   const { data, error, mutate } = useSWR<RealCard[] | null>('real-cards', fetcher);
+  const waiting = useBatch().filter((c) => !isDone(c)).length;
   const live = data?.filter((c) => listingState(c, me) === 'live') ?? [];
   const value = live.reduce((s, c) => s + (c.askingPrice ?? 0) * c.listedQuantity, 0);
 
   return (
     <div>
-      <PageTitle title={t('sell.title')} sub={t('sell.sub')} action={<ButtonLink href="/sell/new">＋ {t('sell.add')}</ButtonLink>} />
+      <PageTitle title={t('sell.title')} sub={t('sell.sub')} action={
+        <div className="flex flex-wrap gap-2">
+          <ButtonLink href="/sell/batch" variant="secondary">📷 {t('batch.cta')}</ButtonLink>
+          <ButtonLink href="/sell/new">＋ {t('sell.add')}</ButtonLink>
+        </div>
+      } />
+      {waiting > 0 && (
+        <Notice tone="warn" className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <span>{t('batch.resume', { n: waiting })}</span>
+          <ButtonLink href="/sell/batch?step=review">{t('batch.resumeCta')}</ButtonLink>
+        </Notice>
+      )}
 
       {!sellerReady(me) && (
         <Panel className="mb-5">

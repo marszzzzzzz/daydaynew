@@ -77,3 +77,8 @@ input, select, textarea, button {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
+
+@keyframes shutter {
+  from { opacity: 0.85; }
+  to { opacity: 0; }
+}
