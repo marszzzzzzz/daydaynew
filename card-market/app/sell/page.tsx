@@ -6,7 +6,7 @@ import { CardPhoto } from '@/components/CardPhoto';
 import { RequireSignIn } from '@/components/RequireSignIn';
 import { Badge, ButtonLink, Loading, LoadError, Notice, PageTitle, Panel } from '@/components/ui';
 import { ApiError, api, fetcher } from '@/lib/api';
-import { cardDetail, listingState, sellerReady, type ListingState } from '@/lib/cards';
+import { cardDetail, coverSide, listingState, sellerReady, type ListingState } from '@/lib/cards';
 import { useT } from '@/lib/i18n';
 import type { Me, RealCard } from '@/lib/types';
 
@@ -71,7 +71,7 @@ function CardRow({ card: c, me, onChange }: { card: RealCard; me: Me; onChange: 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>(null);
   const state = listingState(c, me);
-  const front = c.photos.find((p) => p.side === 'FRONT');
+  const cover = c.photos.find((p) => p.side === coverSide(c.photos.map((x) => x.side)));
 
   async function toggle() {
     setBusy(true);
@@ -90,7 +90,7 @@ function CardRow({ card: c, me, onChange }: { card: RealCard; me: Me; onChange: 
     <li className="rounded-2xl border border-line bg-surface p-3">
       <div className="flex gap-3">
         <Link href={`/sell/${encodeURIComponent(c.id)}`} className="w-16 shrink-0 sm:w-20">
-          <CardPhoto cardId={c.id} has={!!front} version={front?.uploadedAt} category={c.category} name={c.name} className="rounded-lg" />
+          <CardPhoto cardId={c.id} side={cover?.side} has={!!cover} version={cover?.uploadedAt} category={c.category} name={c.name} className="rounded-lg" />
         </Link>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">

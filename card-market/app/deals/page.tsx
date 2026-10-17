@@ -1,12 +1,13 @@
 'use client';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import useSWR from 'swr';
 import { CardPhoto } from '@/components/CardPhoto';
 import { DealStatusBadge } from '@/components/DealBits';
 import { RequireSignIn } from '@/components/RequireSignIn';
 import { Loading, LoadError, PageTitle } from '@/components/ui';
 import { fetcher } from '@/lib/api';
+import { coverSide } from '@/lib/cards';
 import { useT, type Key } from '@/lib/i18n';
 import type { Deal } from '@/lib/types';
 
@@ -20,8 +21,10 @@ function Deals() {
   const { t } = useT();
   const { data, error, mutate } = useSWR<{ received: Deal[]; sent: Deal[] } | null>('real-market/deals', fetcher, { refreshInterval: 20_000 });
   const [picked, setPicked] = useState<Tab | null>(null);
-  // Open on the side that needs attention.
-  const tab: Tab = picked ?? (data && !data.received.some((d) => d.unread) && data.sent.some((d) => d.unread) ? 'sent' : 'received');
+  // Open on the side that needs attention — decided once, so a poll never switches the tab under the reader.
+  const initial = useRef<Tab | null>(null);
+  if (data && !initial.current) initial.current = !data.received.some((d) => d.unread) && data.sent.some((d) => d.unread) ? 'sent' : 'received';
+  const tab: Tab = picked ?? initial.current ?? 'received';
   const tabs: [Tab, Key][] = [['received', 'deals.received'], ['sent', 'deals.sent']];
 
   return (
@@ -34,7 +37,7 @@ function Deals() {
             <button key={k} role="tab" aria-selected={tab === k} onClick={() => setPicked(k)}
               className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold ${tab === k ? 'bg-surface shadow-sm' : 'text-muted'}`}>
               {t(label)} {data && <span className="text-xs text-muted">{data[k].length}</span>}
-              {unread > 0 && <span className="size-2 rounded-full bg-danger" aria-label={`${unread} unread`} />}
+              {unread > 0 && <span role="img" className="size-2 rounded-full bg-danger" aria-label={t('deals.unread', { n: unread })} />}
             </button>
           );
         })}
@@ -59,7 +62,7 @@ function DealRow({ deal: d }: { deal: Deal }) {
     <li>
       <Link href={`/deals/${encodeURIComponent(d.id)}`} className="flex gap-3 rounded-2xl border border-line bg-surface p-3 hover:bg-surface-2">
         <div className="w-12 shrink-0">
-          <CardPhoto cardId={d.realCardId} has={d.card.photos.includes('FRONT')} name={d.card.name} className="rounded-lg" />
+          <CardPhoto cardId={d.realCardId} side={coverSide(d.card.photos)} has={d.card.photos.length > 0} name={d.card.name} className="rounded-lg" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">

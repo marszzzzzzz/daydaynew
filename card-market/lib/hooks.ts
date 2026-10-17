@@ -1,13 +1,15 @@
 'use client';
 import { useEffect, useState } from 'react';
 import useSWR from 'swr';
-import { fetcher } from './api';
+import { ApiError, fetcher } from './api';
 import type { AppConfig, Me } from './types';
 
 /** The signed-in account, or null when signed out. `undefined` while loading. */
 export function useMe() {
   const { data, error, isLoading, mutate } = useSWR<Me | null>('me', fetcher, { refreshInterval: 30_000 });
-  return { me: data, error, isLoading, mutate };
+  // A suspended account is signed in but locked out: pages offer sign-out instead of a retry loop.
+  const blocked = error instanceof ApiError && error.code === 'ACCOUNT_SUSPENDED' ? error : null;
+  return { me: data, error, isLoading, mutate, blocked };
 }
 
 /** Public config: categories, regions, currency. */

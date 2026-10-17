@@ -34,6 +34,7 @@ const D = {
   'market.title': ['玩家市場', 'Player market'],
   'market.search': ['搜尋卡名、系列或編號', 'Search name, set or number'],
   'market.all': ['全部', 'All'],
+  'market.sortBy': ['排序', 'Sort by'],
   'market.sort.new': ['最新上架', 'Newest'],
   'market.sort.price_asc': ['價錢：低至高', 'Price: low to high'],
   'market.sort.price_desc': ['價錢：高至低', 'Price: high to low'],
@@ -132,6 +133,7 @@ const D = {
   'deals.title': ['我的交易', 'My deals'],
   'deals.received': ['收到的出價', 'Offers received'],
   'deals.sent': ['我的出價', 'Offers sent'],
+  'deals.unread': ['{n} 個有未讀訊息', '{n} with unread messages'],
   'deals.empty.received': ['還未收到出價。', 'No offers received yet.'],
   'deals.empty.sent': ['你還未出價。', 'You have not made any offers.'],
   'deal.with': ['對方：{name}', 'with {name}'],
@@ -219,6 +221,7 @@ const D = {
   'signup.name.taken': ['已被使用', 'Already taken'],
   'signup.password': ['密碼（8–128 字元）', 'Password (8–128 characters)'],
   'signup.confirm': ['再輸入密碼', 'Repeat password'],
+  'signup.nameShort': ['名稱最少 2 個字元', 'Name needs at least 2 characters'],
   'signup.mismatch': ['兩次輸入的密碼不一致', 'Passwords do not match'],
   'signup.submit': ['建立帳戶', 'Create account'],
   'signup.haveAccount': ['已有帳戶？', 'Already have an account?'],
@@ -250,7 +253,8 @@ const D = {
   'err.PASSWORD_SHORT': ['密碼最少 8 個字元', 'Password needs at least 8 characters'],
   'err.PASSWORD_LONG': ['密碼最多 128 個字元', 'Password can be at most 128 characters'],
   'err.BAD_LOGIN': ['名稱或密碼不正確', 'Wrong name or password'],
-  'err.LOCKED': ['嘗試次數太多，請 15 分鐘後再試', 'Too many attempts — try again in 15 minutes'],
+  'err.LOCKED': ['嘗試次數太多，請稍後再試', 'Too many attempts — try again later'],
+  'err.LOCKED_N': ['嘗試次數太多，請 {n} 分鐘後再試', 'Too many attempts — try again in {n} minutes'],
   'err.ACCOUNT_SUSPENDED': ['帳戶已被暫停', 'This account is suspended'],
   'err.WRONG_PASSWORD': ['目前密碼不正確', 'Your current password is not correct'],
   'err.NO_IMAGES': ['相片要用相片上載，不能放在卡片資料內', 'Upload photos with the photo upload, not inside the record'],
@@ -281,6 +285,12 @@ const D = {
   'err.NETWORK': ['網絡錯誤，請檢查連線', 'Network error — check your connection'],
   'err.UPSTREAM_UNAVAILABLE': ['Card Pool 暫時無法連線，請稍後再試', 'Card Pool is not reachable — try again shortly'],
   'err.DB_UNAVAILABLE': ['資料庫暫時無法使用，請稍後再試', 'Database unavailable — try again shortly'],
+  'err.SERVER_ERROR': ['伺服器出錯，請稍後再試', 'Server error — please try again shortly'],
+  'err.NOT_FOUND': ['找不到相關資料', 'Not found'],
+  'err.CSRF': ['請在本網站內操作', 'Cross-site request refused'],
+  'err.SIGNOUT_FAILED': ['未能登出，請再試一次', 'Could not sign out — please try again'],
+  'err.PHOTO_UNREADABLE': ['無法讀取這張相片，請換一張（JPEG、PNG 或 WebP）', 'Could not read this photo — try another (JPEG, PNG or WebP)'],
+  'err.uncoded': ['操作未能完成：{msg}', '{msg}'],
   'err.SCHEMA_OUTDATED': ['系統更新中，請稍後再試', 'Service is being updated — try again shortly'],
 } satisfies Record<string, [string, string]>;
 
@@ -316,14 +326,20 @@ export function LangProvider({ initial, children }: { initial: Lang; children: R
       lang, setLang, t,
       errorText: (e) => {
         if (e instanceof ApiError) {
+          if (e.code === 'LOCKED') {
+            const n = /(\d+)\s*minute/i.exec(e.message)?.[1]; // the server says how long the lock has left
+            return n ? t('err.LOCKED_N', { n }) : t('err.LOCKED');
+          }
           const key = `err.${e.code}` as Key;
           if (e.code && key in D) {
             const reason = (e.data as { reason?: string } | undefined)?.reason;
             return t(key) + (e.code === 'ACCOUNT_SUSPENDED' && reason ? `: ${reason}` : '');
           }
-          return e.message;
+          if (e.status === 404) return t('err.NOT_FOUND');
+          if (e.status >= 500) return t('err.SERVER_ERROR');
         }
-        return e instanceof Error ? e.message : String(e);
+        // Server checks without a code (and browser errors) arrive in English: frame them in the UI language.
+        return t('err.uncoded', { msg: e instanceof Error ? e.message : String(e) });
       },
       money: (amount, currency = 'HKD') => {
         if (amount === null || amount === undefined) return '—';

@@ -8,7 +8,7 @@ import { DealStatusBadge, isLive } from '@/components/DealBits';
 import { RequireSignIn } from '@/components/RequireSignIn';
 import { Button, ConfirmDialog, Loading, LoadError, Notice, Panel, Textarea } from '@/components/ui';
 import { ApiError, api, fetcher } from '@/lib/api';
-import { formatWhatsApp, whatsAppLink } from '@/lib/cards';
+import { coverSide, formatWhatsApp, whatsAppLink } from '@/lib/cards';
 import { useT, type Key } from '@/lib/i18n';
 import type { Deal, DealAction } from '@/lib/types';
 
@@ -30,6 +30,7 @@ function DealView() {
   const [err, setErr] = useState<string | null>(null);
   const [text, setText] = useState('');
   const list = useRef<HTMLOListElement>(null);
+  const sending = useRef(false); // Enter can fire again before the first send has re-rendered `busy`
   const count = deal?.messages?.length ?? 0;
 
   // Keep the newest message in view (scroll the conversation, not the page).
@@ -62,7 +63,8 @@ function DealView() {
 
   async function send(e: FormEvent) {
     e.preventDefault();
-    if (!text.trim()) return;
+    if (sending.current || !text.trim()) return;
+    sending.current = true;
     setBusy(true);
     setErr(null);
     try {
@@ -72,6 +74,7 @@ function DealView() {
     } catch (e) {
       setErr(errorText(e));
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   }
@@ -90,7 +93,7 @@ function DealView() {
           <Panel>
             <div className="flex gap-4">
               <div className="w-20 shrink-0">
-                <CardPhoto cardId={d.realCardId} has={d.card.photos.includes('FRONT')} name={d.card.name} className="rounded-lg" />
+                <CardPhoto cardId={d.realCardId} side={coverSide(d.card.photos)} has={d.card.photos.length > 0} name={d.card.name} className="rounded-lg" />
               </div>
               <div className="min-w-0">
                 <DealStatusBadge status={d.status} />

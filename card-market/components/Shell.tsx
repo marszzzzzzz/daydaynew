@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useMe } from '@/lib/hooks';
 import { useT, type Key } from '@/lib/i18n';
+import { SignOutButton } from './SignOut';
 
 const NAV: { href: string; key: Key; icon: string }[] = [
   { href: '/', key: 'nav.market', icon: '🛒' },
@@ -16,7 +17,7 @@ const active = (path: string, href: string) => (href === '/' ? path === '/' || p
 
 export function Shell({ children }: { children: ReactNode }) {
   const { t, lang, setLang } = useT();
-  const { me } = useMe();
+  const { me, blocked } = useMe();
   const path = usePathname();
   const badge = me?.dealsNeedingAttention ?? 0;
 
@@ -40,7 +41,7 @@ export function Shell({ children }: { children: ReactNode }) {
             </nav>
           )}
           <div className="ml-auto flex items-center gap-2">
-            <button onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} className="rounded-lg px-2.5 py-1.5 text-sm text-muted hover:text-ink" aria-label="Language">
+            <button onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} className="rounded-lg px-2.5 py-1.5 text-sm text-muted hover:text-ink">
               {t('common.lang')}
             </button>
             {me === null && (
@@ -50,6 +51,7 @@ export function Shell({ children }: { children: ReactNode }) {
               </>
             )}
             {me && <span className="hidden text-sm text-muted md:inline">{me.user.name}</span>}
+            {blocked && <SignOutButton variant="ghost" />}
           </div>
         </div>
       </header>

@@ -3,15 +3,17 @@ import Link from 'next/link';
 import { useState, type ReactNode } from 'react';
 import useSWR from 'swr';
 import { CardPhoto } from '@/components/CardPhoto';
+import { Blocked } from '@/components/RequireSignIn';
 import { Badge, ButtonLink, Input, Loading, LoadError, Notice, PageTitle, Select } from '@/components/ui';
 import { ApiError, fetcher } from '@/lib/api';
-import { cardDetail } from '@/lib/cards';
+import { cardDetail, coverSide } from '@/lib/cards';
 import { useConfig, useDebounced, useMe } from '@/lib/hooks';
 import { useT, type Key } from '@/lib/i18n';
 import type { Listing } from '@/lib/types';
 
 export default function Home() {
-  const { me, error, mutate } = useMe();
+  const { me, error, mutate, blocked } = useMe();
+  if (blocked) return <Blocked error={blocked} />;
   if (error && me === undefined) return <LoadError error={error} retry={() => mutate()} />;
   if (me === undefined) return <Loading />;
   return me ? <Market /> : <Landing />;
@@ -85,7 +87,7 @@ function Market() {
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row">
         <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('market.search')} className="sm:max-w-sm" aria-label={t('market.search')} />
-        <Select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="sm:w-56" aria-label="Sort">
+        <Select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="sm:w-56" aria-label={t('market.sortBy')}>
           {(['new', 'price_asc', 'price_desc'] as const).map((s) => <option key={s} value={s}>{t(`market.sort.${s}`)}</option>)}
         </Select>
       </div>
@@ -111,9 +113,10 @@ function Market() {
           <ul className={`grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 ${isLoading ? 'opacity-60' : ''}`}>
             {data?.map((l) => (
               <li key={l.id}>
-                <Link href={`/listing/${encodeURIComponent(l.id)}`} className="group block rounded-2xl border border-line bg-surface p-2.5 transition hover:-translate-y-0.5 hover:shadow-lg">
+                {/* ?q= lets the listing page find a card outside the newest 200 */}
+                <Link href={`/listing/${encodeURIComponent(l.id)}?q=${encodeURIComponent(l.name.slice(0, 60))}`} className="group block rounded-2xl border border-line bg-surface p-2.5 transition hover:-translate-y-0.5 hover:shadow-lg">
                   <div className="relative">
-                    <CardPhoto cardId={l.id} has={l.photos.includes('FRONT')} category={l.category} name={l.name} />
+                    <CardPhoto cardId={l.id} side={coverSide(l.photos)} has={l.photos.length > 0} category={l.category} name={l.name} />
                     <div className="absolute top-2 left-2 flex flex-col items-start gap-1">
                       {l.mine && <Badge tone="brand">{t('listing.mine')}</Badge>}
                       {l.myOffer && <Badge tone="ok">{t('listing.offered')}</Badge>}

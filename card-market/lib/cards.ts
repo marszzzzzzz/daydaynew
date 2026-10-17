@@ -51,3 +51,6 @@ export const cardDetail = (c: { setName?: string; number?: string; grade?: strin
 
 /** Whole number in [min, max] from what the user typed (the field may be empty mid-edit). */
 export const clampInt = (s: string, min: number, max: number) => Math.max(min, Math.min(max, Math.floor(Number(s)) || min));
+
+/** Side to show as the card's cover: the front, or the back when only a back photo exists. */
+export const coverSide = (sides: PhotoSide[]): PhotoSide => (sides.includes('FRONT') || !sides.includes('BACK') ? 'FRONT' : 'BACK');

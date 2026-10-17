@@ -1,32 +1,36 @@
 'use client';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useState, type FormEvent } from 'react';
 import useSWR from 'swr';
 import { CardPhoto } from '@/components/CardPhoto';
 import { RequireSignIn } from '@/components/RequireSignIn';
 import { Badge, Button, ButtonLink, Field, Input, Loading, LoadError, Notice, Panel, Textarea } from '@/components/ui';
 import { api, fetcher } from '@/lib/api';
-import { clampInt } from '@/lib/cards';
+import { clampInt, coverSide } from '@/lib/cards';
+import { useConfig } from '@/lib/hooks';
 import { useT } from '@/lib/i18n';
 import type { Deal, Listing, Me, PhotoSide } from '@/lib/types';
 
 export default function ListingPage() {
-  return <RequireSignIn>{(me) => <ListingView me={me} />}</RequireSignIn>;
+  return <RequireSignIn>{(me) => <Suspense fallback={<Loading />}><ListingView me={me} /></Suspense>}</RequireSignIn>;
 }
 
 function ListingView({ me }: { me: Me }) {
   const { id } = useParams<{ id: string }>();
   const { t, money, ago } = useT();
-  // There is no single-listing endpoint: the market list (≤ 200, newest first) is the source.
-  const { data, error, mutate } = useSWR<Listing[] | null>('real-market', fetcher);
-  const [side, setSide] = useState<PhotoSide>('FRONT');
+  // There is no single-listing endpoint: the market list (≤ 200, newest first) is the source. The market grid
+  // passes the card's name as ?q= so a listing older than the newest 200 is still found.
+  const q = useSearchParams().get('q')?.trim().slice(0, 60);
+  const { data, error, mutate } = useSWR<Listing[] | null>(q ? `real-market?q=${encodeURIComponent(q)}` : 'real-market', fetcher);
+  const [picked, setSide] = useState<PhotoSide | null>(null);
 
   if (error && !data) return <LoadError error={error} retry={() => mutate()} />;
   if (!data) return <Loading />;
   const l = data.find((x) => x.id === id);
   const back = <Link href="/" className="mb-4 inline-block text-sm text-muted hover:text-ink">← {t('listing.back')}</Link>;
   if (!l) return <div>{back}<Notice>{t('listing.notFound')}</Notice></div>;
+  const side = picked ?? coverSide(l.photos);
 
   const rows: [string, string][] = [
     [t('field.category'), l.category?.name ?? '—'],
@@ -100,6 +104,7 @@ function ListingView({ me }: { me: Me }) {
 function OfferForm({ listing: l, onDone }: { listing: Listing; onDone: () => void }) {
   const { t, money, errorText } = useT();
   const router = useRouter();
+  const maxPrice = useConfig()?.config.realCards.maxPrice ?? 10_000_000;
   const [price, setPrice] = useState(String(l.askingPrice));
   const [qtyS, setQty] = useState('1');
   const qty = clampInt(qtyS, 1, l.available);
@@ -128,7 +133,7 @@ function OfferForm({ listing: l, onDone }: { listing: Listing; onDone: () => voi
         <h2 className="text-lg font-bold">{t('offer.title')}</h2>
         <div className="grid grid-cols-2 gap-3">
           <Field label={t('offer.price', { cur: l.currency })}>
-            <Input type="number" inputMode="decimal" min="0.01" step="0.01" required value={price} onChange={(e) => setPrice(e.target.value)} />
+            <Input type="number" inputMode="decimal" min="0.01" max={maxPrice} step="0.01" required value={price} onChange={(e) => setPrice(e.target.value)} />
           </Field>
           <Field label={t('offer.qty')}>
             <Input type="number" inputMode="numeric" min={1} max={l.available} step={1} required value={qtyS}

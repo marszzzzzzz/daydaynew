@@ -23,7 +23,8 @@ export function WhatsAppForm({ me, onSaved, submitLabel }: { me: Me; onSaved?: (
     setMsg(null);
     try {
       const next = await api<Me>('me/whatsapp', { body });
-      await mutate('me', next, { revalidate: false });
+      // The reply has no dealsNeedingAttention: merge, then refetch the full /me.
+      await mutate<Me | null>('me', (cur) => (cur ? { ...cur, ...next } : next));
       mutate('real-cards');
       setNumber('');
       setMsg({ tone: 'ok', text: t('account.saved') });

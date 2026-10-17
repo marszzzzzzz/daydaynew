@@ -1,8 +1,8 @@
 'use client';
-import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { useSWRConfig } from 'swr';
 import { RequireSignIn } from '@/components/RequireSignIn';
+import { SignOutButton } from '@/components/SignOut';
 import { WhatsAppForm } from '@/components/WhatsAppForm';
 import { Badge, Button, Field, Input, Notice, PageTitle, Panel, Select } from '@/components/ui';
 import { api } from '@/lib/api';
@@ -16,25 +16,11 @@ export default function AccountPage() {
 
 function Account({ me }: { me: Me }) {
   const { t } = useT();
-  const router = useRouter();
-  const { mutate } = useSWRConfig();
-  const [out, setOut] = useState(false);
-
-  async function signOut() {
-    setOut(true);
-    try {
-      await fetch('/api/session', { method: 'DELETE' });
-    } finally {
-      await mutate(() => true, undefined, { revalidate: false });
-      await mutate('me', null, { revalidate: false });
-      router.push('/');
-    }
-  }
 
   return (
     <div className="max-w-2xl">
       <PageTitle title={me.user.name} sub={<Badge>{t(`account.type.${me.user.accountType}`)}</Badge>}
-        action={<Button variant="secondary" busy={out} onClick={signOut}>{t('account.signout')}</Button>} />
+        action={<SignOutButton />} />
       <div className="space-y-5">
         {!me.user.hasPassword && <Notice tone="warn">{t('account.pw.missing')}</Notice>}
         <Panel>
@@ -104,7 +90,8 @@ function RegionForm({ me }: { me: Me }) {
     setMsg(null);
     try {
       const next = await api<Me>('me', { method: 'PATCH', body: { region: region || null } });
-      await mutate('me', next, { revalidate: false });
+      // PATCH /me answers without dealsNeedingAttention: merge, then refetch the full /me.
+      await mutate<Me | null>('me', (cur) => (cur ? { ...cur, ...next } : next));
       setMsg({ tone: 'ok', text: t('account.saved') });
     } catch (e) {
       setMsg({ tone: 'danger', text: errorText(e) });

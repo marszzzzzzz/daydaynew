@@ -9,19 +9,28 @@ import { useConfig, useDebounced, useMe } from '@/lib/hooks';
 import { useT } from '@/lib/i18n';
 import { shrinkPhoto } from '@/lib/image';
 import type { CardLanguage, Condition, PhotoSide, RealCard, Suggestion } from '@/lib/types';
-import { Button, ConfirmDialog, Field, Input, Notice, Panel, Select, Textarea } from './ui';
+import { Button, ConfirmDialog, Field, Input, Notice, Panel, Select } from './ui';
 
 interface PhotoState { blob: Blob | null; preview: string | null; existing: number | null; remove: boolean }
 const SIDES: PhotoSide[] = ['FRONT', 'BACK'];
 const priceOrNull = (s: string) => (s.trim() === '' ? null : Number(s));
+type Body = Record<string, unknown>;
 
-export function CardForm({ card }: { card?: RealCard }) {
+/** The record's fields as the edit form would send them, for diffing against what was loaded. */
+const bodyOfCard = (c: RealCard): Body => ({
+  name: c.name, cardId: c.cardId, categoryId: c.category?.id ?? null, setName: c.setName, number: c.number,
+  language: c.language, condition: c.condition, grade: c.grade, quantity: c.quantity, notes: c.notes,
+  askingPrice: c.askingPrice, costPrice: c.costPrice, listedQuantity: c.listedQuantity,
+});
+
+export function CardForm({ card, onDeleted }: { card?: RealCard; onDeleted?: () => void }) {
   const { t, errorText } = useT();
   const router = useRouter();
   const { mutate } = useSWRConfig();
   const config = useConfig();
   const { me } = useMe();
   const currency = card?.currency ?? config?.config.realCards.currency ?? 'HKD';
+  const maxPrice = config?.config.realCards.maxPrice ?? 10_000_000;
 
   const [name, setName] = useState(card?.name ?? '');
   const [cardId, setCardId] = useState<string | null>(card?.cardId ?? null);
@@ -40,6 +49,10 @@ export function CardForm({ card }: { card?: RealCard }) {
   const [isPublic, setIsPublic] = useState(() => card?.marketPublic ?? sellerReady(me));
   // Set once the record exists, so a retry after a partial save edits it instead of adding a duplicate.
   const [savedId, setSavedId] = useState<string | null>(card?.id ?? null);
+  // What the server holds as far as this form knows. An edit sends only the fields that differ, so a form
+  // opened before a deal completed elsewhere cannot write back the copies that deal took off the record.
+  const baseline = useRef<Body | null>(card ? bodyOfCard(card) : null);
+  const publicBaseline = useRef(card?.marketPublic ?? false);
   const quantity = clampInt(quantityS, 1, 999);
   const listed = clampInt(listedS, 0, quantity);
   const [photos, setPhotos] = useState<Record<PhotoSide, PhotoState>>(() => {
@@ -85,8 +98,8 @@ export function CardForm({ card }: { card?: RealCard }) {
       const preview = URL.createObjectURL(blob);
       previews.current.push(preview);
       setPhotos((p) => ({ ...p, [side]: { ...p[side], blob, preview, remove: false } }));
-    } catch (e) {
-      setErr(errorText(e));
+    } catch {
+      setErr(t('err.PHOTO_UNREADABLE'));
     }
   }
 
@@ -95,28 +108,30 @@ export function CardForm({ card }: { card?: RealCard }) {
     if (name.trim().length < 2) { setErr(t('form.nameShort')); return; }
     setBusy(true);
     setErr(null);
-    const body = {
+    const body: Body = {
       name: name.trim(), cardId: name.trim() === picked.current ? cardId : null, categoryId: categoryId || null,
       setName: setNameV, number, language, condition, grade, quantity, notes,
       askingPrice: priceOrNull(asking), costPrice: priceOrNull(cost), listedQuantity: listed,
-      ...(savedId ? {} : { source: 'MANUAL' }),
     };
-    let saved: RealCard;
+    let id = savedId;
     try {
-      saved = savedId
-        ? await api<RealCard>(`real-cards/${encodeURIComponent(savedId)}`, { method: 'PATCH', body })
-        : await api<RealCard>('real-cards', { body });
+      if (!id) {
+        id = (await api<RealCard>('real-cards', { body: { ...body, source: 'MANUAL' } })).id;
+        setSavedId(id);
+        // Reloading now opens the edit page for this record, not a blank form.
+        window.history.replaceState(null, '', `/sell/${encodeURIComponent(id)}`);
+      } else {
+        const was = baseline.current ?? {};
+        const changed = Object.fromEntries(Object.entries(body).filter(([k, v]) => was[k] !== v));
+        if (Object.keys(changed).length) await api<RealCard>(`real-cards/${encodeURIComponent(id)}`, { method: 'PATCH', body: changed });
+      }
+      baseline.current = body;
     } catch (e) {
       setErr(errorText(e));
       setBusy(false);
       return;
     }
-    if (!savedId) {
-      setSavedId(saved.id);
-      // Reloading now opens the edit page for this record, not a blank form.
-      window.history.replaceState(null, '', `/sell/${encodeURIComponent(saved.id)}`);
-    }
-    const path = `real-cards/${encodeURIComponent(saved.id)}`;
+    const path = `real-cards/${encodeURIComponent(id)}`;
     const problems: string[] = [];
     for (const side of SIDES) {
       const p = photos[side];
@@ -132,9 +147,11 @@ export function CardForm({ card }: { card?: RealCard }) {
         problems.push(t('form.photoFailed', { msg: errorText(e) }));
       }
     }
-    if (isPublic !== saved.marketPublic) {
+    // Only when the seller flipped the switch (a deal may have taken the card off the market meanwhile).
+    if (isPublic !== publicBaseline.current) {
       try {
         await api(`${path}/market`, { body: { public: isPublic } });
+        publicBaseline.current = isPublic;
       } catch (e) {
         problems.push(t('form.listFailed', { msg: errorText(e) }));
       }
@@ -155,8 +172,9 @@ export function CardForm({ card }: { card?: RealCard }) {
     setBusy(true);
     try {
       await api(`real-cards/${encodeURIComponent(card.id)}`, { method: 'DELETE' });
-      await refresh();
+      onDeleted?.(); // the edit page shows a spinner, not "card not found", while we leave
       router.push('/sell');
+      await refresh();
     } catch (e) {
       setErr(errorText(e));
       setBusy(false);
@@ -253,17 +271,17 @@ export function CardForm({ card }: { card?: RealCard }) {
           <h2 className="font-bold">{t('form.selling')}</h2>
           <Grid>
             <Field label={t('form.asking', { cur: currency })}>
-              <Input type="number" inputMode="decimal" min={0} step="0.01" value={asking} onChange={(e) => setAsking(e.target.value)} />
+              <Input type="number" inputMode="decimal" min={0} max={maxPrice} step="0.01" value={asking} onChange={(e) => setAsking(e.target.value)} />
             </Field>
             <Field label={t('form.listed')}>
               <Input type="number" inputMode="numeric" min={0} max={quantity} step={1} value={listedS}
                 onChange={(e) => setListed(e.target.value)} onBlur={() => setListed(String(listed))} />
             </Field>
             <Field label={t('form.cost')}>
-              <Input type="number" inputMode="decimal" min={0} step="0.01" value={cost} onChange={(e) => setCost(e.target.value)} />
+              <Input type="number" inputMode="decimal" min={0} max={maxPrice} step="0.01" value={cost} onChange={(e) => setCost(e.target.value)} />
             </Field>
           </Grid>
-          <Field label={t('form.notes')}><Textarea maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
+          <Field label={t('form.notes')}><Input maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
           <label className={`flex items-start gap-3 rounded-xl border border-line p-3 ${card?.marketRemovedByAdmin ? 'opacity-60' : ''}`}>
             <input type="checkbox" role="switch" className="mt-0.5 size-5 accent-[var(--brand)]" checked={isPublic}
               disabled={card?.marketRemovedByAdmin} onChange={(e) => setIsPublic(e.target.checked)} />
