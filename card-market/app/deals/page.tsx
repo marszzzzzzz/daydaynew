@@ -19,12 +19,13 @@ type Tab = 'received' | 'sent';
 
 function Deals() {
   const { t } = useT();
-  const { data, error, mutate } = useSWR<{ received: Deal[]; sent: Deal[] } | null>('real-market/deals', fetcher, { refreshInterval: 20_000 });
+  const { data, error, mutate, isValidating } = useSWR<{ received: Deal[]; sent: Deal[] } | null>('real-market/deals', fetcher, { refreshInterval: 20_000 });
   const [picked, setPicked] = useState<Tab | null>(null);
   // Open on the side that needs attention — decided once, so a poll never switches the tab under the reader.
   const initial = useRef<Tab | null>(null);
-  if (data && !initial.current) initial.current = !data.received.some((d) => d.unread) && data.sent.some((d) => d.unread) ? 'sent' : 'received';
-  const tab: Tab = picked ?? initial.current ?? 'received';
+  const auto: Tab = data && !data.received.some((d) => d.unread) && data.sent.some((d) => d.unread) ? 'sent' : 'received';
+  if (data && !isValidating && !initial.current) initial.current = auto; // after the first fresh fetch
+  const tab: Tab = picked ?? initial.current ?? auto;
   const tabs: [Tab, Key][] = [['received', 'deals.received'], ['sent', 'deals.sent']];
 
   return (

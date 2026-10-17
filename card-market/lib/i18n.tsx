@@ -39,6 +39,7 @@ const D = {
   'market.sort.price_asc': ['價錢：低至高', 'Price: low to high'],
   'market.sort.price_desc': ['價錢：高至低', 'Price: high to low'],
   'market.count': ['{n} 張卡出售中', '{n} listings'],
+  'market.countCap': ['顯示最新 {n} 張，請用搜尋或分類收窄', 'Showing the newest {n} — search or pick a category to narrow down'],
   'market.empty': ['暫時未有符合的卡。', 'No cards match yet.'],
   'market.empty.cta': ['放上你的第一張卡', 'List your first card'],
   'market.closed': ['玩家市場暫停中，進行中的交易仍可完成。', 'The player market is closed for now. Running deals can still finish.'],
@@ -128,6 +129,8 @@ const D = {
   'form.photoFailed': ['卡已儲存，但相片上載失敗：{msg}', 'Card saved, but the photo upload failed: {msg}'],
   'form.listFailed': ['卡已儲存，但未能公開出售：{msg}', 'Card saved, but it could not be listed: {msg}'],
   'form.nameShort': ['卡名最少 2 個字元', 'Card name needs at least 2 characters'],
+  'form.stale': ['這張卡剛在別處更新了（例如交易已完成）。請先重新載入最新資料，再作修改。', 'This card just changed elsewhere (for example a deal completed). Reload the latest version before editing.'],
+  'form.reload': ['重新載入', 'Reload latest'],
   'form.notFound': ['找不到這張卡。', 'Card not found.'],
   // deals
   'deals.title': ['我的交易', 'My deals'],
@@ -229,6 +232,7 @@ const D = {
   'signup.wa.title': ['加入 WhatsApp', 'Add your WhatsApp'],
   'signup.wa.sub': ['賣卡需要 WhatsApp；買家要在你接受出價後才看到。', 'Needed to sell. Buyers only see it after you accept their offer.'],
   'signup.already': ['你已登入。', 'You are signed in.'],
+  'signup.continue': ['繼續', 'Continue'],
   'signup.skip': ['稍後再說', 'Skip for now'],
   // common
   'common.loading': ['載入中…', 'Loading…'],

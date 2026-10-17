@@ -117,7 +117,7 @@ function Signed({ next }: { next: string }) {
   return (
     <Notice className="flex items-center justify-between gap-3">
       <span>{t('signup.already')}</span>
-      <ButtonLink href={next}>{t('nav.sell')}</ButtonLink>
+      <ButtonLink href={next}>{t('signup.continue')}</ButtonLink>
     </Notice>
   );
 }

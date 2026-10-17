@@ -19,7 +19,8 @@ export function SignOutButton({ variant = 'secondary' }: { variant?: 'secondary'
     setErr(null);
     try {
       const res = await fetch('/api/session', { method: 'DELETE' });
-      if (!res.ok) throw new ApiError(`Sign-out failed (${res.status})`, res.status, 'SIGNOUT_FAILED');
+      const body = (await res.json().catch(() => null)) as { ok?: boolean } | null;
+      if (!res.ok || !body?.ok) throw new ApiError(`Sign-out failed (${res.status})`, res.status, 'SIGNOUT_FAILED');
     } catch (e) {
       setErr(errorText(e instanceof ApiError ? e : new ApiError('Network error', 0, 'NETWORK')));
       setBusy(false);

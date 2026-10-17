@@ -23,7 +23,7 @@ const bodyOfCard = (c: RealCard): Body => ({
   askingPrice: c.askingPrice, costPrice: c.costPrice, listedQuantity: c.listedQuantity,
 });
 
-export function CardForm({ card, onDeleted }: { card?: RealCard; onDeleted?: () => void }) {
+export function CardForm({ card, stale, onSaved, onDeleted }: { card?: RealCard; stale?: boolean; onSaved?: () => void; onDeleted?: () => void }) {
   const { t, errorText } = useT();
   const router = useRouter();
   const { mutate } = useSWRConfig();
@@ -157,6 +157,7 @@ export function CardForm({ card, onDeleted }: { card?: RealCard; onDeleted?: () 
       }
     }
     await refresh();
+    onSaved?.(); // the edit page re-baselines on the copy the server now holds
     if (problems.length) {
       setErr(problems.join('\n'));
       setBusy(false);
@@ -296,7 +297,7 @@ export function CardForm({ card, onDeleted }: { card?: RealCard; onDeleted?: () 
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           {card ? <Button type="button" variant="danger" onClick={() => setConfirmDelete(true)} disabled={busy}>{t('form.delete')}</Button> : <span />}
-          <Button type="submit" busy={busy} className="min-w-32">{busy ? t('form.saving') : t('form.save')}</Button>
+          <Button type="submit" busy={busy} disabled={stale} className="min-w-32">{busy ? t('form.saving') : t('form.save')}</Button>
         </div>
       </div>
 

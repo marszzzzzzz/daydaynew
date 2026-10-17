@@ -54,3 +54,16 @@ export const clampInt = (s: string, min: number, max: number) => Math.max(min, M
 
 /** Side to show as the card's cover: the front, or the back when only a back photo exists. */
 export const coverSide = (sides: PhotoSide[]): PhotoSide => (sides.includes('FRONT') || !sides.includes('BACK') ? 'FRONT' : 'BACK');
+
+/**
+ * The listing's name as a ?q= search hint: whole characters only (a split emoji makes encodeURIComponent throw),
+ * at most 60 (the server's search cap), cut at a backslash (Postgres LIKE treats it as an escape).
+ */
+export function searchHint(name: string) {
+  let out = '';
+  for (const ch of name.split('\\')[0]) {
+    if (out.length + ch.length > 60) break; // the server cuts at 60 UTF-16 units; stop before splitting a character
+    out += ch;
+  }
+  return out.trim();
+}

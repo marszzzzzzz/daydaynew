@@ -21,8 +21,13 @@ function ListingView({ me }: { me: Me }) {
   const { t, money, ago } = useT();
   // There is no single-listing endpoint: the market list (≤ 200, newest first) is the source. The market grid
   // passes the card's name as ?q= so a listing older than the newest 200 is still found.
-  const q = useSearchParams().get('q')?.trim().slice(0, 60);
-  const { data, error, mutate } = useSWR<Listing[] | null>(q ? `real-market?q=${encodeURIComponent(q)}` : 'real-market', fetcher);
+  const q = useSearchParams().get('q')?.trim();
+  const hinted = useSWR<Listing[] | null>(q ? `real-market?q=${encodeURIComponent(q)}` : null, fetcher);
+  // The hint can miss (the seller renamed the card, or its name has characters the search treats specially):
+  // then fall back to the newest-200 list, which is also the only source when there is no hint.
+  const missed = !q || (hinted.data !== undefined && !hinted.data?.some((x) => x.id === id)) || (!!hinted.error && !hinted.data);
+  const fallback = useSWR<Listing[] | null>(missed ? 'real-market' : null, fetcher);
+  const { data, error, mutate } = missed ? fallback : hinted;
   const [picked, setSide] = useState<PhotoSide | null>(null);
 
   if (error && !data) return <LoadError error={error} retry={() => mutate()} />;

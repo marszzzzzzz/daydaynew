@@ -6,7 +6,7 @@ import { CardPhoto } from '@/components/CardPhoto';
 import { Blocked } from '@/components/RequireSignIn';
 import { Badge, ButtonLink, Input, Loading, LoadError, Notice, PageTitle, Select } from '@/components/ui';
 import { ApiError, fetcher } from '@/lib/api';
-import { cardDetail, coverSide } from '@/lib/cards';
+import { cardDetail, coverSide, searchHint } from '@/lib/cards';
 import { useConfig, useDebounced, useMe } from '@/lib/hooks';
 import { useT, type Key } from '@/lib/i18n';
 import type { Listing } from '@/lib/types';
@@ -82,7 +82,7 @@ function Market() {
 
   return (
     <div>
-      <PageTitle title={t('market.title')} sub={data ? t('market.count', { n: data.length }) : undefined}
+      <PageTitle title={t('market.title')} sub={data ? t(data.length >= 200 ? 'market.countCap' : 'market.count', { n: data.length }) : undefined}
         action={<ButtonLink href="/sell/new" variant="secondary">＋ {t('sell.add')}</ButtonLink>} />
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row">
@@ -114,7 +114,7 @@ function Market() {
             {data?.map((l) => (
               <li key={l.id}>
                 {/* ?q= lets the listing page find a card outside the newest 200 */}
-                <Link href={`/listing/${encodeURIComponent(l.id)}?q=${encodeURIComponent(l.name.slice(0, 60))}`} className="group block rounded-2xl border border-line bg-surface p-2.5 transition hover:-translate-y-0.5 hover:shadow-lg">
+                <Link href={`/listing/${encodeURIComponent(l.id)}?q=${encodeURIComponent(searchHint(l.name))}`} className="group block rounded-2xl border border-line bg-surface p-2.5 transition hover:-translate-y-0.5 hover:shadow-lg">
                   <div className="relative">
                     <CardPhoto cardId={l.id} side={coverSide(l.photos)} has={l.photos.length > 0} category={l.category} name={l.name} />
                     <div className="absolute top-2 left-2 flex flex-col items-start gap-1">
