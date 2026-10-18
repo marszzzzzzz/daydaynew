@@ -109,17 +109,26 @@ export function BatchCamera({ onReview, onClose, defaultPublic }: { onReview: ()
     } catch { setTorchOk(false); }
   }
 
+  // The flow as of the last photo placed, so several gallery photos in one pick go front, back, front…
+  // (state alone would still hold the step from before the pick).
+  const flow = useRef({ retake, awaitingBack });
+  flow.current = { retake, awaitingBack };
+
   /** Put a photo where the flow expects it: a retake, the waiting card's back, or a new card's front. */
   function place(blob: Blob) {
-    if (retake) {
-      batch.setPhoto(retake.key, retake.side, blob);
+    const { retake: re, awaitingBack: waiting } = flow.current;
+    if (re) {
+      batch.setPhoto(re.key, re.side, blob);
+      flow.current = { retake: null, awaitingBack: waiting };
       setRetake(null);
-    } else if (awaitingBack) {
-      batch.setPhoto(awaitingBack, 'BACK', blob);
+    } else if (waiting && batch.get().some((c) => c.key === waiting)) {
+      batch.setPhoto(waiting, 'BACK', blob);
+      flow.current = { retake: null, awaitingBack: null };
       setAwaitingBack(null);
     } else if (batch.get().length < BATCH_MAX) {
       const c = batch.add({ isPublic: defaultPublic });
       batch.setPhoto(c.key, 'FRONT', blob);
+      flow.current = { retake: null, awaitingBack: c.key };
       setAwaitingBack(c.key);
     }
   }

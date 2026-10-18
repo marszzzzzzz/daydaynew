@@ -3,12 +3,13 @@
 // between the camera, the review screen and other pages; photos stay in memory until they are saved.
 'use client';
 import { useSyncExternalStore } from 'react';
+import type { OcrLine } from './ocr';
 import type { CardLanguage, Condition, PhotoSide } from './types';
 
 export const BATCH_MAX = 10;
 
 export interface Shot { blob: Blob; url: string }
-export type OcrState = { status: 'idle' | 'reading' | 'done' | 'failed'; text: string; lines: string[]; numbers: string[] };
+export type OcrState = { status: 'idle' | 'reading' | 'done' | 'failed'; text: string; lines: string[]; numbers: string[]; layout?: OcrLine[] };
 
 export interface BatchCard {
   key: string;
@@ -17,7 +18,9 @@ export interface BatchCard {
   name: string; cardId: string | null; categoryId: string; setName: string; number: string;
   language: CardLanguage; langAuto: boolean; condition: Condition; grade: string;
   quantity: string; asking: string; cost: string; listed: string; isPublic: boolean;
-  tags: string[]; serial: string; // see lib/meta.ts
+  tags: string[]; serial: string; notes: string; // see lib/meta.ts
+  // Values the scan filled in by itself: a later, better reading may replace them; anything typed stays.
+  auto: Partial<Record<'name' | 'number' | 'notes', string>>; sports: boolean;
   // Saving: the record id once created, which photos are up, the market switch, and the last error.
   savedId: string | null; uploaded: Partial<Record<PhotoSide, boolean>>; listedDone: boolean; error: string | null;
 }
@@ -33,7 +36,7 @@ export const batch = {
   add(defaults: Partial<BatchCard>): BatchCard {
     const c: BatchCard = {
       key: `c${++seq}`, photos: {}, ocr: {}, name: '', cardId: null, categoryId: '', setName: '', number: '',
-      language: 'en', langAuto: true, condition: 'NEAR_MINT', grade: '', quantity: '1', asking: '', cost: '', listed: '1', isPublic: false, tags: [], serial: '',
+      language: 'en', langAuto: true, condition: 'NEAR_MINT', grade: '', quantity: '1', asking: '', cost: '', listed: '1', isPublic: false, tags: [], serial: '', notes: '', auto: {}, sports: false,
       savedId: null, uploaded: {}, listedDone: false, error: null, ...defaults,
     };
     cards = [...cards, c];

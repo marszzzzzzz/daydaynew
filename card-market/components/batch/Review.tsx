@@ -12,7 +12,7 @@ import { BATCH_MAX, batch, isDone, useBatch, type BatchCard } from '@/lib/batch'
 import { CARD_LANGUAGES, CONDITIONS, clampInt, sellerReady } from '@/lib/cards';
 import { useConfig, useMe } from '@/lib/hooks';
 import { useT, type Key } from '@/lib/i18n';
-import { MAX_SERIAL, cleanSerial, joinNotes, serialProblem } from '@/lib/meta';
+import { MAX_SERIAL, cleanSerial, joinNotes, notesRoom, serialProblem } from '@/lib/meta';
 import { OCR_LANGS, type OcrLangs } from '@/lib/ocr';
 import type { CardLanguage, Condition, PhotoSide, RealCard, Suggestion } from '@/lib/types';
 
@@ -49,7 +49,7 @@ export function BatchReview({ langs, setLangs, onCamera }: { langs: OcrLangs; se
         name: c.name.trim(), cardId: c.cardId, categoryId: c.categoryId || null, setName: c.setName, number: c.number,
         language: c.language, condition: c.condition, grade: c.grade, quantity,
         askingPrice: priceOrNull(c.asking), costPrice: priceOrNull(c.cost), listedQuantity: clampInt(c.listed, 0, quantity),
-        notes: joinNotes({ tags: c.tags, serial, text: '' }),
+        notes: joinNotes({ tags: c.tags, serial, text: c.notes.slice(0, notesRoom({ tags: c.tags, serial })) }),
       };
       let id = c.savedId;
       if (!id) {
@@ -231,6 +231,7 @@ function CardRow({ card: c, index, currency, maxPrice, canList, disabled }: { ca
                     className={`rounded-full px-3 py-1 text-sm ${target === k ? 'bg-brand text-brand-ink' : 'bg-surface-2'}`}>{t(LABEL[k])}</button>
                 ))}
               </div>
+              {c.sports && !reading && <p className="mt-2 rounded-lg bg-ok-soft px-2.5 py-1.5 text-xs text-ok">🏅 {t('batch.sports')}</p>}
               {reading ? (
                 <p className="mt-2 text-sm text-muted">⏳ {t('batch.reading')}</p>
               ) : !text ? (
@@ -296,6 +297,9 @@ function CardRow({ card: c, index, currency, maxPrice, canList, disabled }: { ca
               </Field>
             </div>
             <TagPicker tags={c.tags} onChange={(tags) => set({ tags })} disabled={locked} />
+            <Field label={t('form.notes')} hint={c.auto.notes && c.notes === c.auto.notes ? t('batch.notesAuto') : undefined}>
+              <Input value={c.notes} maxLength={notesRoom({ tags: c.tags, serial: cleanSerial(c.serial) })} disabled={locked} onChange={(e) => set({ notes: e.target.value })} placeholder={t('batch.notes.ph')} />
+            </Field>
             {(c.tags.length > 0 || c.serial.trim() !== '') && <p className="text-xs text-muted">{t('tags.private')}</p>}
             <label className={`flex items-center gap-2 text-sm ${!canList ? 'opacity-50' : ''}`}>
               <input type="checkbox" className="size-4 accent-[var(--brand)]" checked={c.isPublic} disabled={!canList || locked} onChange={(e) => set({ isPublic: e.target.checked })} />

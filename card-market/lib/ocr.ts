@@ -9,7 +9,9 @@ import type { CardLanguage } from './types';
 /** 'auto' tries one language model at a time until the text it reads is confident and in that model's script. */
 export type OcrLangs = 'auto' | 'en' | 'zh' | 'ja' | 'ko';
 export const OCR_LANGS: OcrLangs[] = ['auto', 'en', 'zh', 'ja', 'ko'];
-export interface OcrResult { text: string; confidence: number; lines: string[]; numbers: string[]; language: CardLanguage }
+export interface OcrResult { text: string; confidence: number; lines: string[]; numbers: string[]; language: CardLanguage; layout: OcrLine[] }
+/** One recognised line and where it sits: `y` is its middle and `h` its height, both as a share of the photo's height. */
+export interface OcrLine { text: string; y: number; h: number }
 
 // Tesseract reads best at a text height of ~30px: small photos are scaled up, large ones down.
 const FULL_SIDE = 2200;
@@ -76,11 +78,14 @@ function worker(langs: string) {
 }
 
 async function recognise(canvas: HTMLCanvasElement, script: Script) {
-  const { data } = await (await worker(MODEL[script])).recognize(canvas);
+  const { data } = await (await worker(MODEL[script])).recognize(canvas, {}, { text: true, blocks: true });
   const text = clean(data.text ?? '');
+  const layout: OcrLine[] = (data.blocks ?? []).flatMap((b) => b.paragraphs.flatMap((p) => p.lines))
+    .map((l) => ({ text: clean(l.text), y: (l.bbox.y0 + l.bbox.y1) / 2 / canvas.height, h: (l.bbox.y1 - l.bbox.y0) / canvas.height }))
+    .filter((l) => l.text);
   // Read in its own script, confidently, or with too little text to be worth another model.
   const fits = scriptLanguage(text) === script;
-  return { text, confidence: Math.round(data.confidence ?? 0), language: script, fits, empty: count(text, /[\p{L}\p{N}]/gu) < 4 };
+  return { text, layout, confidence: Math.round(data.confidence ?? 0), language: script, fits, empty: count(text, /[\p{L}\p{N}]/gu) < 4 };
 }
 
 // One job at a time on the shared workers.
@@ -110,7 +115,7 @@ export function readText(blob: Blob, langs: OcrLangs): Promise<OcrResult> {
       if (best!.fits && !best!.empty) lastFound = best!.language as Script;
     }
     const r = best!;
-    return { text: r.text, confidence: r.confidence, ...hints(r.text), language: r.fits ? r.language : scriptLanguage(r.text) };
+    return { text: r.text, layout: r.layout, confidence: r.confidence, ...hints(r.text), language: r.fits ? r.language : scriptLanguage(r.text) };
   });
   queue = job.catch(() => undefined);
   return job;
