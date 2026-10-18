@@ -5,18 +5,21 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useSWRConfig } from 'swr';
+import { TagPicker } from '@/components/TagPicker';
 import { Badge, Button, ButtonLink, Field, Input, Notice, Panel, Select } from '@/components/ui';
 import { api } from '@/lib/api';
 import { BATCH_MAX, batch, isDone, useBatch, type BatchCard } from '@/lib/batch';
 import { CARD_LANGUAGES, CONDITIONS, clampInt, sellerReady } from '@/lib/cards';
 import { useConfig, useMe } from '@/lib/hooks';
 import { useT, type Key } from '@/lib/i18n';
+import { MAX_SERIAL, cleanSerial, joinNotes, serialProblem } from '@/lib/meta';
 import { OCR_LANGS, type OcrLangs } from '@/lib/ocr';
 import type { CardLanguage, Condition, PhotoSide, RealCard, Suggestion } from '@/lib/types';
 
-type Target = 'name' | 'number' | 'setName';
-const TARGETS: Target[] = ['name', 'number', 'setName'];
-const LABEL: Record<Target, Key> = { name: 'form.name', number: 'field.number', setName: 'field.set' };
+type Target = 'name' | 'number' | 'setName' | 'serial';
+const TARGETS: Target[] = ['name', 'number', 'setName', 'serial'];
+const LABEL: Record<Target, Key> = { name: 'form.name', number: 'field.number', setName: 'field.set', serial: 'tags.serial' };
+const MAX_LEN: Record<Target, number> = { name: 80, number: 24, setName: 60, serial: MAX_SERIAL };
 const priceOrNull = (s: string) => (s.trim() === '' ? null : Number(s));
 
 export function BatchReview({ langs, setLangs, onCamera }: { langs: OcrLangs; setLangs: (l: OcrLangs) => void; onCamera: () => void }) {
@@ -39,11 +42,14 @@ export function BatchReview({ langs, setLangs, onCamera }: { langs: OcrLangs; se
     try {
       if (c.name.trim().length < 2) throw new Error(t('form.nameShort'));
       if (c.isPublic && priceOrNull(c.asking) === null) throw new Error(t('err.NEEDS_PRICE'));
+      const serial = cleanSerial(c.serial);
+      if (serialProblem(serial)) throw new Error(t('tags.serial.range'));
       const quantity = clampInt(c.quantity, 1, 999);
       const fields = {
         name: c.name.trim(), cardId: c.cardId, categoryId: c.categoryId || null, setName: c.setName, number: c.number,
         language: c.language, condition: c.condition, grade: c.grade, quantity,
-        askingPrice: priceOrNull(c.asking), listedQuantity: clampInt(c.listed, 0, quantity),
+        askingPrice: priceOrNull(c.asking), costPrice: priceOrNull(c.cost), listedQuantity: clampInt(c.listed, 0, quantity),
+        notes: joinNotes({ tags: c.tags, serial, text: '' }),
       };
       let id = c.savedId;
       if (!id) {
@@ -171,11 +177,11 @@ function CardRow({ card: c, index, currency, maxPrice, canList, disabled }: { ca
 
   function fill(value: string) {
     if (locked) return;
-    const v = value.trim().slice(0, target === 'name' ? 80 : target === 'number' ? 24 : 60);
+    const v = target === 'serial' ? cleanSerial(value) : value.trim().slice(0, MAX_LEN[target]);
     if (!v) return;
     set({ [target]: v, ...(target === 'name' ? { cardId: null } : {}) });
-    // Move on to the next empty field, so name → number → set is three taps.
-    const next = TARGETS.find((k) => k !== target && !(k === 'name' ? c.name : k === 'number' ? c.number : c.setName));
+    // Move on to the next empty field, so name → number → set is three taps (the serial only when chosen).
+    const next = TARGETS.find((k) => k !== target && k !== 'serial' && !c[k]);
     if (next) setTarget(next);
   }
 
@@ -232,7 +238,8 @@ function CardRow({ card: c, index, currency, maxPrice, canList, disabled }: { ca
               ) : (
                 <>
                   <div className="mt-2 flex flex-wrap gap-1.5">
-                    {numbers.map((n) => <Chip key={`n:${n}`} strong disabled={locked} onClick={() => { setTarget('number'); set({ number: n }); }}>#{n}</Chip>)}
+                    {/* A number chip fills the card number, or the serial number when that is the chosen field. */}
+                    {numbers.map((n) => <Chip key={`n:${n}`} strong disabled={locked} onClick={() => (target === 'serial' ? set({ serial: cleanSerial(n) }) : (setTarget('number'), set({ number: n })))}>#{n}</Chip>)}
                     {lines.map((l) => <Chip key={`l:${l}`} disabled={locked} onClick={() => fill(l)}>{l}</Chip>)}
                   </div>
                   <details className="mt-2">
@@ -272,8 +279,14 @@ function CardRow({ card: c, index, currency, maxPrice, canList, disabled }: { ca
                 </Select>
               </Field>
               <Field label={t('field.grade')}><Input value={c.grade} maxLength={20} disabled={locked} onChange={(e) => set({ grade: e.target.value })} placeholder={t('form.grade.ph')} /></Field>
+              <Field label={t('tags.serial')} hint={serialProblem(cleanSerial(c.serial)) ? <span className="text-danger">{t('tags.serial.range')}</span> : undefined}>
+                <Input value={c.serial} maxLength={MAX_SERIAL} disabled={locked} onChange={(e) => set({ serial: e.target.value })} onBlur={() => set({ serial: cleanSerial(c.serial) })} placeholder={t('tags.serial.ph')} />
+              </Field>
               <Field label={t('form.asking', { cur: currency })}>
                 <Input type="number" inputMode="decimal" min={0} max={maxPrice} step="0.01" value={c.asking} disabled={locked} onChange={(e) => set({ asking: e.target.value })} />
+              </Field>
+              <Field label={t('form.cost')}>
+                <Input type="number" inputMode="decimal" min={0} max={maxPrice} step="0.01" value={c.cost} disabled={locked} onChange={(e) => set({ cost: e.target.value })} />
               </Field>
               <Field label={t('form.quantity')}>
                 <Input type="number" inputMode="numeric" min={1} max={999} value={c.quantity} disabled={locked} onChange={(e) => set({ quantity: e.target.value })} onBlur={() => set({ quantity: String(clampInt(c.quantity, 1, 999)) })} />
@@ -282,6 +295,8 @@ function CardRow({ card: c, index, currency, maxPrice, canList, disabled }: { ca
                 <Input type="number" inputMode="numeric" min={0} max={clampInt(c.quantity, 1, 999)} value={c.listed} disabled={locked} onChange={(e) => set({ listed: e.target.value })} onBlur={() => set({ listed: String(clampInt(c.listed, 0, clampInt(c.quantity, 1, 999))) })} />
               </Field>
             </div>
+            <TagPicker tags={c.tags} onChange={(tags) => set({ tags })} disabled={locked} />
+            {(c.tags.length > 0 || c.serial.trim() !== '') && <p className="text-xs text-muted">{t('tags.private')}</p>}
             <label className={`flex items-center gap-2 text-sm ${!canList ? 'opacity-50' : ''}`}>
               <input type="checkbox" className="size-4 accent-[var(--brand)]" checked={c.isPublic} disabled={!canList || locked} onChange={(e) => set({ isPublic: e.target.checked })} />
               {t('form.public')}

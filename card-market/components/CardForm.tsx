@@ -8,7 +8,9 @@ import { CARD_LANGUAGES, CONDITIONS, clampInt, glyph, photoUrl, sellerReady } fr
 import { useConfig, useDebounced, useMe } from '@/lib/hooks';
 import { useT } from '@/lib/i18n';
 import { shrinkPhoto } from '@/lib/image';
+import { MAX_SERIAL, cleanSerial, joinNotes, notesRoom, serialProblem, splitNotes } from '@/lib/meta';
 import type { CardLanguage, Condition, PhotoSide, RealCard, Suggestion } from '@/lib/types';
+import { TagPicker } from './TagPicker';
 import { Button, ConfirmDialog, Field, Input, Notice, Panel, Select } from './ui';
 
 interface PhotoState { blob: Blob | null; preview: string | null; existing: number | null; remove: boolean }
@@ -44,7 +46,11 @@ export function CardForm({ card, stale, onSaved, onDeleted }: { card?: RealCard;
   const [asking, setAsking] = useState(card?.askingPrice?.toString() ?? '');
   const [listedS, setListed] = useState(String(card?.listedQuantity ?? 1));
   const [cost, setCost] = useState(card?.costPrice?.toString() ?? '');
-  const [notes, setNotes] = useState(card?.notes ?? '');
+  // Tags and the serial number live at the front of the notes (lib/meta.ts); the box shows the rest.
+  const [meta] = useState(() => splitNotes(card?.notes));
+  const [notes, setNotes] = useState(meta.text);
+  const [tags, setTags] = useState(meta.tags);
+  const [serial, setSerial] = useState(meta.serial);
   // New cards go public by default only when the account can sell (else the listing step would fail).
   const [isPublic, setIsPublic] = useState(() => card?.marketPublic ?? sellerReady(me));
   // Set once the record exists, so a retry after a partial save edits it instead of adding a duplicate.
@@ -106,11 +112,15 @@ export function CardForm({ card, stale, onSaved, onDeleted }: { card?: RealCard;
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (name.trim().length < 2) { setErr(t('form.nameShort')); return; }
+    const serialV = cleanSerial(serial);
+    if (serialProblem(serialV)) { setErr(t('tags.serial.range')); return; }
+    setSerial(serialV);
     setBusy(true);
     setErr(null);
     const body: Body = {
       name: name.trim(), cardId: name.trim() === picked.current ? cardId : null, categoryId: categoryId || null,
-      setName: setNameV, number, language, condition, grade, quantity, notes,
+      setName: setNameV, number, language, condition, grade, quantity,
+      notes: joinNotes({ tags, serial: serialV, text: notes.slice(0, notesRoom({ tags, serial: serialV })) }),
       askingPrice: priceOrNull(asking), costPrice: priceOrNull(cost), listedQuantity: listed,
     };
     let id = savedId;
@@ -265,7 +275,11 @@ export function CardForm({ card, stale, onSaved, onDeleted }: { card?: RealCard;
               <Input type="number" inputMode="numeric" min={1} max={999} step={1} required value={quantityS}
                 onChange={(e) => setQuantity(e.target.value)} onBlur={() => setQuantity(String(quantity))} />
             </Field>
+            <Field label={t('tags.serial')} hint={serialProblem(cleanSerial(serial)) ? <span className="text-danger">{t('tags.serial.range')}</span> : t('tags.serial.hint')}>
+              <Input maxLength={MAX_SERIAL} value={serial} onChange={(e) => setSerial(e.target.value)} onBlur={() => setSerial(cleanSerial(serial))} placeholder={t('tags.serial.ph')} />
+            </Field>
           </Grid>
+          <TagPicker tags={tags} onChange={setTags} />
         </Panel>
 
         <Panel className="space-y-4">
@@ -282,7 +296,9 @@ export function CardForm({ card, stale, onSaved, onDeleted }: { card?: RealCard;
               <Input type="number" inputMode="decimal" min={0} max={maxPrice} step="0.01" value={cost} onChange={(e) => setCost(e.target.value)} />
             </Field>
           </Grid>
-          <Field label={t('form.notes')}><Input maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
+          <Field label={t('form.notes')} hint={tags.length || serial ? t('tags.private') : undefined}>
+            <Input maxLength={notesRoom({ tags, serial: cleanSerial(serial) })} value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </Field>
           <label className={`flex items-start gap-3 rounded-xl border border-line p-3 ${card?.marketRemovedByAdmin ? 'opacity-60' : ''}`}>
             <input type="checkbox" role="switch" className="mt-0.5 size-5 accent-[var(--brand)]" checked={isPublic}
               disabled={card?.marketRemovedByAdmin} onChange={(e) => setIsPublic(e.target.checked)} />

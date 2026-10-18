@@ -4,11 +4,13 @@ import { useState, type ReactNode } from 'react';
 import useSWR from 'swr';
 import { CardPhoto } from '@/components/CardPhoto';
 import { RequireSignIn } from '@/components/RequireSignIn';
+import { TagList } from '@/components/TagList';
 import { Badge, ButtonLink, Loading, LoadError, Notice, PageTitle, Panel } from '@/components/ui';
 import { ApiError, api, fetcher } from '@/lib/api';
 import { cardDetail, coverSide, listingState, sellerReady, type ListingState } from '@/lib/cards';
 import { isDone, useBatch } from '@/lib/batch';
 import { useT } from '@/lib/i18n';
+import { splitNotes } from '@/lib/meta';
 import type { Me, RealCard } from '@/lib/types';
 
 export default function SellPage() {
@@ -99,6 +101,7 @@ function CardRow({ card: c, me, onChange }: { card: RealCard; me: Me; onChange: 
     }
   }
 
+  const meta = splitNotes(c.notes);
   return (
     <li className="rounded-2xl border border-line bg-surface p-3">
       <div className="flex gap-3">
@@ -113,10 +116,12 @@ function CardRow({ card: c, me, onChange }: { card: RealCard; me: Me; onChange: 
             </Link>
             <Badge tone={STATE_TONE[state]}>{t(`status.${state}`)}</Badge>
           </div>
+          <TagList tags={meta.tags} serial={meta.serial} t={t} className="mt-1" />
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
             <span className="font-bold">{c.askingPrice === null ? <span className="font-normal text-muted">{t('card.noPrice')}</span> : money(c.askingPrice, c.currency)}</span>
             <span className="text-muted">{t('card.owned', { n: c.quantity })}</span>
             <span className="text-muted">{t('card.forSale', { n: c.listedQuantity })}</span>
+            {c.costPrice !== null && <span className="text-muted">{t('card.cost', { price: money(c.costPrice, c.currency) })}</span>}
           </div>
           <div className="mt-2 flex items-center justify-between gap-2">
             <label className={`flex items-center gap-2 text-sm ${c.marketRemovedByAdmin ? 'opacity-50' : ''}`}>
