@@ -15,7 +15,7 @@ export interface BatchCard {
   photos: Partial<Record<PhotoSide, Shot>>;
   ocr: Partial<Record<PhotoSide, OcrState>>;
   name: string; cardId: string | null; categoryId: string; setName: string; number: string;
-  language: CardLanguage; condition: Condition; grade: string;
+  language: CardLanguage; langAuto: boolean; condition: Condition; grade: string;
   quantity: string; asking: string; listed: string; isPublic: boolean;
   // Saving: the record id once created, which photos are up, the market switch, and the last error.
   savedId: string | null; uploaded: Partial<Record<PhotoSide, boolean>>; listedDone: boolean; error: string | null;
@@ -32,7 +32,7 @@ export const batch = {
   add(defaults: Partial<BatchCard>): BatchCard {
     const c: BatchCard = {
       key: `c${++seq}`, photos: {}, ocr: {}, name: '', cardId: null, categoryId: '', setName: '', number: '',
-      language: 'en', condition: 'NEAR_MINT', grade: '', quantity: '1', asking: '', listed: '1', isPublic: false,
+      language: 'en', langAuto: true, condition: 'NEAR_MINT', grade: '', quantity: '1', asking: '', listed: '1', isPublic: false,
       savedId: null, uploaded: {}, listedDone: false, error: null, ...defaults,
     };
     cards = [...cards, c];

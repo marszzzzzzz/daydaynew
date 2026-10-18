@@ -1,10 +1,11 @@
 'use client';
-// Two languages: Traditional Chinese (default, like Card Pool) and English. The choice is kept in
-// the cm_lang cookie so the server renders the right language on the first paint.
+// Two languages: Traditional Chinese (default, like Card Pool) and English. The first visit follows the
+// browser's language (lib/lang.ts); a choice is kept in the cm_lang cookie so the server renders it on the first paint.
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { ApiError } from './api';
+import type { Lang } from './lang';
 
-export type Lang = 'zh' | 'en';
+export type { Lang };
 
 const D = {
   // shell
@@ -225,6 +226,12 @@ const D = {
   'batch.reviewTitle': ['選取文字及定價', 'Pick text and prices'],
   'batch.reviewSub': ['{n} 張卡（每批最多 {max} 張）。點選辨識到的文字填入欄位，再輸入價錢。', '{n} cards (up to {max}). Tap the recognised text to fill each field, then add a price.'],
   'batch.ocrLang': ['辨識語言', 'Text language'],
+  'ocrLang.auto': ['自動偵測', 'Detect automatically'],
+  'ocrLang.en': ['英文', 'English'],
+  'ocrLang.zh': ['中文（繁體）+ 英文', 'Chinese (Traditional) + English'],
+  'ocrLang.ja': ['日文 + 英文', 'Japanese + English'],
+  'ocrLang.ko': ['韓文 + 英文', 'Korean + English'],
+  'batch.langDetected': ['按卡面文字自動判斷', 'Detected from the card text'],
   'batch.more': ['再拍', 'Shoot more'],
   'batch.notReady': ['帳戶未設定密碼或 WhatsApp：卡會儲存，但未能公開出售。', 'Your account has no password or WhatsApp yet: cards will be saved but cannot be listed.'],
   'batch.saving': ['儲存中 {done} / {total}', 'Saving {done} / {total}'],

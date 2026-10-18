@@ -8,11 +8,11 @@ import { useSWRConfig } from 'swr';
 import { Badge, Button, ButtonLink, Field, Input, Notice, Panel, Select } from '@/components/ui';
 import { api } from '@/lib/api';
 import { BATCH_MAX, batch, isDone, useBatch, type BatchCard } from '@/lib/batch';
-import { CONDITIONS, clampInt, sellerReady } from '@/lib/cards';
+import { CARD_LANGUAGES, CONDITIONS, clampInt, sellerReady } from '@/lib/cards';
 import { useConfig, useMe } from '@/lib/hooks';
 import { useT, type Key } from '@/lib/i18n';
-import type { OcrLangs } from '@/lib/ocr';
-import type { Condition, PhotoSide, RealCard, Suggestion } from '@/lib/types';
+import { OCR_LANGS, type OcrLangs } from '@/lib/ocr';
+import type { CardLanguage, Condition, PhotoSide, RealCard, Suggestion } from '@/lib/types';
 
 type Target = 'name' | 'number' | 'setName';
 const TARGETS: Target[] = ['name', 'number', 'setName'];
@@ -103,11 +103,9 @@ export function BatchReview({ langs, setLangs, onCamera }: { langs: OcrLangs; se
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <label className="flex items-center gap-2 text-sm">
-            {t('batch.ocrLang')}
+            <span className="whitespace-nowrap">{t('batch.ocrLang')}</span>
             <Select value={langs} onChange={(e) => setLangs(e.target.value as OcrLangs)} className="w-auto py-1.5">
-              <option value="eng">{t('clang.en')}</option>
-              <option value="eng+chi_tra">{t('clang.en')} + {t('clang.zh')}</option>
-              <option value="eng+jpn">{t('clang.en')} + {t('clang.ja')}</option>
+              {OCR_LANGS.map((l) => <option key={l} value={l}>{t(`ocrLang.${l}`)}</option>)}
             </Select>
           </label>
           {cards.length < BATCH_MAX && <Button variant="secondary" onClick={onCamera}>📷 {t('batch.more')}</Button>}
@@ -257,6 +255,11 @@ function CardRow({ card: c, index, currency, maxPrice, canList, disabled }: { ca
               <Field className="col-span-2 xl:col-span-1" label={t('form.name')}><Input value={c.name} maxLength={80} disabled={locked} onChange={(e) => set({ name: e.target.value, cardId: null })} placeholder={t('form.name.ph')} /></Field>
               <Field label={t('field.number')}><Input value={c.number} maxLength={24} disabled={locked} onChange={(e) => set({ number: e.target.value })} placeholder={t('form.number.ph')} /></Field>
               <Field label={t('field.set')}><Input value={c.setName} maxLength={60} disabled={locked} onChange={(e) => set({ setName: e.target.value })} placeholder={t('form.set.ph')} /></Field>
+              <Field label={t('field.language')} hint={c.langAuto && c.ocr.FRONT?.status === 'done' ? t('batch.langDetected') : undefined}>
+                <Select value={c.language} disabled={locked} onChange={(e) => set({ language: e.target.value as CardLanguage, langAuto: false })}>
+                  {CARD_LANGUAGES.map((x) => <option key={x} value={x}>{t(`clang.${x}`)}</option>)}
+                </Select>
+              </Field>
               <Field label={t('field.category')}>
                 <Select value={c.categoryId} disabled={locked} onChange={(e) => set({ categoryId: e.target.value })}>
                   <option value="">{t('form.category.none')}</option>

@@ -10,7 +10,7 @@ cpSync('node_modules/tesseract.js/dist/worker.min.js', `${OUT}/worker.min.js`);
 for (const f of ['tesseract-core-lstm.wasm.js', 'tesseract-core-simd-lstm.wasm.js', 'tesseract-core-relaxedsimd-lstm.wasm.js']) {
   cpSync(`node_modules/tesseract.js-core/${f}`, `${OUT}/${f}`);
 }
-for (const lang of ['eng', 'chi_tra', 'jpn']) {
+for (const lang of ['eng', 'chi_tra', 'jpn', 'kor']) {
   cpSync(`node_modules/@tesseract.js-data/${lang}/4.0.0_best_int/${lang}.traineddata.gz`, `${OUT}/lang/${lang}.traineddata.gz`);
 }
 console.log('[ocr] engine and language data copied to', OUT);

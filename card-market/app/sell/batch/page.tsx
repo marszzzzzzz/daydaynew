@@ -8,8 +8,7 @@ import { RequireSignIn } from '@/components/RequireSignIn';
 import { Loading } from '@/components/ui';
 import { batch, isDone, useBatch } from '@/lib/batch';
 import { sellerReady } from '@/lib/cards';
-import { useT } from '@/lib/i18n';
-import { readText, scriptLanguage, type OcrLangs } from '@/lib/ocr';
+import { OCR_LANGS, readText, type OcrLangs } from '@/lib/ocr';
 import type { Me, PhotoSide } from '@/lib/types';
 
 export default function BatchPage() {
@@ -20,12 +19,11 @@ const LANGS_KEY = 'cm_ocr_langs';
 
 function Batch({ me }: { me: Me }) {
   const router = useRouter();
-  const { lang } = useT();
   const cards = useBatch();
   const [step, setStep] = useState<'camera' | 'review'>(useSearchParams().get('step') === 'review' && batch.get().length ? 'review' : 'camera');
   const [langs, setLangsState] = useState<OcrLangs>(() => {
-    try { const v = localStorage.getItem(LANGS_KEY); if (v === 'eng' || v === 'eng+chi_tra' || v === 'eng+jpn') return v; } catch { /* private mode */ }
-    return lang === 'zh' ? 'eng+chi_tra' : 'eng';
+    try { const v = localStorage.getItem(LANGS_KEY) as OcrLangs; if (OCR_LANGS.includes(v)) return v; } catch { /* private mode */ }
+    return 'auto';
   });
 
   function setLangs(l: OcrLangs) {
@@ -46,9 +44,10 @@ function Batch({ me }: { me: Me }) {
           if (cur?.photos[side] !== shot) return; // retaken meanwhile
           batch.update(c.key, (x) => ({
             ocr: { ...x.ocr, [side]: { status: 'done', text: r.text, lines: r.lines, numbers: r.numbers } },
-            // Helpful defaults the user can change: the printed card number and the text's script.
+            // Helpful defaults the user can change: the printed card number and the front's language
+            // (until the user picks one themselves).
             ...(!x.number && r.numbers[0] ? { number: r.numbers[0] } : {}),
-            ...(side === 'FRONT' && r.text ? { language: scriptLanguage(r.text) as typeof x.language } : {}),
+            ...(side === 'FRONT' && r.text && x.langAuto ? { language: r.language } : {}),
           }));
         }).catch(() => {
           batch.update(c.key, (x) => ({ ocr: { ...x.ocr, [side]: { status: 'failed', text: '', lines: [], numbers: [] } } }));
