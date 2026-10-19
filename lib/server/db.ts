@@ -5,11 +5,12 @@ import postgres from 'postgres';
 import { HttpError } from './http';
 
 const url = process.env.DATABASE_URL ?? process.env.POSTGRES_URL ?? process.env.DATABASE_URL_UNPOOLED;
+// Works with any Postgres: Neon, or Supabase (use its pooler URL, port 6543 — prepared statements are off for it).
 
 declare global { var __bcSql: postgres.Sql | undefined; var __bcReady: Promise<void> | undefined }
 
 function client() {
-  if (!url) throw new HttpError(503, 'The database is not connected yet. In Vercel → Storage, connect a Neon Postgres database to this project.', 'NO_DATABASE');
+  if (!url) throw new HttpError(503, 'The database is not connected yet. In Vercel → Storage, connect a Postgres database (Neon or Supabase) and set DATABASE_URL.', 'NO_DATABASE');
   globalThis.__bcSql ??= postgres(url, { max: 3, idle_timeout: 20, connect_timeout: 15, prepare: false, onnotice: () => undefined });
   return globalThis.__bcSql;
 }
@@ -160,10 +161,15 @@ CREATE TABLE IF NOT EXISTS email_block (
 );
 `;
 
+const TABLES = ['app_user', 'app_session', 'contact', 'contact_phone', 'contact_email', 'contact_photo', 'tag', 'contact_tag', 'template', 'message', 'share_link', 'email_block'];
+
 async function migrate(sql: postgres.Sql) {
   await sql.begin(async (tx) => {
     await tx`SELECT pg_advisory_xact_lock(424242)`;
     await tx.unsafe(SCHEMA);
+    // On Supabase, tables in "public" are also reachable through its REST API with the public anon key. Row-level
+    // security with no policies shuts that door; this app connects as the table owner, which RLS does not apply to.
+    await tx.unsafe(TABLES.map((t) => `ALTER TABLE ${t} ENABLE ROW LEVEL SECURITY;`).join('\n'));
   });
   // Fuzzy search index (spec §5); optional — plain ILIKE still works without the extension.
   try {
