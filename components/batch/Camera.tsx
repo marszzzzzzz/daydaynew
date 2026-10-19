@@ -140,7 +140,8 @@ export function BatchCamera({ onReview, onClose }: { onReview: () => void; onClo
 
   function shoot() {
     const r = crop();
-    if (!r || full || !video.current) return;
+    // Without a working camera the frame still takes taps (for "skip back"), but there is nothing to shoot.
+    if (!ready || !r || full || !video.current) return;
     const k = Math.min(1, OUT_MAX / Math.max(r.sw, r.sh));
     const c = document.createElement('canvas');
     c.width = Math.round(r.sw * k);
@@ -180,7 +181,7 @@ export function BatchCamera({ onReview, onClose }: { onReview: () => void; onClo
 
       {/* frame */}
       <div className="relative z-10 flex min-h-0 flex-1 items-center justify-center px-4 py-2">
-        <button ref={frame} type="button" onClick={shoot} disabled={!ready || full} aria-label={hint}
+        <button ref={frame} type="button" onClick={shoot} disabled={full} aria-disabled={!ready} aria-label={hint}
           className="relative overflow-hidden rounded-[28px] border-2 border-white/85 shadow-[0_0_0_9999px_rgba(0,0,0,0.55)] disabled:border-white/40"
           style={{ aspectRatio: ratio, width: `min(100%, calc((100dvh - 330px) * ${k}))` }}>
           <span key={flashKey} className={flashKey ? 'pointer-events-none absolute inset-0 animate-[shutter_350ms_ease-out_forwards] bg-white' : 'hidden'} />

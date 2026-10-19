@@ -70,6 +70,11 @@ function Detail() {
         </div>
       </div>
 
+      {!c.nameZh && !c.nameEn && !c.company && !c.companyEn && (
+        <Notice tone="warn" className="flex flex-wrap items-center justify-between gap-2">
+          <span>{t('detail.incomplete')}</span><ButtonLink href={`/contacts/${c.id}/edit`}>{t('common.edit')}</ButtonLink>
+        </Notice>
+      )}
       {c.photos.length > 0 && <FlipPhoto id={c.id} sides={c.photos} v={c.photoV} />}
       {note && <Notice>{note}</Notice>}
 

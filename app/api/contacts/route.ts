@@ -9,7 +9,7 @@ export const GET = handler(async (req) => {
   const r = await listContacts(u.id, {
     q: p.get('q')?.trim() || undefined,
     tags: p.get('tag')?.split(',').filter(Boolean),
-    starred: on('starred'), wa: on('wa'), hasEmail: on('email'), due: on('due'), archived: on('archived'),
+    incomplete: on('incomplete'), starred: on('starred'), wa: on('wa'), hasEmail: on('email'), due: on('due'), archived: on('archived'),
     sort: p.get('sort') ?? undefined,
     offset: Number(p.get('cursor') ?? 0) || 0,
     limit: Math.min(Number(p.get('limit') ?? 50) || 50, 5000),

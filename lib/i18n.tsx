@@ -170,6 +170,13 @@ const D = {
   'review.selectText': ['在全文中選取文字', 'Select from the full text'],
   'review.putSelection': ['把選取的文字填入「{field}」', 'Put the selection in “{field}”'],
   'review.dup': ['可能重複：{who}', 'Possible duplicate: {who}'],
+  'review.skip': ['略過，稍後補資料', 'Skip — fill in later'],
+  'review.skipped': ['已略過', 'Skipped'],
+  'review.unskip': ['改為現在填寫', 'Fill in now instead'],
+  'review.skipNote': ['會先儲存名片相及已讀到的資料，之後在聯絡人「待補資料」補上。', 'The photos and whatever was read are saved now; finish it later under “Needs details” in Contacts.'],
+  'review.skipAll': ['全部略過，先存相', 'Skip all — save photos'],
+  'filter.incomplete': ['📝 待補資料', '📝 Needs details'],
+  'detail.incomplete': ['這張名片仍未有姓名或公司，按「編輯」補上資料。', 'This card has no name or company yet — tap Edit to fill it in.'],
   'review.mergeInto': ['合併到 {who}', 'Merge into {who}'],
   'review.saveNew': ['另存新聯絡人', 'Save as new contact'],
   // contacts list

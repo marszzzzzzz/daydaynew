@@ -23,6 +23,8 @@ export interface BatchCard {
   auto: Partial<Record<TextField, string>>;
   parsed: ParsedCard | null;
   dup: Dup | null;
+  /** 略過: save the photos now and fill the details in later. */
+  skip: boolean;
   savedId: string | null; uploaded: Partial<Record<PhotoSide, boolean>>; error: string | null;
 }
 
@@ -85,7 +87,7 @@ export const batch = {
   add(fields?: Partial<ContactFields>): BatchCard {
     const c: BatchCard = {
       key: `c${++seq}`, photos: {}, ocr: {}, fields: { ...emptyContact(), ...fields }, auto: {}, parsed: null, dup: null,
-      savedId: null, uploaded: {}, error: null,
+      skip: false, savedId: null, uploaded: {}, error: null,
     };
     cards = [...cards, c];
     emit();

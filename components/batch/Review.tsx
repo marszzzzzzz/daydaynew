@@ -33,7 +33,9 @@ export function BatchReview({ onCamera }: { onCamera: () => void }) {
     const fresh = () => batch.get().find((x) => x.key === c.key)!;
     batch.update(c.key, { error: null });
     try {
-      if (!formReady(c.fields)) throw new Error(t('review.needsSomething'));
+      if (c.skip) {
+        if (!Object.keys(c.photos).length && !formReady(c.fields)) throw new Error(t('review.needsSomething'));
+      } else if (!formReady(c.fields)) throw new Error(t('review.needsSomething'));
       let id = c.savedId;
       const merging = c.dup?.choice === 'merge' && c.dup.mergeId;
       let existingSides: PhotoSide[] = [];
@@ -44,7 +46,9 @@ export function BatchReview({ onCamera }: { onCamera: () => void }) {
         id = old.id;
         batch.update(c.key, (x) => ({ savedId: id, uploaded: { ...x.uploaded, ...Object.fromEntries(existingSides.map((s) => [s, true])) } }));
       } else if (!id) {
-        id = (await api<Contact>('contacts', { body: { ...toBody(c.fields), ocrText: ocrText(c), source: 'SCAN' } })).id;
+        // Skipped cards keep only valid numbers, so a half-read phone never blocks saving the photo.
+        const fields = c.skip ? { ...toBody(c.fields), tagIds: c.fields.tagIds } : toBody(c.fields);
+        id = (await api<Contact>('contacts', { body: { ...fields, ocrText: ocrText(c), source: 'SCAN' } })).id;
         batch.update(c.key, { savedId: id });
       } else if (!merging) {
         // A retry after a partial save: this flow created the contact moments ago, so send the fields as they stand.
@@ -60,6 +64,12 @@ export function BatchReview({ onCamera }: { onCamera: () => void }) {
     } catch (e) {
       batch.update(c.key, { error: errorText(e) });
     }
+  }
+
+  /** 全部略過: save every remaining card with whatever was read, photos included; details can be filled in later. */
+  async function skipAll() {
+    for (const c of batch.get()) if (!isDone(c)) batch.update(c.key, { skip: true });
+    await saveAll();
   }
 
   async function saveAll() {
@@ -122,7 +132,10 @@ export function BatchReview({ onCamera }: { onCamera: () => void }) {
               <Link href="/contacts" onClick={() => batch.clearSaved()} className="inline-flex items-center rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-brand-ink">{t('review.toContacts')}</Link>
             </div>
           ) : (
-            <Button onClick={saveAll} busy={saving}>{failed ? t('review.retry') : t('review.saveAll', { n: pending.length })}</Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={skipAll} disabled={saving}>{t('review.skipAll')}</Button>
+              <Button onClick={saveAll} busy={saving}>{failed ? t('review.retry') : t('review.saveAll', { n: pending.length })}</Button>
+            </div>
           )}
         </div>
       </div>
@@ -204,6 +217,12 @@ function CardRow({ card: c, index, disabled }: { card: BatchCard; index: number;
         {status.includes('reading') && <Badge>{t('review.reading')}</Badge>}
         {status.includes('failed') && <Badge tone="danger">{t('review.ocrFailed')}</Badge>}
         <span className="ml-auto flex gap-2">
+          {!done && !c.savedId && (
+            <button type="button" onClick={() => batch.update(c.key, { skip: !c.skip, error: null })} disabled={disabled} aria-pressed={c.skip}
+              className={`rounded-full px-3 py-1 text-sm font-semibold ${c.skip ? 'bg-brand text-brand-ink' : 'bg-surface-2 text-muted'}`}>
+              {c.skip ? `✓ ${t('review.skipped')}` : t('review.skip')}
+            </button>
+          )}
           {!done && <button type="button" onClick={() => batch.rescan(c.key)} disabled={disabled} className="text-sm text-muted underline">{t('review.rescan')}</button>}
           {!c.savedId && <button type="button" onClick={() => batch.remove(c.key)} disabled={disabled} className="text-sm text-danger underline">{t('common.remove')}</button>}
         </span>
@@ -220,7 +239,7 @@ function CardRow({ card: c, index, disabled }: { card: BatchCard; index: number;
             ))}
           </div>
 
-          {!done && (
+          {!done && !c.skip && (
             <>
               <div>
                 <p className="mb-1.5 text-xs font-semibold text-muted">{t('review.fillInto')}</p>
@@ -269,7 +288,11 @@ function CardRow({ card: c, index, disabled }: { card: BatchCard; index: number;
               </div>
             </Notice>
           )}
-          <ContactForm value={f} onChange={(p) => batch.setFields(c.key, p)} highlight={target === 'phone' || target === 'email' ? null : target} compact />
+          {c.skip && !done ? (
+            <Notice className="mb-3">{t('review.skipNote')} <button type="button" className="font-semibold text-brand underline" onClick={() => batch.update(c.key, { skip: false })}>{t('review.unskip')}</button></Notice>
+          ) : (
+            <ContactForm value={f} onChange={(p) => batch.setFields(c.key, p)} highlight={target === 'phone' || target === 'email' ? null : target} compact />
+          )}
           {c.error && <Notice tone="danger" className="mt-3">{c.error}</Notice>}
         </div>
       </div>

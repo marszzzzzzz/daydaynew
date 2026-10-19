@@ -13,7 +13,7 @@ import { useDebounced, useTags } from '@/lib/hooks';
 import { useT, type Key } from '@/lib/i18n';
 import { displayCompany, type Contact } from '@/lib/types';
 
-const FILTERS = ['starred', 'wa', 'email', 'due', 'archived'] as const;
+const FILTERS = ['incomplete', 'starred', 'wa', 'email', 'due', 'archived'] as const;
 const SORTS = ['new', 'updated', 'name', 'company', 'followup'] as const;
 type Group = 'none' | 'company' | 'tag' | 'metAt';
 

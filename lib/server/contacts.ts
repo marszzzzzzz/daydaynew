@@ -112,7 +112,7 @@ export async function getContact(userId: string, cid: string, sql?: Sql | Tx): P
   return toContact(r);
 }
 
-export interface ListOpts { q?: string; tags?: string[]; starred?: boolean; wa?: boolean; hasEmail?: boolean; due?: boolean; archived?: boolean; sort?: string; offset?: number; limit?: number; ids?: string[] }
+export interface ListOpts { incomplete?: boolean; q?: string; tags?: string[]; starred?: boolean; wa?: boolean; hasEmail?: boolean; due?: boolean; archived?: boolean; sort?: string; offset?: number; limit?: number; ids?: string[] }
 
 const SORTS: Record<string, string> = {
   new: 'c.created_at DESC', updated: 'c.updated_at DESC',
@@ -138,6 +138,7 @@ export async function listContacts(userId: string, o: ListOpts) {
     where.push(`(${parts.join(' OR ')})`);
   }
   if (o.tags?.length) where.push(`EXISTS (SELECT 1 FROM contact_tag ct WHERE ct.contact_id = c.id AND ct.tag_id = ANY(${arg(o.tags)}::text[]))`);
+  if (o.incomplete) where.push(`c.name_zh = '' AND c.name_en = '' AND c.company = '' AND c.company_en = ''`);
   if (o.starred) where.push('c.starred');
   if (o.wa) where.push('EXISTS (SELECT 1 FROM contact_phone p WHERE p.contact_id = c.id AND p.whatsapp)');
   if (o.hasEmail) where.push('EXISTS (SELECT 1 FROM contact_email e WHERE e.contact_id = c.id)');
