@@ -1,4 +1,5 @@
 'use client';
+import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { useSWRConfig } from 'swr';
 import { RequireSignIn } from '@/components/RequireSignIn';
@@ -8,6 +9,7 @@ import { Badge, Button, Field, Input, Notice, PageTitle, Panel, Select } from '@
 import { api } from '@/lib/api';
 import { useConfig } from '@/lib/hooks';
 import { useT } from '@/lib/i18n';
+import { resetTours } from '@/lib/tour';
 import type { Me } from '@/lib/types';
 
 export default function AccountPage() {
@@ -16,6 +18,7 @@ export default function AccountPage() {
 
 function Account({ me }: { me: Me }) {
   const { t } = useT();
+  const router = useRouter();
 
   return (
     <div className="max-w-2xl">
@@ -33,6 +36,13 @@ function Account({ me }: { me: Me }) {
         </Panel>
         <Panel>
           <RegionForm me={me} />
+        </Panel>
+        <Panel className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-bold">{t('tour.replay')}</h2>
+            <p className="text-sm text-muted">{t('tour.replay.d')}</p>
+          </div>
+          <Button variant="secondary" onClick={() => { resetTours(); router.push('/'); }}>🎓 {t('tour.replay.cta')}</Button>
         </Panel>
       </div>
     </div>

@@ -1,29 +1,52 @@
 'use client';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import useSWR from 'swr';
 import { CardPhoto } from '@/components/CardPhoto';
+import { ArtFrame, ArtScan, ArtStack } from '@/components/guide/Art';
+import { ScanHero, StarterChecklist } from '@/components/guide/Starter';
+import { Tour, useTour } from '@/components/guide/Tour';
 import { Blocked } from '@/components/RequireSignIn';
 import { Badge, ButtonLink, Input, Loading, LoadError, Notice, PageTitle, Select } from '@/components/ui';
 import { ApiError, fetcher } from '@/lib/api';
 import { cardDetail, coverSide, searchHint } from '@/lib/cards';
 import { useConfig, useDebounced, useMe } from '@/lib/hooks';
 import { useT, type Key } from '@/lib/i18n';
-import type { Listing } from '@/lib/types';
+import type { Listing, Me } from '@/lib/types';
 
 export default function Home() {
   const { me, error, mutate, blocked } = useMe();
   if (blocked) return <Blocked error={blocked} />;
   if (error && me === undefined) return <LoadError error={error} retry={() => mutate()} />;
   if (me === undefined) return <Loading />;
-  return me ? <Market /> : <Landing />;
+  return me ? <><HomeStart me={me} /><Market /></> : <><ScanHero signedIn={false} /><Landing /></>;
+}
+
+/** Signed in: the camera button and starter checklist above the market, and a short first-visit tour. */
+function HomeStart({ me }: { me: Me }) {
+  const router = useRouter();
+  const tour = useTour('home');
+  return (
+    <>
+      <ScanHero signedIn />
+      <StarterChecklist me={me} />
+      <Tour id="home" open={tour.open} onClose={tour.close} finish={{ label: 'tour.home.go', action: () => router.push('/sell/batch') }}
+        steps={[
+          { target: 'scan-cta', title: 'tour.home.1.t', body: 'tour.home.1.d', art: <ArtFrame /> },
+          { target: 'scan-cta', title: 'tour.home.2.t', body: 'tour.home.2.d', art: <ArtScan /> },
+          { target: 'checklist', title: 'tour.home.3.t', body: 'tour.home.3.d', art: <ArtStack /> },
+          { target: 'nav-sell', title: 'tour.home.4.t', body: 'tour.home.4.d' },
+        ]} />
+    </>
+  );
 }
 
 function Landing() {
   const { t } = useT();
   const steps: [Key, Key, string][] = [['how.1.t', 'how.1.d', '📸'], ['how.2.t', 'how.2.d', '💬'], ['how.3.t', 'how.3.d', '🤝']];
   return (
-    <div className="space-y-10 py-4 sm:py-10">
+    <div className="space-y-10 pb-4 sm:pb-10">
       <section className="relative overflow-hidden rounded-3xl bg-brand px-6 py-12 text-brand-ink sm:px-12 sm:py-16">
         <div aria-hidden className="pointer-events-none absolute -top-10 -right-6 hidden rotate-12 gap-3 opacity-90 sm:flex">
           {['#FFCB05', '#8B5CF6', '#FF4D2E'].map((c, i) => (

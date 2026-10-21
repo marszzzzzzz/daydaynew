@@ -5,6 +5,9 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useSWRConfig } from 'swr';
+import { ArtPick, ArtPrice } from '@/components/guide/Art';
+import { FirstSaveCelebration } from '@/components/guide/Starter';
+import { Tour, useTour } from '@/components/guide/Tour';
 import { TagPicker } from '@/components/TagPicker';
 import { Badge, Button, ButtonLink, Field, Input, Notice, Panel, Select } from '@/components/ui';
 import { api } from '@/lib/api';
@@ -14,6 +17,7 @@ import { useConfig, useMe } from '@/lib/hooks';
 import { useT, type Key } from '@/lib/i18n';
 import { MAX_SERIAL, cleanSerial, joinNotes, notesRoom, serialProblem } from '@/lib/meta';
 import { OCR_LANGS, type OcrLangs } from '@/lib/ocr';
+import { seen } from '@/lib/tour';
 import type { CardLanguage, Condition, PhotoSide, RealCard, Suggestion } from '@/lib/types';
 
 type Target = 'name' | 'number' | 'setName' | 'serial';
@@ -30,6 +34,10 @@ export function BatchReview({ langs, setLangs, onCamera }: { langs: OcrLangs; se
   const { mutate } = useSWRConfig();
   const [saving, setSaving] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [celebrate, setCelebrate] = useState(0);
+  // The first time, once the first card's text is in: how to pick text, price, tag and save.
+  const firstRead = !!cards[0] && (['FRONT', 'BACK'] as const).every((s) => !cards[0].photos[s] || ['done', 'failed'].includes(cards[0].ocr[s]?.status ?? ''));
+  const tour = useTour('review', firstRead, 500);
   const currency = config?.config.realCards.currency ?? 'HKD';
   const maxPrice = config?.config.realCards.maxPrice ?? 10_000_000;
   const ready = sellerReady(me);
@@ -86,6 +94,8 @@ export function BatchReview({ langs, setLangs, onCamera }: { langs: OcrLangs; se
     }
     await Promise.all([mutate('real-cards'), mutate('me'), mutate((k) => typeof k === 'string' && k.startsWith('real-market'))]);
     setSaving(false);
+    const all = batch.get();
+    if (all.length && all.every(isDone) && !seen('firstSave')) setCelebrate(all.length);
   }
 
   const saved = cards.filter(isDone).length;
@@ -129,7 +139,15 @@ export function BatchReview({ langs, setLangs, onCamera }: { langs: OcrLangs; se
         {cards.map((c, i) => <CardRow key={c.key} card={c} index={i + 1} currency={currency} maxPrice={maxPrice} canList={ready} disabled={saving} />)}
       </ol>
 
-      <div className="fixed inset-x-0 bottom-[60px] z-30 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur sm:bottom-0">
+      <Tour id="review" open={tour.open} onClose={tour.close} steps={[
+        { target: 'review-pick', title: 'tour.rev.1.t', body: 'tour.rev.1.d', art: <ArtPick /> },
+        { target: 'review-fields', title: 'tour.rev.2.t', body: 'tour.rev.2.d', art: <ArtPrice /> },
+        { target: 'review-tags', title: 'tour.rev.3.t', body: 'tour.rev.3.d' },
+        { target: 'review-save', title: 'tour.rev.4.t', body: 'tour.rev.4.d' },
+      ]} />
+      {celebrate > 0 && <FirstSaveCelebration count={celebrate} me={me} onClose={() => setCelebrate(0)} />}
+
+      <div data-tour="review-save" className="fixed inset-x-0 bottom-[60px] z-30 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur sm:bottom-0">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
           <div className="text-sm">
             {progress && saving ? <b>{t('batch.saving', { done: progress.done, total: progress.total })}</b>
@@ -223,7 +241,7 @@ function CardRow({ card: c, index, currency, maxPrice, canList, disabled }: { ca
 
           <div className="min-w-0 space-y-4">
             {/* 1. pick text */}
-            <section>
+            <section data-tour={index === 1 ? 'review-pick' : undefined}>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-semibold">{t('batch.fillInto')}</span>
                 {TARGETS.map((k) => (
@@ -259,7 +277,7 @@ function CardRow({ card: c, index, currency, maxPrice, canList, disabled }: { ca
             </section>
 
             {/* 2. details + price */}
-            <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+            <div data-tour={index === 1 ? 'review-fields' : undefined} className="grid grid-cols-2 gap-3 xl:grid-cols-3">
               <Field className="col-span-2 xl:col-span-1" label={t('form.name')}><Input value={c.name} maxLength={80} disabled={locked} onChange={(e) => set({ name: e.target.value, cardId: null })} placeholder={t('form.name.ph')} /></Field>
               <Field label={t('field.number')}><Input value={c.number} maxLength={24} disabled={locked} onChange={(e) => set({ number: e.target.value })} placeholder={t('form.number.ph')} /></Field>
               <Field label={t('field.set')}><Input value={c.setName} maxLength={60} disabled={locked} onChange={(e) => set({ setName: e.target.value })} placeholder={t('form.set.ph')} /></Field>
@@ -296,7 +314,7 @@ function CardRow({ card: c, index, currency, maxPrice, canList, disabled }: { ca
                 <Input type="number" inputMode="numeric" min={0} max={clampInt(c.quantity, 1, 999)} value={c.listed} disabled={locked} onChange={(e) => set({ listed: e.target.value })} onBlur={() => set({ listed: String(clampInt(c.listed, 0, clampInt(c.quantity, 1, 999))) })} />
               </Field>
             </div>
-            <TagPicker tags={c.tags} onChange={(tags) => set({ tags })} disabled={locked} />
+            <div data-tour={index === 1 ? 'review-tags' : undefined}><TagPicker tags={c.tags} onChange={(tags) => set({ tags })} disabled={locked} /></div>
             <Field label={t('form.notes')} hint={c.auto.notes && c.notes === c.auto.notes ? t('batch.notesAuto') : undefined}>
               <Input value={c.notes} maxLength={notesRoom({ tags: c.tags, serial: cleanSerial(c.serial) })} disabled={locked} onChange={(e) => set({ notes: e.target.value })} placeholder={t('batch.notes.ph')} />
             </Field>

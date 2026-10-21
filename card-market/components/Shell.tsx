@@ -32,7 +32,7 @@ export function Shell({ children }: { children: ReactNode }) {
           {me && (
             <nav className="hidden items-center gap-1 sm:flex">
               {NAV.map((n) => (
-                <Link key={n.href} href={n.href}
+                <Link key={n.href} href={n.href} data-tour={n.href === '/sell' ? 'nav-sell' : undefined}
                   className={`relative rounded-lg px-3 py-1.5 text-sm font-medium ${active(path, n.href) ? 'bg-surface-2 text-ink' : 'text-muted hover:text-ink'}`}>
                   {t(n.key)}
                   {n.href === '/deals' && badge > 0 && <Dot n={badge} />}
@@ -41,6 +41,12 @@ export function Shell({ children }: { children: ReactNode }) {
             </nav>
           )}
           <div className="ml-auto flex items-center gap-2">
+            {/* The camera is the main way in: one tap from every page. */}
+            {me && !path.startsWith('/sell/batch') && (
+              <Link href="/sell/batch" className="flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-sm font-bold text-[#17192c]">
+                <span aria-hidden>📷</span>{t('start.short')}
+              </Link>
+            )}
             <button onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} className="rounded-lg px-2.5 py-1.5 text-sm text-muted hover:text-ink">
               {t('common.lang')}
             </button>
@@ -66,7 +72,7 @@ export function Shell({ children }: { children: ReactNode }) {
       {me && (
         <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] sm:hidden">
           {NAV.map((n) => (
-            <Link key={n.href} href={n.href}
+            <Link key={n.href} href={n.href} data-tour={n.href === '/sell' ? 'nav-sell' : undefined}
               className={`relative flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium ${active(path, n.href) ? 'text-brand' : 'text-muted'}`}>
               <span aria-hidden className="text-lg leading-none">{n.icon}</span>
               {t(n.key)}

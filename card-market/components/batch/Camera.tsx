@@ -4,6 +4,8 @@
 // printed text is crisp enough to read; text recognition runs in the background while they keep shooting.
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { ArtFlip, ArtFrame, ArtStack, ArtTap } from '@/components/guide/Art';
+import { Tour, useTour } from '@/components/guide/Tour';
 import { BATCH_MAX, batch, useBatch } from '@/lib/batch';
 import { useT } from '@/lib/i18n';
 import { shrinkPhoto } from '@/lib/image';
@@ -42,7 +44,7 @@ export function BatchCamera({ onReview, onClose, defaultPublic }: { onReview: ()
   const [zoom, setZoom] = useState<1 | 2>(1);
   const [score, setScore] = useState(0);
   const [flashKey, setFlashKey] = useState(0);
-  const [help, setHelp] = useState(false);
+  const tour = useTour('camera', true, 900);
   const [sheet, setSheet] = useState<string | null>(null);
   // The card waiting for its back photo, and a retake the next tap should fill instead.
   const [awaitingBack, setAwaitingBack] = useState<string | null>(null);
@@ -168,14 +170,14 @@ export function BatchCamera({ onReview, onClose, defaultPublic }: { onReview: ()
           {!ready ? t('batch.starting') : full ? t('batch.fullShort') : `${t(`side.${side}`)} · ${current}/${BATCH_MAX} · ${sharp ? t('batch.sharp') : t('batch.steady')}`}
         </div>
         <div className="flex gap-2">
-          <Round label={t('batch.help')} onClick={() => setHelp(true)}>?</Round>
+          <Round label={t('batch.help')} onClick={tour.start}>?</Round>
           <Round label={t('batch.torch')} onClick={toggleTorch} disabled={!torchOk} active={torch}>{torch ? '⚡' : '⚡︎'}</Round>
         </div>
       </div>
 
       {/* frame */}
       <div className="relative z-10 flex min-h-0 flex-1 items-center justify-center px-4 py-2">
-        <button ref={frame} type="button" onClick={shoot} disabled={!ready || full} aria-label={hint}
+        <button ref={frame} type="button" onClick={shoot} data-tour="cam-frame" disabled={!ready || full} aria-label={hint}
           className="relative overflow-hidden rounded-[28px] border-2 border-white/85 shadow-[0_0_0_9999px_rgba(0,0,0,0.55)] disabled:border-white/40"
           style={{ aspectRatio: '63 / 88', width: 'min(100%, calc((100dvh - 330px) * 63 / 88))' }}>
           <span key={flashKey} className={flashKey ? 'pointer-events-none absolute inset-0 animate-[shutter_350ms_ease-out_forwards] bg-white' : 'hidden'} />
@@ -204,10 +206,10 @@ export function BatchCamera({ onReview, onClose, defaultPublic }: { onReview: ()
       </div>
 
       {/* recent scans */}
-      <div className="relative z-10 bg-black/70 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+      <div data-tour="cam-strip" className="relative z-10 bg-black/70 pb-[env(safe-area-inset-bottom)] backdrop-blur">
         <div className="flex items-center justify-between px-5 pt-3">
           <span className="font-semibold">{t('batch.recent')}</span>
-          <button type="button" onClick={onReview} disabled={!cards.length} className="font-semibold text-[#6cb2ff] disabled:text-white/30">
+          <button type="button" onClick={onReview} disabled={!cards.length} data-tour="cam-next" className="font-semibold text-[#6cb2ff] disabled:text-white/30">
             {t('batch.next', { n: cards.length })}
           </button>
         </div>
@@ -237,15 +239,14 @@ export function BatchCamera({ onReview, onClose, defaultPublic }: { onReview: ()
         </div>
       </div>
 
-      {help && (
-        <Sheet onClose={() => setHelp(false)}>
-          <h2 className="text-lg font-bold">{t('batch.help')}</h2>
-          <ol className="mt-3 list-decimal space-y-2 pl-5 text-[15px] text-white/85">
-            <li>{t('batch.help1')}</li><li>{t('batch.help2')}</li><li>{t('batch.help3', { n: BATCH_MAX })}</li><li>{t('batch.help4')}</li>
-          </ol>
-          <button type="button" onClick={() => setHelp(false)} className="mt-5 w-full rounded-xl bg-white py-3 font-semibold text-black">{t('batch.gotIt')}</button>
-        </Sheet>
-      )}
+      {/* First visit: an animated walk through one card, front to back to the next. "?" replays it. */}
+      <Tour id="camera" open={tour.open} onClose={tour.close} steps={[
+        { title: 'tour.cam.1.t', body: 'batch.help1', art: <ArtFrame /> },
+        { target: 'cam-frame', title: 'tour.cam.2.t', body: 'tour.cam.2.d', art: <ArtTap /> },
+        { target: 'cam-frame', title: 'tour.cam.3.t', body: 'tour.cam.3.d', art: <ArtFlip /> },
+        { target: 'cam-strip', title: 'tour.cam.4.t', body: 'batch.help3', vars: { n: BATCH_MAX }, art: <ArtStack /> },
+        { target: 'cam-next', title: 'tour.cam.5.t', body: 'batch.help4' },
+      ]} />
 
       {sheetCard && (
         <Sheet onClose={() => setSheet(null)}>

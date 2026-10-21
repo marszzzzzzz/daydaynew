@@ -22,9 +22,9 @@ export default function SignupPage() {
 function Signup() {
   const { me, error, mutate, blocked } = useMe();
   const [step, setStep] = useState<1 | 2>(1);
-  // Where to go once the account is ready: the page that sent the visitor here, else "add a card".
+  // Where to go once the account is ready: the page that sent the visitor here, else the camera.
   const raw = useSearchParams().get('next');
-  const next = raw ? safeNext(raw) : '/sell/new';
+  const next = raw ? safeNext(raw) : '/sell/batch';
   if (blocked) return <Blocked error={blocked} />;
   if (error && me === undefined) return <LoadError error={error} retry={() => mutate()} />;
   if (me === undefined) return <Loading />;
