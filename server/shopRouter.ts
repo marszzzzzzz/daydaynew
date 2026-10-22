@@ -473,6 +473,7 @@ export const shopRouter = createRouter({
         const assigned = await q.assignSalesToLeases();
         return { id, assigned };
       }),
+    /** 直接修改租約（日期、免租期、月租、按金、備註）；改日期會自動重新配對銷售。換格仔或租戶要終止再新增 */
     updateLease: adminQuery
       .input(
         z.object({
@@ -487,6 +488,14 @@ export const shopRouter = createRouter({
       )
       .mutation(async ({ input }) => {
         const { id, ...data } = input;
+        const current = (await q.listLeases()).find((l) => l.id === id);
+        if (!current) throw new TRPCError({ code: "NOT_FOUND", message: "搵唔到呢份租約" });
+        // 只改其中一個日期時，同現有另一個日期比較
+        const startDate = data.startDate ?? current.startDate;
+        const endDate = data.endDate ?? current.endDate;
+        if (endDate <= startDate) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: `結束日期必須遲過開始日期（而家係 ${startDate} → ${endDate}）` });
+        }
         await q.updateLease(id, data);
         if (data.startDate || data.endDate) await q.unassignSalesOutsideLease(id);
         const assigned = await q.assignSalesToLeases();
