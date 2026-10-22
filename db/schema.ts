@@ -31,6 +31,8 @@ export const users = gridbox.table("users", {
   createdAt: createdAt(),
   updatedAt: updatedAt(),
   lastSignInAt: timestamp("lastSignInAt", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  /** 租戶完成第一次登入引導嘅時間；null = 下次登入會顯示引導 */
+  onboardedAt: timestamp("onboardedAt", { withTimezone: true, mode: "date" }),
 });
 
 export type User = typeof users.$inferSelect;

@@ -22,6 +22,7 @@ function assertDemoMode() {
     throw new TRPCError({ code: "FORBIDDEN", message: "示範模式已關閉（DEMO_MODE=false），唔可以生成示範資料或 demo 戶口" });
   }
 }
+import { contactSchema } from "@contracts/onboarding";
 import { normalizeGridCode } from "@contracts/gridLayout";
 
 const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "日期格式須為 YYYY-MM-DD");
@@ -223,15 +224,25 @@ export const shopRouter = createRouter({
       const summary = await q.tenantItemSummary(tenant.id, input.month, grid?.id);
       return {
         tenant: { name: tenant.name },
+        /** 租戶自己可以改嘅聯絡資料（第一次登入引導用） */
+        contact: { phone: tenant.phone ?? "", email: tenant.email ?? "" },
         /** 店主有冇批准銷售分析（走勢圖） */
         analyticsEnabled: tenant.analyticsEnabled,
-        grids: leases.map((l) => l.gridCode).filter(Boolean),
+        grids: leases.map((l) => l.gridCode).filter((c): c is string => !!c),
         gridOptions: gridCodes,
         gridCode: grid?.code ?? null,
         months,
         ...summary,
       };
     }),
+
+  /** 租戶自己更新聯絡電話同電郵（租戶名只可以由店主改） */
+  updateMyContact: authedQuery.input(contactSchema).mutation(async ({ ctx, input }) => {
+    const tenant = await q.findTenantByUserId(ctx.user.id);
+    if (!tenant) throw new TRPCError({ code: "NOT_FOUND", message: "你嘅戶口未連結租戶檔案，請先聯絡店主" });
+    await q.updateTenant(tenant.id, { phone: input.phone, email: input.email });
+    return input;
+  }),
 
   /** 租戶專區走勢：日／週／月總銷售 + 頭 5 位貨品；可以按格仔篩 */
   myTrend: authedQuery

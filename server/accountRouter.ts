@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { users, tenants } from "@db/schema";
-import { createRouter, publicQuery, adminQuery } from "./middleware";
+import { createRouter, publicQuery, adminQuery, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { setSessionCookie } from "./lib/cookies";
 import { signSessionToken } from "./auth/session";
@@ -10,6 +10,7 @@ import { withDbRetry } from "./bootstrap";
 import { hashPassword, verifyPassword } from "./password";
 import { DEMO_OWNER, DEMO_TENANT, DEMO_TENANT_LINK_NAME, ensureDemoAccounts, findRealOwner } from "../db/seed-lib";
 import { env } from "./lib/env";
+import { PASSWORD_MAX, PASSWORD_MIN } from "@contracts/onboarding";
 
 /** 登入失敗限制：同一 IP + 用戶名 15 分鐘內錯 8 次就暫時鎖住 */
 const FAIL_LIMIT = 8;
@@ -38,7 +39,10 @@ const usernameSchema = z
   .min(3, "用戶名最少 3 個字符")
   .max(32, "用戶名最長 32 個字符")
   .regex(/^[\p{L}\p{N}_.-]+$/u, "用戶名只可以用中英文、數字、_ . -");
-const passwordSchema = z.string().min(6, "密碼最少 6 個字符").max(72, "密碼最長 72 個字符");
+const passwordSchema = z
+  .string()
+  .min(PASSWORD_MIN, `密碼最少 ${PASSWORD_MIN} 個字符`)
+  .max(PASSWORD_MAX, `密碼最長 ${PASSWORD_MAX} 個字符`);
 
 function toUnionId(username: string) {
   return `local:${username.toLowerCase()}`;
@@ -197,6 +201,45 @@ export const accountRouter = createRouter({
         return { ok: true as const };
       });
     }),
+
+  /** 自己改密碼（租戶第一次登入引導會用）；demo 戶口唔准改 */
+  changePassword: authedQuery
+    .input(z.object({ currentPassword: z.string().min(1, "請輸入舊密碼").max(PASSWORD_MAX), newPassword: passwordSchema }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.unionId.startsWith("local:demo-")) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "示範戶口唔可以改密碼" });
+      }
+      if (input.newPassword === input.currentPassword) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "新密碼要同舊密碼唔一樣" });
+      }
+      const key = `pw:${ctx.user.id}`;
+      assertNotLocked(key);
+      return withDbRetry(async () => {
+        const db = getDb();
+        const [u] = await db.select().from(users).where(eq(users.id, ctx.user.id)).limit(1);
+        if (!u?.passwordHash || !(await verifyPassword(input.currentPassword, u.passwordHash))) {
+          recordFailure(key);
+          throw new TRPCError({ code: "BAD_REQUEST", message: "舊密碼唔啱，請再試（即係店主俾你嘅密碼）" });
+        }
+        failures.delete(key);
+        await db
+          .update(users)
+          .set({ passwordHash: await hashPassword(input.newPassword), updatedAt: new Date() })
+          .where(eq(users.id, u.id));
+        return { ok: true as const };
+      });
+    }),
+
+  /** 完成第一次登入引導（只記第一次完成時間；重睇教學唔會改） */
+  completeOnboarding: authedQuery.mutation(async ({ ctx }) => {
+    return withDbRetry(async () => {
+      await getDb()
+        .update(users)
+        .set({ onboardedAt: new Date() })
+        .where(and(eq(users.id, ctx.user.id), isNull(users.onboardedAt)));
+      return { ok: true as const };
+    });
+  }),
 
   /** 店主改變現有戶口角色（user ↔ staff；admin 唔准改，店主得一個） */
   setUserRole: adminQuery

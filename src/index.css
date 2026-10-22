@@ -199,3 +199,34 @@
     text-wrap: balance;
   }
 }
+
+/* ─── 租戶第一次登入引導（onboarding）動畫 ───────────────────
+   只用 transform / opacity / stroke，避免 layout 抖動；
+   系統設定「減少動態效果」時全部關掉，內容即時顯示。 */
+@layer components {
+  .ob-step-next { animation: ob-slide-in 340ms cubic-bezier(0.2, 0.8, 0.2, 1) both; --ob-from: 28px; }
+  .ob-step-prev { animation: ob-slide-in 340ms cubic-bezier(0.2, 0.8, 0.2, 1) both; --ob-from: -28px; }
+  .ob-rise { animation: ob-rise 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .ob-cell { animation: ob-cell 460ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .ob-cell-mine { animation: ob-cell 460ms cubic-bezier(0.2, 0.8, 0.2, 1) both, ob-glow 2.4s ease-in-out 1.2s infinite; }
+  .ob-check-path { stroke-dasharray: 48; stroke-dashoffset: 48; animation: ob-draw 520ms cubic-bezier(0.65, 0, 0.35, 1) forwards; }
+  .ob-ring { animation: ob-ring 1.8s cubic-bezier(0.2, 0.8, 0.2, 1) infinite; }
+  .ob-pointer { animation: ob-nudge 1.4s ease-in-out infinite; }
+  .ob-spotlight { transition: top 460ms cubic-bezier(0.2, 0.8, 0.2, 1), left 460ms cubic-bezier(0.2, 0.8, 0.2, 1), width 460ms cubic-bezier(0.2, 0.8, 0.2, 1), height 460ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .ob-card { transition: top 460ms cubic-bezier(0.2, 0.8, 0.2, 1), left 460ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 200ms ease-out; }
+  .ob-fill { transition: transform 520ms cubic-bezier(0.2, 0.8, 0.2, 1); transform-origin: left; }
+}
+
+@keyframes ob-slide-in { from { opacity: 0; transform: translateX(var(--ob-from)); } to { opacity: 1; transform: none; } }
+@keyframes ob-rise { from { opacity: 0; transform: translateY(14px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes ob-cell { from { opacity: 0; transform: translateY(10px) scale(0.6); } to { opacity: 1; transform: none; } }
+@keyframes ob-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(179, 156, 79, 0); } 50% { box-shadow: 0 0 0 5px rgba(179, 156, 79, 0.35); } }
+@keyframes ob-draw { to { stroke-dashoffset: 0; } }
+@keyframes ob-ring { from { opacity: 0.7; transform: scale(1); } to { opacity: 0; transform: scale(1.06); } }
+@keyframes ob-nudge { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(4px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ob-step-next, .ob-step-prev, .ob-rise, .ob-cell, .ob-cell-mine, .ob-ring, .ob-pointer { animation: none; }
+  .ob-check-path { animation: none; stroke-dashoffset: 0; }
+  .ob-spotlight, .ob-card, .ob-fill { transition: none; }
+}

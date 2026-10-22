@@ -14,6 +14,6 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["server/**/*.test.ts", "contracts/**/*.test.ts"],
+    include: ["server/**/*.test.ts", "contracts/**/*.test.ts", "src/lib/**/*.test.ts"],
   },
 });

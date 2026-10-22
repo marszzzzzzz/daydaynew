@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { trpc } from "@/providers/trpc";
 import { toast } from "sonner";
 import Noise from "@/components/Noise";
+import GuidedField from "@/components/onboarding/GuidedField";
 
 type Mode = "login" | "register";
 
@@ -14,6 +15,8 @@ export default function Login() {
   // 登入
   const [lUser, setLUser] = useState("");
   const [lPass, setLPass] = useState("");
+  const [lFocus, setLFocus] = useState<"user" | "pass" | null>("user");
+  const loginStep = !lUser.trim() ? 1 : !lPass ? 2 : 3;
 
   // 註冊
   const [rUser, setRUser] = useState("");
@@ -90,7 +93,7 @@ export default function Login() {
             )}
           </h1>
           <p className="mt-6 max-w-sm text-[14px] leading-[1.9] text-cream/65">
-            租戶登入睇自己嘅銷售記錄；店主登入管理格仔、租約、租金同每日銷售。
+            租戶登入就睇到自己格仔每日賣咗幾多；第一次登入會一步步帶你設定。店主同店員亦喺呢度登入。
           </p>
         </div>
         <p className="relative font-mono text-[10px] uppercase tracking-[0.2em] text-cream/40">
@@ -135,35 +138,52 @@ export default function Login() {
                 login.mutate({ username: lUser.trim(), password: lPass });
               }}
             >
-              <label className="block">
-                <span className="spec-label mb-1.5 block">用戶名</span>
+              <p className="border-l-2 border-ochre bg-ochre/10 px-4 py-3 text-[12.5px] leading-[1.85] text-ink/75">
+                <span className="font-semibold">第一次登入？</span>用店主開戶時俾你嘅用戶名同密碼，跟住 1、2、3 做就得。
+              </p>
+              <GuidedField
+                step={1}
+                label="用戶名"
+                hint="店主俾你嘅用戶名（唔係電話號碼），唔分大細階"
+                active={lFocus === "user" || (lFocus === null && loginStep === 1)}
+                done={!!lUser.trim() && lFocus !== "user"}
+              >
                 <input
                   className="underline-input font-mono"
                   value={lUser}
                   onChange={(e) => setLUser(e.target.value)}
+                  onFocus={() => setLFocus("user")}
+                  onBlur={() => setLFocus(null)}
                   placeholder="chan_tai_man"
                   autoComplete="username"
                   autoFocus
                 />
-              </label>
-              <label className="block">
-                <span className="spec-label mb-1.5 block">密碼</span>
+              </GuidedField>
+              <GuidedField
+                step={2}
+                label="密碼"
+                hint="第一次用店主俾你嘅密碼；登入後會教你換成自己嘅"
+                active={lFocus === "pass" || (lFocus === null && loginStep === 2)}
+                done={!!lPass && lFocus !== "pass"}
+              >
                 <input
                   type="password"
                   className="underline-input font-mono"
                   value={lPass}
                   onChange={(e) => setLPass(e.target.value)}
+                  onFocus={() => setLFocus("pass")}
+                  onBlur={() => setLFocus(null)}
                   placeholder="••••••••"
                   autoComplete="current-password"
                 />
-              </label>
+              </GuidedField>
               <button
                 type="submit"
                 disabled={pending}
                 className="w-full bg-ink px-6 py-4 text-[15px] font-semibold tracking-wide text-cream transition-transform hover:-translate-y-0.5 disabled:opacity-40"
                 style={{ boxShadow: "5px 5px 0 0 rgba(179,156,79,1)" }}
               >
-                {pending ? "登入中…" : "登入"}
+                {pending ? "登入中…" : loginStep === 3 ? "3　登入 →" : "登入"}
               </button>
               <p className="text-[12.5px] leading-[1.85] text-ink/60">
                 未有戶口？撳上面「註冊」開戶。

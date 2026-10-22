@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS gridbox.tenants (
     "updatedAt" timestamptz NOT NULL DEFAULT now()
   );
 
+ALTER TABLE gridbox.users ADD COLUMN IF NOT EXISTS "onboardedAt" timestamptz;
+
 ALTER TABLE gridbox.tenants ADD COLUMN IF NOT EXISTS "analyticsEnabled" boolean NOT NULL DEFAULT false;
 
 ALTER TABLE gridbox.tenants ADD COLUMN IF NOT EXISTS "analyticsApprovedAt" timestamptz;

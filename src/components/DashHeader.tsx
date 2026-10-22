@@ -1,9 +1,10 @@
+import type { ReactNode } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "react-router";
 import Noise from "@/components/Noise";
 
 /** 登入後頁面共用版頭 */
-export default function DashHeader({ roleLabel }: { roleLabel: string }) {
+export default function DashHeader({ roleLabel, actions }: { roleLabel: string; actions?: ReactNode }) {
   const { user, logout } = useAuth();
   return (
     <>
@@ -21,7 +22,8 @@ export default function DashHeader({ roleLabel }: { roleLabel: string }) {
               <span className="hidden sm:inline">{roleLabel}</span>
             </span>
           </div>
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-3 sm:gap-5">
+            {actions}
             <span className="hidden font-mono text-[12px] text-ink/60 sm:inline">{user?.name ?? user?.email ?? ""}</span>
             <button
               onClick={() => logout()}

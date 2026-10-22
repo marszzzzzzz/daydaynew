@@ -31,6 +31,8 @@ export const DDL: string[] = [
     "updatedAt" timestamptz NOT NULL DEFAULT now()
   )`,
   // 銷售分析開通（舊資料庫補欄；預設關閉，要店主批准）
+  // 租戶第一次登入引導（null = 未完成）
+  `ALTER TABLE gridbox.users ADD COLUMN IF NOT EXISTS "onboardedAt" timestamptz`,
   `ALTER TABLE gridbox.tenants ADD COLUMN IF NOT EXISTS "analyticsEnabled" boolean NOT NULL DEFAULT false`,
   `ALTER TABLE gridbox.tenants ADD COLUMN IF NOT EXISTS "analyticsApprovedAt" timestamptz`,
   `ALTER TABLE gridbox.tenants ADD COLUMN IF NOT EXISTS "analyticsApprovedBy" integer REFERENCES gridbox.users(id) ON DELETE SET NULL`,

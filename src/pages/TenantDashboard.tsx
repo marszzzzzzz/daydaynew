@@ -4,16 +4,31 @@ import { useAuth } from "@/hooks/useAuth";
 import DashHeader from "@/components/DashHeader";
 import { fmtMoney } from "@/lib/format";
 import SalesTrend from "@/components/SalesTrend";
+import OnboardingWizard from "@/components/onboarding/OnboardingWizard";
+import SpotlightTour from "@/components/onboarding/SpotlightTour";
+import UnlinkedGuide from "@/components/onboarding/UnlinkedGuide";
+import HelpMenu from "@/components/onboarding/HelpMenu";
+import { tenantTourSteps } from "@/components/onboarding/tenantTour";
+import { useTenantOnboarding } from "@/components/onboarding/useTenantOnboarding";
 
-/** 租戶專區（唯讀）：只顯示總銷售同按貨品合計 */
+/** 未連結租戶檔案時，定時檢查店主連結咗未 */
+const LINK_POLL_MS = 20_000;
+
+/** 租戶專區（唯讀）：只顯示總銷售同按貨品合計；第一次登入會有設定引導同導覽 */
 export default function TenantDashboard() {
   const { user, isLoading } = useAuth({ redirectOnUnauthenticated: true });
   const [month, setMonth] = useState<string>("");
   const [gridCode, setGridCode] = useState<string>("");
   const data = trpc.shop.myItems.useQuery(
     { month: month || undefined, gridCode: gridCode || undefined },
-    { enabled: !!user, placeholderData: (prev) => prev },
+    {
+      enabled: !!user,
+      placeholderData: (prev) => prev,
+      refetchInterval: (q) => (q.state.data === null ? LINK_POLL_MS : false),
+    },
   );
+  const onboarding = useTenantOnboarding(user, !!data.data);
+  const isDemo = !!user?.unionId.startsWith("local:demo-");
 
   if (isLoading || (data.isLoading && !data.data)) {
     return (
@@ -28,14 +43,7 @@ export default function TenantDashboard() {
     return (
       <div className="min-h-screen bg-cream text-ink">
         <DashHeader roleLabel="租客 Tenant · 唯讀銷售記錄" />
-        <main className="mx-auto max-w-2xl px-5 py-24 text-center">
-          <p className="font-display text-6xl font-black text-ochre">!</p>
-          <h1 className="font-display mt-6 text-3xl font-black tracking-tight">戶口未連結租戶檔案</h1>
-          <p className="mt-5 text-[14.5px] leading-[1.9] text-ink/70">
-            你嘅登入戶口仲未連結到任何租戶檔案。請聯絡店主，喺 Admin 後台嘅「租戶管理」
-            將你嘅戶口（{user?.name ?? user?.email}）連結到你嘅租戶檔案，之後就可以睇返銷售記錄。
-          </p>
-        </main>
+        <UnlinkedGuide username={user?.unionId.replace(/^local:/, "") ?? ""} displayName={user?.name ?? ""} />
       </div>
     );
   }
@@ -44,7 +52,32 @@ export default function TenantDashboard() {
 
   return (
     <div className="min-h-screen bg-cream text-ink">
-      <DashHeader roleLabel="租客 Tenant · 唯讀銷售記錄" />
+      <DashHeader
+        roleLabel="租客 Tenant · 唯讀銷售記錄"
+        actions={<HelpMenu onTour={onboarding.startTour} onEdit={isDemo ? undefined : onboarding.editProfile} />}
+      />
+
+      {(onboarding.phase === "wizard" || onboarding.phase === "edit") && (
+        <OnboardingWizard
+          mode={onboarding.phase === "edit" ? "edit" : "first"}
+          name={d.tenant.name}
+          grids={d.grids}
+          isDemo={isDemo}
+          contact={d.contact}
+          onTour={onboarding.startTour}
+          onClose={(finished) => (finished ? onboarding.finish() : onboarding.later())}
+        />
+      )}
+      {onboarding.phase === "tour" && (
+        <SpotlightTour
+          steps={tenantTourSteps({
+            multiGrid: d.gridOptions.length > 1,
+            analyticsEnabled: d.analyticsEnabled,
+          })}
+          onFinish={onboarding.finish}
+          onSkip={onboarding.finish}
+        />
+      )}
 
       <main className="mx-auto max-w-3xl px-5 py-12">
         <p className="spec-label">Tenant — 租戶專區</p>
@@ -52,7 +85,7 @@ export default function TenantDashboard() {
         {d.grids.length > 0 && <p className="mt-2 font-mono text-[12.5px] text-ink/60">格仔 {d.grids.join(" · ")}</p>}
 
         {/* 期間 + 格仔 */}
-        <div className="mt-8 flex items-center gap-3">
+        <div className="mt-8 flex w-fit items-center gap-3" data-tour="month">
           <span className="w-8 font-mono text-[12px] text-ink/60">期間</span>
           <select
             value={month}
@@ -68,7 +101,7 @@ export default function TenantDashboard() {
           </select>
         </div>
         {d.gridOptions.length > 1 && (
-          <div className="mt-3 flex items-center gap-3">
+          <div className="mt-3 flex w-fit items-center gap-3" data-tour="grid">
             <span className="w-8 font-mono text-[12px] text-ink/60">格仔</span>
             <select
               value={gridCode}
@@ -86,7 +119,7 @@ export default function TenantDashboard() {
         )}
 
         {/* 總銷售 */}
-        <div className="mt-6 border-2 border-ink p-6 sm:p-8">
+        <div className="mt-6 border-2 border-ink p-6 sm:p-8" data-tour="total">
           <p className="text-[13px] text-ink/60">
             {d.gridCode ? `格仔 ${d.gridCode} · ` : ""}
             {month ? `${month} 總銷售` : "累計總銷售"}
@@ -98,51 +131,55 @@ export default function TenantDashboard() {
         </div>
 
         {/* 走勢圖（跟住上面揀嘅格仔） */}
-        {d.analyticsEnabled ? (
-          <SalesTrend key={gridCode || "all"} source={{ kind: "tenant", gridCode }} latestMonth={d.months[0] ?? null} />
-        ) : (
-          <p className="mt-10 border border-dashed border-ink/25 px-4 py-3 text-[12.5px] leading-[1.8] text-ink/55">
-            銷售走勢分析（日／週／月走勢、熱賣貨品）未開通。如需要，請聯絡店主申請開通。
-          </p>
-        )}
+        <div data-tour="trend">
+          {d.analyticsEnabled ? (
+            <SalesTrend key={gridCode || "all"} source={{ kind: "tenant", gridCode }} latestMonth={d.months[0] ?? null} />
+          ) : (
+            <p className="mt-10 border border-dashed border-ink/25 px-4 py-3 text-[12.5px] leading-[1.8] text-ink/55">
+              銷售走勢分析（日／週／月走勢、熱賣貨品）未開通。如需要，請聯絡店主申請開通。
+            </p>
+          )}
+        </div>
 
         {/* 貨品 */}
-        <h2 className="font-display mt-12 text-xl font-black tracking-tight">貨品銷售</h2>
-        <div className="mt-4 overflow-x-auto border border-ink/25">
-          <table className="ledger-table w-full text-[14px]">
-            <thead>
-              <tr className="text-left">
-                <th className="py-3 pl-5 pr-4">貨品</th>
-                <th className="whitespace-nowrap py-3 pr-4 text-right">數量</th>
-                <th className="whitespace-nowrap py-3 pr-5 text-right">銷售額</th>
-              </tr>
-            </thead>
-            <tbody>
-              {d.items.map((it) => (
-                <tr key={it.name}>
-                  <td className="py-3 pl-5 pr-4">{it.name}</td>
-                  <td className="py-3 pr-4 text-right font-mono">{it.qty}</td>
-                  <td className="py-3 pr-5 text-right font-mono font-semibold">${fmtMoney(it.amount)}</td>
+        <div data-tour="items" className="mt-12">
+          <h2 className="font-display text-xl font-black tracking-tight">貨品銷售</h2>
+          <div className="mt-4 overflow-x-auto border border-ink/25">
+            <table className="ledger-table w-full text-[14px]">
+              <thead>
+                <tr className="text-left">
+                  <th className="py-3 pl-5 pr-4">貨品</th>
+                  <th className="whitespace-nowrap py-3 pr-4 text-right">數量</th>
+                  <th className="whitespace-nowrap py-3 pr-5 text-right">銷售額</th>
                 </tr>
-              ))}
-              {d.items.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="py-14 text-center text-ink/45">
-                    呢段時間未有銷售記錄
-                  </td>
-                </tr>
+              </thead>
+              <tbody>
+                {d.items.map((it) => (
+                  <tr key={it.name}>
+                    <td className="py-3 pl-5 pr-4">{it.name}</td>
+                    <td className="py-3 pr-4 text-right font-mono">{it.qty}</td>
+                    <td className="py-3 pr-5 text-right font-mono font-semibold">${fmtMoney(it.amount)}</td>
+                  </tr>
+                ))}
+                {d.items.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="py-14 text-center text-ink/45">
+                      呢段時間未有銷售記錄
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+              {d.items.length > 0 && (
+                <tfoot>
+                  <tr className="border-t-2 border-ink font-semibold">
+                    <td className="py-3 pl-5 pr-4">合計</td>
+                    <td className="py-3 pr-4 text-right font-mono">{d.totalQty}</td>
+                    <td className="py-3 pr-5 text-right font-mono">${fmtMoney(d.totalAmount)}</td>
+                  </tr>
+                </tfoot>
               )}
-            </tbody>
-            {d.items.length > 0 && (
-              <tfoot>
-                <tr className="border-t-2 border-ink font-semibold">
-                  <td className="py-3 pl-5 pr-4">合計</td>
-                  <td className="py-3 pr-4 text-right font-mono">{d.totalQty}</td>
-                  <td className="py-3 pr-5 text-right font-mono">${fmtMoney(d.totalAmount)}</td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
+            </table>
+          </div>
         </div>
 
         <p className="mt-6 font-mono text-[11px] leading-[1.8] tracking-[0.08em] text-ink/45">
