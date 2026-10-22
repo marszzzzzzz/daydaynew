@@ -53,6 +53,7 @@ function Login() {
         </form>
         <p className="mt-4 text-xs leading-relaxed text-muted">{t('login.help')}</p>
         <p className="mt-6 text-center text-sm">{t('login.noAccount')} <Link href="/signup" className="font-semibold text-brand">{t('nav.signup')}</Link></p>
+        <p className="mt-3 text-center text-xs"><Link href="/login?next=%2Fadmin" className="text-muted hover:text-ink">🛡️ {t('admin.login')}</Link></p>
       </Panel>
     </div>
   );

@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { useMe } from '@/lib/hooks';
+import { useAdminSession, useMe } from '@/lib/hooks';
 import { useT, type Key } from '@/lib/i18n';
 import { SignOutButton } from './SignOut';
 
@@ -20,6 +20,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const { me, blocked } = useMe();
   const path = usePathname();
   const badge = me?.dealsNeedingAttention ?? 0;
+  const isAdmin = !!useAdminSession(!!me)?.admin;
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -56,6 +57,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 <Link href="/signup" className="rounded-lg bg-brand px-3 py-1.5 text-sm font-semibold text-brand-ink">{t('nav.signup')}</Link>
               </>
             )}
+            {isAdmin && <Link href="/admin" className={`rounded-lg px-2.5 py-1.5 text-sm font-semibold ${path.startsWith('/admin') ? 'bg-surface-2' : 'text-muted hover:text-ink'}`}>🛡️<span className="hidden sm:inline"> {t('admin.nav')}</span></Link>}
             {me && <span className="hidden text-sm text-muted md:inline">{me.user.name}</span>}
             {blocked && <SignOutButton variant="ghost" />}
           </div>
