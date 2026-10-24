@@ -5,9 +5,10 @@ import { Suspense, useState, type FormEvent } from 'react';
 import useSWR from 'swr';
 import { CardPhoto } from '@/components/CardPhoto';
 import { RequireSignIn } from '@/components/RequireSignIn';
+import { ShareButton } from '@/components/share/ShareSheet';
 import { Badge, Button, ButtonLink, Field, Input, Loading, LoadError, Notice, Panel, Textarea } from '@/components/ui';
 import { api, fetcher } from '@/lib/api';
-import { clampInt, coverSide } from '@/lib/cards';
+import { clampInt, coverSide, photoUrl, searchHint } from '@/lib/cards';
 import { useConfig } from '@/lib/hooks';
 import { useT } from '@/lib/i18n';
 import type { Deal, Listing, Me, PhotoSide } from '@/lib/types';
@@ -67,6 +68,11 @@ function ListingView({ me }: { me: Me }) {
             <div className="flex flex-wrap items-center gap-2">
               {l.category && <Badge>{l.category.name}</Badge>}
               <Badge tone="ok">{t('listing.available', { n: l.available })}</Badge>
+              <ShareButton className="ml-auto" card={{
+                id: l.id, q: searchHint(l.name), name: l.name, detail: [l.setName, l.number, l.grade].filter(Boolean).join(' · '),
+                price: l.askingPrice, currency: l.currency, tags: [], serial: '', listed: true,
+                photo: l.photos.length ? photoUrl(l.id, coverSide(l.photos)) : null,
+              }} />
             </div>
             <h1 className="mt-2 text-3xl font-extrabold tracking-tight">{l.name}</h1>
             <p className="mt-3 text-3xl font-bold">{money(l.askingPrice, l.currency)} <span className="text-base font-medium text-muted">{t('listing.each')}</span></p>

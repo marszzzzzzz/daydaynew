@@ -4,10 +4,11 @@ import { useState, type ReactNode } from 'react';
 import useSWR from 'swr';
 import { CardPhoto } from '@/components/CardPhoto';
 import { RequireSignIn } from '@/components/RequireSignIn';
+import { ShareButton } from '@/components/share/ShareSheet';
 import { TagList } from '@/components/TagList';
 import { Badge, ButtonLink, Loading, LoadError, Notice, PageTitle, Panel } from '@/components/ui';
 import { ApiError, api, fetcher } from '@/lib/api';
-import { cardDetail, coverSide, listingState, sellerReady, type ListingState } from '@/lib/cards';
+import { cardDetail, coverSide, photoUrl, listingState, sellerReady, type ListingState } from '@/lib/cards';
 import { isDone, useBatch } from '@/lib/batch';
 import { useT } from '@/lib/i18n';
 import { splitNotes } from '@/lib/meta';
@@ -128,7 +129,14 @@ function CardRow({ card: c, me, onChange }: { card: RealCard; me: Me; onChange: 
               <input type="checkbox" role="switch" className="size-4 accent-[var(--brand)]" checked={c.marketPublic} disabled={busy || c.marketRemovedByAdmin} onChange={toggle} />
               {t('sell.toggle')}
             </label>
-            <Link href={`/sell/${encodeURIComponent(c.id)}`} className="text-sm font-medium text-brand">{t('listing.edit')}</Link>
+            <span className="flex items-center gap-1">
+              <ShareButton compact card={{
+                id: c.id, name: c.name, detail: cardDetail(c), price: c.askingPrice, currency: c.currency,
+                tags: meta.tags, serial: meta.serial, listed: c.marketPublic,
+                photo: cover ? photoUrl(c.id, cover.side, cover.uploadedAt) : null,
+              }} />
+              <Link href={`/sell/${encodeURIComponent(c.id)}`} className="text-sm font-medium text-brand">{t('listing.edit')}</Link>
+            </span>
           </div>
         </div>
       </div>
