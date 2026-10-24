@@ -183,6 +183,20 @@ ALTER TABLE gridbox.attendance ADD COLUMN IF NOT EXISTS "editedAt" timestamptz;
 
 ALTER TABLE gridbox.attendance ADD COLUMN IF NOT EXISTS note text;
 
+CREATE TABLE IF NOT EXISTS gridbox.site_banner (
+    id integer PRIMARY KEY CHECK (id = 1),
+    enabled boolean NOT NULL DEFAULT false,
+    title text NOT NULL DEFAULT '',
+    body text NOT NULL DEFAULT '',
+    "linkUrl" text NOT NULL DEFAULT '',
+    "linkLabel" text NOT NULL DEFAULT '',
+    "startDate" text NOT NULL DEFAULT '',
+    "endDate" text NOT NULL DEFAULT '',
+    version integer NOT NULL DEFAULT 0,
+    "updatedBy" integer REFERENCES gridbox.users(id) ON DELETE SET NULL,
+    "updatedAt" timestamptz NOT NULL DEFAULT now()
+  );
+
 ALTER TABLE gridbox.users ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE gridbox.tenants ENABLE ROW LEVEL SECURITY;
@@ -202,6 +216,8 @@ ALTER TABLE gridbox.shifts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gridbox.payroll_payments ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE gridbox.attendance ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE gridbox.site_banner ENABLE ROW LEVEL SECURITY;
 
 -- 只限 Supabase：確保公開 API 角色（anon / authenticated）完全掂唔到 gridbox
 REVOKE ALL ON SCHEMA gridbox FROM anon, authenticated;

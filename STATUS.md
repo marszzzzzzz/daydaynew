@@ -9,7 +9,7 @@
 | Project root (git repo) | `~/Downloads/Kimi_Agent_格仔鋪網站MVP/app` |
 | GitHub | `https://github.com/marszzzzzzz/daydaynew` — **PUBLIC** repo, branch `main` |
 | Production | `https://gridbox-shop.vercel.app` (Vercel team `trizemars-projects`, project now named `daydaynew-shop`, region `sin1`) |
-| Database | Supabase project **DDN**, ref `gndrrgqihsbweocoedvp`, region `ap-southeast-1`, schema **`gridbox`** (10 tables) |
+| Database | Supabase project **DDN**, ref `gndrrgqihsbweocoedvp`, region `ap-southeast-1`, schema **`gridbox`** (11 tables) |
 | Owner login | `adminddn` (password only in local `app/.env` → `OWNER_PASSWORD`; never committed) |
 | Local dev URL | `http://localhost:4100` (`npm run dev` or `npm run build && npm start`) |
 | Stack | React 19 + Vite 7 + Tailwind 3 + shadcn/ui · Hono + tRPC 11 (superjson) · Drizzle ORM · **node-postgres (`pg`)** · Recharts · PGlite for local tests |
@@ -20,7 +20,7 @@
 npm run dev            # Vite + Hono dev server :4100
 npm run build && npm start   # prod build, :4100 (uses .env → Supabase)
 npm run check          # tsc -b
-npm test               # vitest (contracts/*.test.ts + src/lib/*.test.ts, 33 tests)
+npm test               # vitest (contracts/*.test.ts + src/lib/*.test.ts, 45 tests)
 npm run setup          # interactive .env creation (DB password, SESSION_SECRET, owner)
 npm run owner:create -- <user> <pass> [name]   # create/reset owner (min 8 chars)
 npm run vercel:env     # push DATABASE_URL + new SESSION_SECRET + DEMO_MODE=false to Vercel (sensitive)
@@ -47,6 +47,7 @@ vercel deploy --prod --yes   # deploy (retry if "Not authorized", see §3)
 12. **Admin 10 兼職人工 (payroll)**: **attendance-machine CSV import** (「員工考勤_明細」: staff no.-name, shift count, HH:MM:SS hours; preview → confirm; auto-creates new staff with entered rate; re-import replaces and clears manual edits; 合計 row checksum; **whole hours only — floor** e.g. 24:07:13 → 24 h), **owner can edit each attendance record** (hours, rate, or pay override + reason; 「已手動修改」 badge), employees (with 工號 `staffCode`), manual shifts (overnight, break, per-shift rate snapshot), monthly summary, pay-out lock, CSV export. **MPF removed** (staff not enrolled; pay = gross).
 21. **Tenant first-login onboarding** (real tenants primary): login page numbered guided fields (①用戶名 ②密碼 ③登入, tenant-first hints); on first visit to /tenant (`users.onboardedAt` null) an animated wizard — welcome (grid wall assembles, tenant's own grids glow) → contact (HK phone normalised `XXXX XXXX`, email; saved to their tenant record) → change own password (live checklist) → done → 6-stop **spotlight tour** (total, month, grid, trend/開通, items, help). 「稍後」 = hide for this browser session only; finishing/skipping the tour sets `onboardedAt`. Header 「使用教學」 replays the tour or edits contact/password. Demo tenant: welcome + tour only. Unlinked accounts get a 3-step guide with copyable username and 20 s auto-poll (wizard opens as soon as the owner links them). Animations are CSS only (`ob-*` in `src/index.css`), all disabled under `prefers-reduced-motion`.
 22. **Edit lease in place** (Admin 05 「修改」 on every row): dates, rent-free days, rent, deposit, note; Enter saves, Esc cancels; date change re-matches sales. Changing grid/tenant still = end + new lease. `rentFreeDays` is informational only (does not extend dates or reduce rent bills).
+23. **「最新宣傳」floating banner**: one site-wide promo (table `site_banner`, single row id=1) edited in Admin 13 (on/off, title ≤40, body ≤200, optional link + button text, optional start/end date in HK time, inclusive) with live preview. Shown on Home only: bottom-right (full-width bottom on mobile), slides in ~0.9 s after load. Visitor × stores the banner `version` in localStorage; every save bumps version so it reappears. Links limited to `https://`, `http://`, `whatsapp://` or site paths `/…` (no `javascript:`/`data:`/`//`).
 13. **Admin 11 租戶銷售**: per-tenant / unleased-grid ranking for a period, prior-period comparison, top products, daily bars, CSV, "立即重新配對".
 14. **Lease ↔ sales auto-assignment**: `assignSalesToLeases()` after createLease / updateLease / imports; `unassignSalesOutsideLease()` on date change; POS import credits tenant only if sale date ∈ lease.
 15. **Tenant page simplified**: total sales + per-item totals; month filter; grid filter (multi-grid tenants); no notes/barcodes sent.
@@ -70,6 +71,7 @@ vercel deploy --prod --yes   # deploy (retry if "Not authorized", see §3)
 | `contracts/payroll.ts`, `contracts/attendance.ts` (+ `.test.ts`) | payroll rules, attendance CSV parser + 16 unit tests |
 | `src/components/AttendanceImport.tsx` | attendance CSV upload/preview/confirm |
 | `src/components/onboarding/*` | tenant wizard steps, `SpotlightTour`, `GuidedField`, `UnlinkedGuide`, `HelpMenu`, `useTenantOnboarding`, tour copy `tenantTour.ts` |
+| `contracts/banner.ts` (+ test), `server/bannerRouter.ts`, `src/components/banner/{BannerCard,PromoBanner}.tsx`, `src/pages/admin/tabs/BannerTab.tsx` | promo banner rules, API, UI |
 | `contracts/onboarding.ts`, `src/lib/tourPlacement.ts` (+ tests) | HK phone/email schema, password checklist; tour card placement |
 | `src/components/PosImport.tsx` | POS preview/import UI (`isPosCsv`, `PosImport`) |
 | `src/components/SalesTrend.tsx` | shared trend chart (renamed from `TenantTrend.tsx`) |
@@ -83,7 +85,7 @@ vercel deploy --prod --yes   # deploy (retry if "Not authorized", see §3)
 | `scripts/build-vercel.mjs` | Build Output API v3 |
 | `scripts/backup-db.mjs` | DB backup |
 | `scripts/loop-test.mjs` | 4-phase E2E (56 checks) |
-| `scripts/tenant-onboarding-test.mjs` (18), `lease-edit-test.mjs` (10), `scripts/payroll-test.mjs` (38, reads `~/2026ai/員工考勤_明細-*.csv`), `tenant-sales-test.mjs` (16), `assign-sales-test.mjs` (6), `tenant-multigrid-test.mjs` (6), `tenant-trend-test.mjs` (13), `tenant-analytics-approval-test.mjs` (12), `shop-trend-test.mjs` (13) | API E2E tests |
+| `scripts/tenant-onboarding-test.mjs` (18), `lease-edit-test.mjs` (10), `banner-test.mjs` (17), `scripts/payroll-test.mjs` (38, reads `~/2026ai/員工考勤_明細-*.csv`), `tenant-sales-test.mjs` (16), `assign-sales-test.mjs` (6), `tenant-multigrid-test.mjs` (6), `tenant-trend-test.mjs` (13), `tenant-analytics-approval-test.mjs` (12), `shop-trend-test.mjs` (13) | API E2E tests |
 | `vercel.json`, `.vercelignore`, `.env.example`, `.gitignore`, `README.md`, `STATUS.md` | config/docs |
 
 ### 1.3 Files modified (major)
@@ -135,6 +137,8 @@ vercel deploy --prod --yes   # deploy (retry if "Not authorized", see §3)
 **public**: `ping`, `shop.publicStats`, `shop.publicGridWall`, `shop.dbHealth`, `account.config`, `account.register`, `account.login`, `account.demoLogin` (DEMO_MODE only), `auth.logout`
 **authed (tenant)**: `auth.me`, `shop.myItems {month?, gridCode?}` → `{tenant, analyticsEnabled, grids, gridOptions, gridCode, months, totalAmount, totalQty, items[]}`, `shop.myTrend {granularity, from, to, gridCode?}` (FORBIDDEN unless `analyticsEnabled`), `shop.mySales`, `shop.mySummary`, `shop.myTenantProfile` (legacy, used by tests)
 **staff+admin**: `shop.admin.listGrids`, `listSales {from?,to?,gridId?,tenantId?,mine?}`, `weeklyReport`, `createSale`, `updateSale` (staff: own rows only), `deleteSale`, `importSales {rows[]}`, `importPosSales {saleDate, csvText, dryRun}`
+**banner**: `banner.current` (public → `{title, body, linkUrl, linkLabel, version}` or null when off/out of date range), `banner.get` (admin), `banner.save` (admin; `bannerInputSchema`) → `{ok, version, live}`.
+
 **tenant (authed)**: `shop.myItems` (+`contact {phone, email}`), `shop.updateMyContact {phone, email}` (contactSchema; NOT_FOUND if unlinked), `account.changePassword {currentPassword, newPassword}` (demo forbidden, shares login rate-limit), `account.completeOnboarding` (sets onboardedAt once).
 
 **admin**: `shop.admin.stats`, grids CRUD, `listTenants` (incl. analytics fields), `listUsers`, `createTenant`, `updateTenant {userId}`, `setTenantAnalytics {id, enabled}`, `deleteTenant`, `listLeases`, `createLease` → `{id, assigned}`, `updateLease {id, startDate?, endDate?, rentFreeDays?, monthlyRent?, deposit?, note?}` → `{ok, assigned}` (NOT_FOUND; end must be after start, checked against stored date when only one changes; grid/tenant not editable), `endLease`, `assignSalesToLeases`, `shopTrend {granularity, from, to, scope 'all'|'grids'|'direct', tenantId?, gridCode?}`, `salesDateRange`, `tenantSalesReport {from,to}`, rent CRUD, `exportCsv`, `importGrids`, demo endpoints; `account.createAccount`, `account.resetPassword`, `account.setUserRole`; `payroll.*` (rules, employees CRUD (+`staffCode`), shifts CRUD, `importAttendance {csvText, month?, newRates{key→rate}, dryRun}` → `{month, period, rows[status new|create|replace|locked], imported, created, skipped}`, `listAttendance {month}` (+`rawSeconds`), `updateAttendance {id, hours, hourlyRate, pay?: number|null, note?}` → `{pay}` (pay equal to auto → stored as null), `deleteAttendance {id}`, `monthSummary {month}`, `markPaid {employeeId, month, paidAt, adjustment, note}`, `unmarkPaid`).
@@ -159,7 +163,7 @@ vercel deploy --prod --yes   # deploy (retry if "Not authorized", see §3)
   node scripts/shop-trend-test.mjs && node scripts/tenant-analytics-approval-test.mjs && node scripts/tenant-trend-test.mjs   # order matters
   ```
 - `scripts/loop-test.mjs <1|2|3|4>` needs a fresh PGlite dir per run and specific env per phase (phase 3 `DEMO_MODE=true`, phases 3/4 need `COOKIE_FILE`). **Always blank `DATABASE_URL`** so tests never touch Supabase.
-- Last results: loop 56/56, unit 33/33, onboarding E2E 18/18, payroll E2E 38/38, tenant-sales 16/16, assign 6/6, multigrid 6/6, trend 13/13, approval 12/12, shop-trend 13/13.
+- Last results: loop 56/56, unit 45/45, banner E2E 17/17, onboarding E2E 18/18, payroll E2E 38/38, tenant-sales 16/16, assign 6/6, multigrid 6/6, trend 13/13, approval 12/12, shop-trend 13/13.
 
 ---
 

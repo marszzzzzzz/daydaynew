@@ -19,7 +19,10 @@ const t3 = await call("shop.admin.createTenant", { name: "冇生意租戶C" });
 await call("shop.admin.createLease", { gridId: gid("004"), tenantId: t1, startDate: "2026-01-01", endDate: "2026-12-31", rentFreeDays: 0, monthlyRent: 700, deposit: 700 });
 await call("shop.admin.createLease", { gridId: gid("024"), tenantId: t2, startDate: "2026-01-01", endDate: "2026-12-31", rentFreeDays: 0, monthlyRent: 700, deposit: 700 });
 await call("shop.admin.createLease", { gridId: gid("050"), tenantId: t3, startDate: "2026-01-01", endDate: "2026-12-31", rentFreeDays: 0, monthlyRent: 500, deposit: 500 });
-const files = fs.readdirSync(process.env.HOME + "/2026ai").filter((f) => f.startsWith("商品銷售_明細"));
+// 只用寫測試時嘅 4 個 POS 檔（之後再加嘅匯出檔唔會影響預期數字）
+const FILE_PERIODS = ["2026-02-01 10-00-00至2026-06-30", "2026-07-01 10-00-00至2026-07-31", "2026-08-01 10-00-00至2026-09-01", "2026-09-01 10-00-00至2026-09-30"];
+const files = fs.readdirSync(process.env.HOME + "/2026ai").filter((f) => f.startsWith("商品銷售_明細") && FILE_PERIODS.some((p) => f.includes(p)));
+if (files.length !== FILE_PERIODS.length) throw new Error(`~/2026ai 要有呢 4 個 POS 檔：${FILE_PERIODS.join("、")}`);
 for (const f of files) {
   const csvText = fs.readFileSync(process.env.HOME + "/2026ai/" + f, "utf8");
   const pre = await call("shop.admin.importPosSales", { csvText, saleDate: "2026-01-01", dryRun: true });

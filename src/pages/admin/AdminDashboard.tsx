@@ -13,6 +13,7 @@ import WeeklyTab from "./tabs/WeeklyTab";
 import PayrollTab from "./tabs/PayrollTab";
 import TenantSalesTab from "./tabs/TenantSalesTab";
 import AnalyticsTab from "./tabs/AnalyticsTab";
+import BannerTab from "./tabs/BannerTab";
 
 const TABS = [
   { id: "overview", no: "01", label: "總覽" },
@@ -27,6 +28,7 @@ const TABS = [
   { id: "payroll", no: "10", label: "兼職人工" },
   { id: "tenantSales", no: "11", label: "租戶銷售" },
   { id: "analytics", no: "12", label: "銷售分析" },
+  { id: "banner", no: "13", label: "最新宣傳" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -104,6 +106,7 @@ export default function AdminDashboard() {
         {tab === "payroll" && <PayrollTab />}
         {tab === "tenantSales" && <TenantSalesTab />}
         {tab === "analytics" && <AnalyticsTab />}
+        {tab === "banner" && <BannerTab />}
       </main>
     </div>
   );

@@ -257,4 +257,21 @@ export const attendance = gridbox.table(
 
 export type Attendance = typeof attendance.$inferSelect;
 
-export const ALL_TABLES = ["users", "tenants", "grids", "leases", "sales", "rent_records", "employees", "shifts", "payroll_payments", "attendance"] as const;
+/** 網站「最新宣傳」浮動橫幅（全站只有一條，id 固定 = 1） */
+export const siteBanner = gridbox.table("site_banner", {
+  id: integer("id").primaryKey(),
+  enabled: boolean("enabled").notNull().default(false),
+  title: text("title").notNull().default(""),
+  body: text("body").notNull().default(""),
+  linkUrl: text("linkUrl").notNull().default(""),
+  linkLabel: text("linkLabel").notNull().default(""),
+  /** YYYY-MM-DD（香港時間，包首尾）；"" = 冇限制 */
+  startDate: text("startDate").notNull().default(""),
+  endDate: text("endDate").notNull().default(""),
+  /** 每次儲存加 1；訪客閂咗橫幅會記住呢個數，改咗內容就會再顯示 */
+  version: integer("version").notNull().default(0),
+  updatedBy: integer("updatedBy"),
+  updatedAt: updatedAt(),
+});
+
+export const ALL_TABLES = ["users", "tenants", "grids", "leases", "sales", "rent_records", "employees", "shifts", "payroll_payments", "attendance", "site_banner"] as const;
