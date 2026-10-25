@@ -3,6 +3,7 @@
 // and account moderation tools (remove / restore listings, read and stop deals, suspend or unlock players).
 import { useState } from 'react';
 import useSWR from 'swr';
+import { ShareStyle } from '@/components/admin/ShareStyle';
 import { RequireSignIn } from '@/components/RequireSignIn';
 import { Badge, Button, ConfirmDialog, Input, Loading, LoadError, Notice, PageTitle, Panel, Select } from '@/components/ui';
 import { api, fetcher } from '@/lib/api';
@@ -30,25 +31,27 @@ function Gate() {
       </Panel>
     );
   }
-  if (!s.configured) return <Notice tone="warn">{t('admin.notConfigured')}</Notice>;
-  return <Admin name={s.name ?? ''} />;
+  return <Admin name={s.name ?? ''} configured={s.configured} />;
 }
 
-type Tab = 'listings' | 'deals' | 'players';
+type Tab = 'listings' | 'deals' | 'players' | 'style';
 
-function Admin({ name }: { name: string }) {
+function Admin({ name, configured }: { name: string; configured: boolean }) {
   const { t } = useT();
-  const [tab, setTab] = useState<Tab>('listings');
+  // Share style is this site's own setting; the other tabs need Card Pool's admin access.
+  const [tab, setTab] = useState<Tab>(configured ? 'listings' : 'style');
   return (
     <div>
       <PageTitle title={`🛡️ ${t('admin.title')}`} sub={t('admin.signedInAs', { name })} />
       <div role="tablist" className="mb-5 flex gap-1 rounded-2xl bg-surface-2 p-1">
-        {(['listings', 'deals', 'players'] as Tab[]).map((x) => (
+        {(['listings', 'deals', 'players', 'style'] as Tab[]).map((x) => (
           <button key={x} type="button" role="tab" aria-selected={tab === x} onClick={() => setTab(x)}
             className={`flex-1 rounded-xl px-3 py-2 text-sm font-semibold ${tab === x ? 'bg-surface shadow-sm' : 'text-muted'}`}>{t(`admin.tab.${x}`)}</button>
         ))}
       </div>
-      {tab === 'listings' ? <Listings /> : tab === 'deals' ? <Deals /> : <Players />}
+      {tab === 'style' ? <ShareStyle />
+        : !configured ? <Notice tone="warn">{t('admin.notConfigured')}</Notice>
+        : tab === 'listings' ? <Listings /> : tab === 'deals' ? <Deals /> : <Players />}
     </div>
   );
 }

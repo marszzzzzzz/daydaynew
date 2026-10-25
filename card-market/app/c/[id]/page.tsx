@@ -3,6 +3,8 @@
 import type { Metadata } from 'next';
 import { ShareLanding } from '@/components/share/ShareLanding';
 import { readShare } from '@/lib/share';
+import { imageUrl, resolveBg } from '@/lib/theme';
+import { readTheme } from '@/lib/theme-server';
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ t?: string }> };
 
@@ -25,5 +27,6 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
 export default async function SharedCard({ params, searchParams }: Props) {
   const [{ id }, { t }] = await Promise.all([params, searchParams]);
-  return <ShareLanding id={id} card={readShare(t, id)} />;
+  const card = readShare(t, id);
+  return <ShareLanding id={id} card={card} bg={resolveBg(await readTheme(), card?.ci)} photo={card?.ph ? imageUrl(card.ph) : null} />;
 }

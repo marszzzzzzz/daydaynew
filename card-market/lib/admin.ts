@@ -68,3 +68,9 @@ export async function adminFetch(path: string, init: { method: string; body?: Ar
     adminToken = null;
   }
 }
+
+/** For this site's own admin routes: the signed-in caller if they are on the admin list, else null. */
+export async function adminCaller(token: string | undefined) {
+  const who = await caller(token);
+  return isAdmin(who) ? who : null;
+}

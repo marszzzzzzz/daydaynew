@@ -6,8 +6,9 @@ import { TagList } from '@/components/TagList';
 import { useMe } from '@/lib/hooks';
 import { useT } from '@/lib/i18n';
 import type { SharePayload } from '@/lib/share';
+import type { ResolvedBg } from '@/lib/theme';
 
-export function ShareLanding({ id, card: c }: { id: string; card: SharePayload | null }) {
+export function ShareLanding({ id, card: c, bg, photo }: { id: string; card: SharePayload | null; bg: ResolvedBg; photo: string | null }) {
   const { t, money } = useT();
   const { me } = useMe();
   const listing = `/listing/${encodeURIComponent(id)}${c ? `?q=${encodeURIComponent(Array.from(c.n).slice(0, 60).join(''))}` : ''}`;
@@ -15,10 +16,18 @@ export function ShareLanding({ id, card: c }: { id: string; card: SharePayload |
 
   return (
     <div className="mx-auto max-w-lg py-4">
-      <section className="relative overflow-hidden rounded-3xl bg-[#121633] p-6 text-white">
-        <div aria-hidden className="pointer-events-none absolute -right-6 -bottom-10 flex gap-2 opacity-70">
-          {['#FFCB05', '#8B5CF6', '#FF4D2E'].map((col, i) => <span key={col} className="h-24 w-16 rounded-lg border-2 border-white/70" style={{ background: col, transform: `rotate(${8 + i * 7}deg)` }} />)}
-        </div>
+      <section className="relative overflow-hidden rounded-3xl p-6 text-white" style={{ background: `linear-gradient(135deg, ${bg.from}, ${bg.to})` }}>
+        {bg.image && <>
+          <img src={bg.image} alt="" aria-hidden className="absolute inset-0 size-full object-cover" />
+          <span aria-hidden className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/45 to-black/80" />
+        </>}
+        {photo ? (
+          <img src={photo} alt={c?.n ?? ''} className="relative mx-auto mb-5 block w-56 rotate-2 rounded-2xl border-4 border-white/90 shadow-2xl" style={{ aspectRatio: '63 / 88', objectFit: 'cover' }} />
+        ) : (
+          <div aria-hidden className="pointer-events-none absolute -right-6 -bottom-10 flex gap-2 opacity-70">
+            {['#FFCB05', '#8B5CF6', '#FF4D2E'].map((col, i) => <span key={col} className="h-24 w-16 rounded-lg border-2 border-white/70" style={{ background: col, transform: `rotate(${8 + i * 7}deg)` }} />)}
+          </div>
+        )}
         <div className="relative">
           {c ? (
             <>

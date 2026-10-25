@@ -16,6 +16,8 @@ export interface SharePayload {
   g: string[]; // tags (preset codes or custom text)
   sn: string; // serial number (限號)
   l: boolean; // listed in the market when shared
+  ci?: string; // category id (picks the share background)
+  ph?: string; // store key of the public copy of the cover photo (lib/store.ts)
 }
 
 function secret(): string | null {

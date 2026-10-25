@@ -4,6 +4,9 @@
 import { ImageResponse } from 'next/og';
 import type { NextRequest } from 'next/server';
 import { readShare } from '@/lib/share';
+import { getFile } from '@/lib/store';
+import { resolveBg } from '@/lib/theme';
+import { readTheme } from '@/lib/theme-server';
 
 export const runtime = 'nodejs';
 
@@ -20,6 +23,12 @@ async function font(text: string): Promise<ArrayBuffer | null> {
   }
 }
 
+/** A stored picture as a data: URL (the image renderer then needs no network). */
+async function dataUrl(key: string | undefined | null) {
+  const f = key ? await getFile(key) : null;
+  return f ? `data:${f.type};base64,${Buffer.from(f.body).toString('base64')}` : null;
+}
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const p = readShare(req.nextUrl.searchParams.get('t'), id);
@@ -28,12 +37,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const title = p?.n ?? '日日新卡市';
   const sub = p ? [p.cat, p.d].filter(Boolean).join(' · ') : '實體卡，玩家之間直接買賣';
   const brand = '日日新卡市 · DayDayNew Card Market';
+  const bg = resolveBg(await readTheme(), p?.ci);
+  const [bgImage, photo] = await Promise.all([dataUrl(bg.image?.replace(/^\/s\/img\//, '')), dataUrl(p?.ph)]);
   const data = await font([title, sub, price, ...tags, brand, '出售中', '查看及出價'].join(''));
 
   return new ImageResponse(
     (
-      <div style={{ width: '100%', height: '100%', display: 'flex', background: 'linear-gradient(135deg,#121633 0%,#2b308f 100%)', color: '#fff', padding: 64, fontFamily: data ? 'CJK' : undefined }}>
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between' }}>
+      <div style={{ width: '100%', height: '100%', display: 'flex', position: 'relative', background: `linear-gradient(135deg,${bg.from} 0%,${bg.to} 100%)`, color: '#fff', padding: 64, fontFamily: data ? 'CJK' : undefined }}>
+        {bgImage && <img src={bgImage} alt="" width={1200} height={630} style={{ position: 'absolute', left: 0, top: 0, width: 1200, height: 630, objectFit: 'cover' }} />}
+        {bgImage && <div style={{ display: 'flex', position: 'absolute', left: 0, top: 0, width: 1200, height: 630, background: 'linear-gradient(90deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.35) 100%)' }} />}
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between', position: 'relative' }}>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {p?.l && <div style={{ display: 'flex', alignSelf: 'flex-start', background: '#34d27b', color: '#0b1f12', borderRadius: 999, padding: '6px 18px', fontSize: 26, fontWeight: 700 }}>出售中</div>}
             <div style={{ display: 'flex', fontSize: title.length > 18 ? 64 : 80, fontWeight: 700, marginTop: 24, lineHeight: 1.1, maxWidth: 760 }}>{title}</div>
@@ -49,14 +62,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           </div>
           <div style={{ display: 'flex', fontSize: 26, opacity: 0.75 }}>{brand}</div>
         </div>
-        <div style={{ display: 'flex', width: 300, alignItems: 'center', justifyContent: 'center' }}>
-          {['#FFCB05', '#8B5CF6', '#FF4D2E'].map((c, i) => (
+        <div style={{ display: 'flex', width: 340, alignItems: 'center', justifyContent: 'center' }}>
+          {photo ? (
+            // The card itself: 63:88, tilted a little, with a white edge and a shadow.
+            <img src={photo} alt="" width={340} height={475} style={{ width: 340, height: 475, objectFit: 'cover', borderRadius: 20, border: '8px solid rgba(255,255,255,0.92)', transform: 'rotate(4deg)', boxShadow: '0 24px 60px rgba(0,0,0,0.5)' }} />
+          ) : ['#FFCB05', '#8B5CF6', '#FF4D2E'].map((c, i) => (
             <div key={c} style={{ display: 'flex', position: 'absolute', width: 190, height: 266, borderRadius: 18, border: '6px solid rgba(255,255,255,0.85)', background: c, transform: `rotate(${-10 + i * 10}deg) translateX(${(i - 1) * 36}px)` }} />
           ))}
         </div>
       </div>
     ),
     { width: 1200, height: 630, fonts: data ? [{ name: 'CJK', data, weight: 700, style: 'normal' }] : undefined,
-      headers: { 'cache-control': 'public, max-age=86400, immutable' } },
+      headers: { 'cache-control': 'public, max-age=3600, s-maxage=3600' } },
   );
 }

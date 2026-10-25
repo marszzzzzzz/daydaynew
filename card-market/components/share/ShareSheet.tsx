@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { PLATFORMS, hashtags, shareLink, type Platform } from '@/lib/social';
+import { PRESETS, type ResolvedBg } from '@/lib/theme';
 import { tagLabel } from '../TagList';
 
 export interface ShareTarget {
@@ -24,6 +25,8 @@ export interface ShareTarget {
   serial: string;
   photo: string | null;
   listed: boolean;
+  /** Category id: the admin can set a share background per category. */
+  categoryId?: string | null;
 }
 
 const W = 1080, H = 1350;
@@ -58,15 +61,24 @@ function wrap(g: CanvasRenderingContext2D, text: string, max: number, lines: num
   return out;
 }
 
-async function drawCard(c: ShareTarget, url: string, priceText: string, labels: string[], strings: { listed: string; scan: string; brand: string }) {
+async function drawCard(c: ShareTarget, url: string, priceText: string, labels: string[], strings: { listed: string; scan: string; brand: string }, theme: ResolvedBg) {
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
   const g = canvas.getContext('2d')!;
   const font = (px: number, weight = 700) => `${weight} ${px}px ui-sans-serif, system-ui, -apple-system, "PingFang HK", "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
 
+  // Background chosen by the admin: a gradient, or a picture (covered, darkened so the text stays readable).
   const bg = g.createLinearGradient(0, 0, W, H);
-  bg.addColorStop(0, '#121633'); bg.addColorStop(1, '#2b308f');
+  bg.addColorStop(0, theme.from); bg.addColorStop(1, theme.to);
   g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  const pic = theme.image ? await loadImage(theme.image) : null;
+  if (pic) {
+    const k = Math.max(W / pic.width, H / pic.height);
+    g.drawImage(pic, (W - pic.width * k) / 2, (H - pic.height * k) / 2, pic.width * k, pic.height * k);
+    const shade = g.createLinearGradient(0, 0, 0, H);
+    shade.addColorStop(0, 'rgba(0,0,0,0.25)'); shade.addColorStop(0.55, 'rgba(0,0,0,0.45)'); shade.addColorStop(1, 'rgba(0,0,0,0.8)');
+    g.fillStyle = shade; g.fillRect(0, 0, W, H);
+  }
 
   // The card photo (or a placeholder card), slightly tilted like on the landing page.
   const pw = 560, ph = Math.round(pw * 88 / 63), px = (W - pw) / 2, py = 90;
@@ -149,10 +161,14 @@ export function ShareSheet({ card, onClose }: { card: ShareTarget; onClose: () =
     let src: string | null = null;
     (async () => {
       try {
-        const r = await api<{ url: string }>('share', { body: { id: card.id, q: card.q } });
+        const [r, theme] = await Promise.all([
+          api<{ url: string }>('share', { body: { id: card.id, q: card.q } }),
+          api<ResolvedBg>(`share-theme${card.categoryId ? `?category=${encodeURIComponent(card.categoryId)}` : ''}`)
+            .catch((): ResolvedBg => ({ from: PRESETS[0].from, to: PRESETS[0].to, image: null })),
+        ]);
         if (!live) return;
         setUrl(r.url);
-        const blob = await drawCard(card, r.url, priceText, labels, { listed: t('share.img.listed'), scan: t('share.img.scan'), brand: t('share.img.brand') });
+        const blob = await drawCard(card, r.url, priceText, labels, { listed: t('share.img.listed'), scan: t('share.img.scan'), brand: t('share.img.brand') }, theme);
         src = URL.createObjectURL(blob);
         if (live) setImage({ blob, src }); else URL.revokeObjectURL(src);
       } catch (e) {

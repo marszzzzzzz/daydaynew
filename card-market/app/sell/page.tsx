@@ -132,7 +132,7 @@ function CardRow({ card: c, me, onChange }: { card: RealCard; me: Me; onChange: 
             <span className="flex items-center gap-1">
               <ShareButton compact card={{
                 id: c.id, name: c.name, detail: cardDetail(c), price: c.askingPrice, currency: c.currency,
-                tags: meta.tags, serial: meta.serial, listed: c.marketPublic,
+                tags: meta.tags, serial: meta.serial, listed: c.marketPublic, categoryId: c.category?.id,
                 photo: cover ? photoUrl(c.id, cover.side, cover.uploadedAt) : null,
               }} />
               <Link href={`/sell/${encodeURIComponent(c.id)}`} className="text-sm font-medium text-brand">{t('listing.edit')}</Link>

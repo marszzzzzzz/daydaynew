@@ -70,7 +70,7 @@ function ListingView({ me }: { me: Me }) {
               <Badge tone="ok">{t('listing.available', { n: l.available })}</Badge>
               <ShareButton className="ml-auto" card={{
                 id: l.id, q: searchHint(l.name), name: l.name, detail: [l.setName, l.number, l.grade].filter(Boolean).join(' · '),
-                price: l.askingPrice, currency: l.currency, tags: [], serial: '', listed: true,
+                price: l.askingPrice, currency: l.currency, tags: [], serial: '', listed: true, categoryId: l.category?.id,
                 photo: l.photos.length ? photoUrl(l.id, coverSide(l.photos)) : null,
               }} />
             </div>
