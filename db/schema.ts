@@ -128,6 +128,7 @@ export const sales = gridbox.table(
     index("sales_date_idx").on(table.saleDate),
     index("sales_grid_idx").on(table.gridId),
     index("sales_tenant_idx").on(table.tenantId),
+    index("sales_product_idx").on(table.productName),
   ],
 );
 
@@ -274,4 +275,53 @@ export const siteBanner = gridbox.table("site_banner", {
   updatedAt: updatedAt(),
 });
 
-export const ALL_TABLES = ["users", "tenants", "grids", "leases", "sales", "rent_records", "employees", "shifts", "payroll_payments", "attendance", "site_banner"] as const;
+/** 對外商品資料（首頁輪播 + SEO）；sourceName = POS 貨品名（sales.productName） */
+export const products = gridbox.table("products", {
+  id: serial("id").primaryKey(),
+  sourceName: text("sourceName").notNull().unique(),
+  /** 對外顯示名稱（SEO）；"" = 用返 POS 名 */
+  displayName: text("displayName").notNull().default(""),
+  description: text("description").notNull().default(""),
+  /** 逗號分隔 */
+  keywords: text("keywords").notNull().default(""),
+  category: text("category").notNull().default(""),
+  featured: boolean("featured").notNull().default(false),
+  /** 精選排序（細 = 前） */
+  featuredRank: integer("featuredRank").notNull().default(0),
+  /** 唔喺首頁出現（例如熱銷但唔想公開） */
+  hidden: boolean("hidden").notNull().default(false),
+  /** data:image/webp;base64,…（經 /api/products/:id/image 派） */
+  image: text("image"),
+  /** 每次換相加 1，用嚟做相片網址版本（瀏覽器可以長期快取） */
+  imageVersion: integer("imageVersion").notNull().default(0),
+  updatedBy: integer("updatedBy"),
+  updatedAt: updatedAt(),
+});
+
+export type Product = typeof products.$inferSelect;
+
+/** 首頁商品輪播設定（全站只有一條，id 固定 = 1） */
+export const showcaseSettings = gridbox.table("showcase_settings", {
+  id: integer("id").primaryKey(),
+  enabled: boolean("enabled").notNull().default(false),
+  /** 熱銷計最近幾多日（由最新一筆銷售日期倒數） */
+  bestDays: integer("bestDays").notNull().default(30),
+  bestCount: integer("bestCount").notNull().default(12),
+  updatedAt: updatedAt(),
+});
+
+export const ALL_TABLES = [
+  "users",
+  "tenants",
+  "grids",
+  "leases",
+  "sales",
+  "rent_records",
+  "employees",
+  "shifts",
+  "payroll_payments",
+  "attendance",
+  "site_banner",
+  "products",
+  "showcase_settings",
+] as const;

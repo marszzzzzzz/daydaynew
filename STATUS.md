@@ -48,6 +48,7 @@ vercel deploy --prod --yes   # deploy (retry if "Not authorized", see §3)
 21. **Tenant first-login onboarding** (real tenants primary): login page numbered guided fields (①用戶名 ②密碼 ③登入, tenant-first hints); on first visit to /tenant (`users.onboardedAt` null) an animated wizard — welcome (grid wall assembles, tenant's own grids glow) → contact (HK phone normalised `XXXX XXXX`, email; saved to their tenant record) → change own password (live checklist) → done → 6-stop **spotlight tour** (total, month, grid, trend/開通, items, help). 「稍後」 = hide for this browser session only; finishing/skipping the tour sets `onboardedAt`. Header 「使用教學」 replays the tour or edits contact/password. Demo tenant: welcome + tour only. Unlinked accounts get a 3-step guide with copyable username and 20 s auto-poll (wizard opens as soon as the owner links them). Animations are CSS only (`ob-*` in `src/index.css`), all disabled under `prefers-reduced-motion`.
 22. **Edit lease in place** (Admin 05 「修改」 on every row): dates, rent-free days, rent, deposit, note; Enter saves, Esc cancels; date change re-matches sales. Changing grid/tenant still = end + new lease. `rentFreeDays` is informational only (does not extend dates or reduce rent bills).
 23. **「最新宣傳」floating banner**: one site-wide promo (table `site_banner`, single row id=1) edited in Admin 13 (on/off, title ≤40, body ≤200, optional link + button text, optional start/end date in HK time, inclusive) with live preview. Shown on Home only: bottom-right (full-width bottom on mobile), slides in ~0.9 s after load. Visitor × stores the banner `version` in localStorage; every save bumps version so it reappears. Links limited to `https://`, `http://`, `whatsapp://` or site paths `/…` (no `javascript:`/`data:`/`//`).
+24. **Home product carousel + product SEO** (Admin 14 「商品 SEO」): Home section 「店內好物」 between the grid wall and the black stats band — two auto-scrolling rows (CSS marquee, both leftward, pause on hover/focus; static + manual scroll under `prefers-reduced-motion`; < 4 items = no motion). Top = **精選商品** (owner picks + orders with ↑↓), bottom = **熱銷產品** (top N by quantity over the last N days counted back from the **latest sale date**, because POS is imported monthly; hidden products skipped). Cards 150px (mobile) / 200px, 1:1 photo or typographic placeholder, price = latest unit price, click → WhatsApp with the product name. Off by default (`showcase_settings.enabled`); nothing shows until the owner turns it on. Per product (keyed by POS name = `sales.productName`): public SEO name ≤60, description ≤160, keywords, category, featured/hidden, photo (browser-compressed to ≤800px WebP ≤400KB, stored in DB, served from `/api/products/:id/image?v=N` with immutable cache). Live SEO score (7 checks), Google snippet preview, AI-answer preview. Public output: schema.org `ItemList`/`Product` JSON-LD on Home (escaped `<`) and server-rendered **`/llms.txt`** (shop info, rent, featured, best sellers) for AI crawlers that don't run JS. SEO names never change sales records/tenant reports.
 13. **Admin 11 租戶銷售**: per-tenant / unleased-grid ranking for a period, prior-period comparison, top products, daily bars, CSV, "立即重新配對".
 14. **Lease ↔ sales auto-assignment**: `assignSalesToLeases()` after createLease / updateLease / imports; `unassignSalesOutsideLease()` on date change; POS import credits tenant only if sale date ∈ lease.
 15. **Tenant page simplified**: total sales + per-item totals; month filter; grid filter (multi-grid tenants); no notes/barcodes sent.
@@ -71,6 +72,7 @@ vercel deploy --prod --yes   # deploy (retry if "Not authorized", see §3)
 | `contracts/payroll.ts`, `contracts/attendance.ts` (+ `.test.ts`) | payroll rules, attendance CSV parser + 16 unit tests |
 | `src/components/AttendanceImport.tsx` | attendance CSV upload/preview/confirm |
 | `src/components/onboarding/*` | tenant wizard steps, `SpotlightTour`, `GuidedField`, `UnlinkedGuide`, `HelpMenu`, `useTenantOnboarding`, tour copy `tenantTour.ts` |
+| `contracts/products.ts` (+ test), `server/productsRouter.ts`, `server/queries/products.ts`, `server/llmsTxt.ts`, `src/components/showcase/{ProductCard,ProductShowcase}.tsx`, `src/pages/admin/tabs/products/{ProductsTab,ProductEditor,SeoPanel,ShowcaseSettings}.tsx`, `src/lib/imageResize.ts` | product carousel + SEO |
 | `contracts/banner.ts` (+ test), `server/bannerRouter.ts`, `src/components/banner/{BannerCard,PromoBanner}.tsx`, `src/pages/admin/tabs/BannerTab.tsx` | promo banner rules, API, UI |
 | `contracts/onboarding.ts`, `src/lib/tourPlacement.ts` (+ tests) | HK phone/email schema, password checklist; tour card placement |
 | `src/components/PosImport.tsx` | POS preview/import UI (`isPosCsv`, `PosImport`) |
@@ -85,7 +87,7 @@ vercel deploy --prod --yes   # deploy (retry if "Not authorized", see §3)
 | `scripts/build-vercel.mjs` | Build Output API v3 |
 | `scripts/backup-db.mjs` | DB backup |
 | `scripts/loop-test.mjs` | 4-phase E2E (56 checks) |
-| `scripts/tenant-onboarding-test.mjs` (18), `lease-edit-test.mjs` (10), `banner-test.mjs` (17), `scripts/payroll-test.mjs` (38, reads `~/2026ai/員工考勤_明細-*.csv`), `tenant-sales-test.mjs` (16), `assign-sales-test.mjs` (6), `tenant-multigrid-test.mjs` (6), `tenant-trend-test.mjs` (13), `tenant-analytics-approval-test.mjs` (12), `shop-trend-test.mjs` (13) | API E2E tests |
+| `scripts/products-test.mjs` (34), `scripts/tenant-onboarding-test.mjs` (18), `lease-edit-test.mjs` (10), `banner-test.mjs` (17), `scripts/payroll-test.mjs` (38, reads `~/2026ai/員工考勤_明細-*.csv`), `tenant-sales-test.mjs` (16), `assign-sales-test.mjs` (6), `tenant-multigrid-test.mjs` (6), `tenant-trend-test.mjs` (13), `tenant-analytics-approval-test.mjs` (12), `shop-trend-test.mjs` (13) | API E2E tests |
 | `vercel.json`, `.vercelignore`, `.env.example`, `.gitignore`, `README.md`, `STATUS.md` | config/docs |
 
 ### 1.3 Files modified (major)
@@ -123,6 +125,7 @@ vercel deploy --prod --yes   # deploy (retry if "Not authorized", see §3)
 - `attendance(id, employeeId, month, shiftCount, seconds (raw clock), hours (floored whole hours, editable), hourlyRate snapshot, payOverride (null = hours × rate), editedAt, note, period, createdBy)`, UNIQUE(employeeId, month) — one imported row per staff per month
 - `shifts(id, employeeId, workDate, startTime, endTime 'HH:MM', breakMinutes, hourlyRate snapshot, note, createdBy)`
 - `payroll_payments(id, employeeId, month, hours, basePay, adjustment, grossPay, mpfEmployee/mpfEmployer (deprecated, always 0), netPay (= gross), paidAt, note)`, UNIQUE(employeeId, month)
+- `products(id, sourceName uniq = POS name, displayName, description, keywords, category, featured, featuredRank, hidden, image data-URL|null, imageVersion, updatedBy, updatedAt)`; `showcase_settings(id=1, enabled default false, bestDays 30, bestCount 12)`; index `sales_product_idx`
 - FK prevents deleting tenants/grids with history → middleware maps 23503 to 「呢項資料仍有相關記錄…」.
 - Schema changes = edit `db/schema.ts` **and** `db/ddl.ts` (use `ADD COLUMN IF NOT EXISTS`), regenerate `db/migrations/0001_gridbox.sql`; DDL auto-runs on first request after deploy.
 
@@ -137,6 +140,7 @@ vercel deploy --prod --yes   # deploy (retry if "Not authorized", see §3)
 **public**: `ping`, `shop.publicStats`, `shop.publicGridWall`, `shop.dbHealth`, `account.config`, `account.register`, `account.login`, `account.demoLogin` (DEMO_MODE only), `auth.logout`
 **authed (tenant)**: `auth.me`, `shop.myItems {month?, gridCode?}` → `{tenant, analyticsEnabled, grids, gridOptions, gridCode, months, totalAmount, totalQty, items[]}`, `shop.myTrend {granularity, from, to, gridCode?}` (FORBIDDEN unless `analyticsEnabled`), `shop.mySales`, `shop.mySummary`, `shop.myTenantProfile` (legacy, used by tests)
 **staff+admin**: `shop.admin.listGrids`, `listSales {from?,to?,gridId?,tenantId?,mine?}`, `weeklyReport`, `createSale`, `updateSale` (staff: own rows only), `deleteSale`, `importSales {rows[]}`, `importPosSales {saleDate, csvText, dryRun}`
+**products**: `products.showcase` (public → null when off, else `{featured, bestSellers}` cards `{name, description, category, price, imageUrl}` — no quantities), `products.list` (admin; `{search, filter: all|todo|featured|hidden, limit}` → rows with qty/lastSold/price/score + counts), `products.save` (admin; `productInputSchema`, featured+hidden rejected), `products.setImage` (admin; webp/jpeg/png data URL ≤400KB or null; SVG rejected), `products.reorderFeatured`, `products.settings`, `products.saveSettings` (bestDays 7–365, bestCount 4–24). Plain routes: `GET /api/products/:id/image`, `GET /llms.txt` (Vercel route `^/llms\.txt$ → /api` in `scripts/build-vercel.mjs`).
 **banner**: `banner.current` (public → `{title, body, linkUrl, linkLabel, version}` or null when off/out of date range), `banner.get` (admin), `banner.save` (admin; `bannerInputSchema`) → `{ok, version, live}`.
 
 **tenant (authed)**: `shop.myItems` (+`contact {phone, email}`), `shop.updateMyContact {phone, email}` (contactSchema; NOT_FOUND if unlinked), `account.changePassword {currentPassword, newPassword}` (demo forbidden, shares login rate-limit), `account.completeOnboarding` (sets onboardedAt once).
@@ -163,13 +167,14 @@ vercel deploy --prod --yes   # deploy (retry if "Not authorized", see §3)
   node scripts/shop-trend-test.mjs && node scripts/tenant-analytics-approval-test.mjs && node scripts/tenant-trend-test.mjs   # order matters
   ```
 - `scripts/loop-test.mjs <1|2|3|4>` needs a fresh PGlite dir per run and specific env per phase (phase 3 `DEMO_MODE=true`, phases 3/4 need `COOKIE_FILE`). **Always blank `DATABASE_URL`** so tests never touch Supabase.
-- Last results: loop 56/56, unit 45/45, banner E2E 17/17, onboarding E2E 18/18, payroll E2E 38/38, tenant-sales 16/16, assign 6/6, multigrid 6/6, trend 13/13, approval 12/12, shop-trend 13/13.
+- Last results: unit 59/59, products E2E 34/34, banner E2E 17/17, lease-edit 10/10, onboarding E2E 18/18, payroll E2E 38/38, tenant-sales 16/16, assign 6/6, multigrid 6/6, trend 13/13, approval 12/12, shop-trend 13/13.
 
 ---
 
 ## 3. Next Steps & Pending Issues
 
 ### 3.1 Immediate actions (owner)
+- [ ] **Product carousel**: Admin 14 → set SEO name / description / photo for products to show, tick 精選, review the 熱銷 list (hide anything not for public, e.g. 「散Card $1」), then tick 「首頁顯示商品輪播」 and save. Off until then.
 - [ ] **Approve tenant analytics**: Admin 06 → Chris / test → 「批准開通」 (both currently `analyticsEnabled=false`).
 - [ ] **Import September POS** `~/2026ai/商品銷售_明細-日期 2026-09-01 10-00-00至2026-09-30 10-00-00.csv` (live DB has Feb–Aug only; 409 sales, $115,919).
 - [ ] **Import September attendance** in Admin 10 (`~/2026ai/員工考勤_明細-日期 2026-09-01 10-00-00至2026-10-01 10-00-00.csv`): enter each new staff member's hourly rate in the preview. Live DB has only test employee "Mars" (+1 shift) — stop/delete if not a real staff member.

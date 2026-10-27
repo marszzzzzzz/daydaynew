@@ -11,7 +11,7 @@ import "dotenv/config";
 import pg from "pg";
 
 // 次序跟外鍵：先父後子（還原時按呢個次序插入）
-const TABLES = ["users", "tenants", "grids", "leases", "sales", "rent_records", "employees", "shifts", "payroll_payments", "attendance", "site_banner"];
+const TABLES = ["users", "tenants", "grids", "leases", "sales", "rent_records", "employees", "shifts", "payroll_payments", "attendance", "site_banner", "products", "showcase_settings"];
 
 if (!process.env.DATABASE_URL) {
   console.error("✗ .env 入面冇 DATABASE_URL，請先行 npm run setup");

@@ -8,6 +8,7 @@ import { fmtMoney } from "@/lib/format";
 import { allGridCodes, gridSizeOf, gridRentOf } from "@contracts/gridLayout";
 import { WHATSAPP_DISPLAY, whatsappLink } from "@/const";
 import PromoBanner from "@/components/banner/PromoBanner";
+import ProductShowcase from "@/components/showcase/ProductShowcase";
 
 /** 資料庫未就緒時嘅靜態格仔牆：同真實佈局一致（7 層 × 10 直行，編號 001–070；第 3、4 層（全部 10 直行）係大格 $700，其餘中格 $500） */
 const FALLBACK_WALL: WallGrid[] = allGridCodes().map((code) => ({
@@ -121,6 +122,9 @@ export default function Home() {
           </p>
         </div>
       </section>
+
+      {/* ─── 店內好物：精選 + 熱銷輪播 ─── */}
+      <ProductShowcase />
 
       {/* ─── 數據帶（黑） ─── */}
       <section className="bg-ink text-cream">

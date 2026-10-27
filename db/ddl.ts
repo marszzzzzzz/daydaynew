@@ -174,6 +174,29 @@ export const DDL: string[] = [
     "updatedBy" integer REFERENCES gridbox.users(id) ON DELETE SET NULL,
     "updatedAt" timestamptz NOT NULL DEFAULT now()
   )`,
+  `CREATE TABLE IF NOT EXISTS gridbox.products (
+    id serial PRIMARY KEY,
+    "sourceName" text NOT NULL UNIQUE,
+    "displayName" text NOT NULL DEFAULT '',
+    description text NOT NULL DEFAULT '',
+    keywords text NOT NULL DEFAULT '',
+    category text NOT NULL DEFAULT '',
+    featured boolean NOT NULL DEFAULT false,
+    "featuredRank" integer NOT NULL DEFAULT 0,
+    hidden boolean NOT NULL DEFAULT false,
+    image text,
+    "imageVersion" integer NOT NULL DEFAULT 0,
+    "updatedBy" integer REFERENCES gridbox.users(id) ON DELETE SET NULL,
+    "updatedAt" timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE TABLE IF NOT EXISTS gridbox.showcase_settings (
+    id integer PRIMARY KEY CHECK (id = 1),
+    enabled boolean NOT NULL DEFAULT false,
+    "bestDays" integer NOT NULL DEFAULT 30,
+    "bestCount" integer NOT NULL DEFAULT 12,
+    "updatedAt" timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS sales_product_idx ON gridbox.sales ("productName")`,
   `ALTER TABLE gridbox.users ENABLE ROW LEVEL SECURITY`,
   `ALTER TABLE gridbox.tenants ENABLE ROW LEVEL SECURITY`,
   `ALTER TABLE gridbox.grids ENABLE ROW LEVEL SECURITY`,
@@ -185,4 +208,6 @@ export const DDL: string[] = [
   `ALTER TABLE gridbox.payroll_payments ENABLE ROW LEVEL SECURITY`,
   `ALTER TABLE gridbox.attendance ENABLE ROW LEVEL SECURITY`,
   `ALTER TABLE gridbox.site_banner ENABLE ROW LEVEL SECURITY`,
+  `ALTER TABLE gridbox.products ENABLE ROW LEVEL SECURITY`,
+  `ALTER TABLE gridbox.showcase_settings ENABLE ROW LEVEL SECURITY`,
 ];

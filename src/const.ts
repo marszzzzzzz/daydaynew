@@ -11,3 +11,8 @@ export function whatsappLink(gridCode?: string) {
     : "你好，我想查詢租格及租格優惠";
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
 }
+
+/** 首頁商品輪播：WhatsApp 查詢指定貨品 */
+export function whatsappProductLink(productName: string) {
+  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(`你好，我想查詢「${productName}」`)}`;
+}

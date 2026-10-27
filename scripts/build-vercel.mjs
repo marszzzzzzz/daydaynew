@@ -38,6 +38,7 @@ fs.writeFileSync(
       version: 3,
       routes: [
         { src: "^/api(/.*)?$", dest: "/api" },
+        { src: "^/llms\\.txt$", dest: "/api" },
         { handle: "filesystem" },
         { src: "/(.*)", dest: "/index.html" },
       ],

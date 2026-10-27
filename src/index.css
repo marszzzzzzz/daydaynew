@@ -225,6 +225,21 @@
 @keyframes ob-ring { from { opacity: 0.7; transform: scale(1); } to { opacity: 0; transform: scale(1.06); } }
 @keyframes ob-nudge { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(4px); } }
 
+/* ─── 首頁商品輪播（跑馬燈）───────────────────────────────
+   兩份一樣嘅清單並排，推 -50% 剛好接返頭，無縫循環；滑鼠停留 / 鍵盤 focus 會暫停。
+   「減少動態效果」：唔郁、收起複本，改為左右手動捲動。 */
+@layer components {
+  .pd-track { animation: pd-marquee var(--pd-duration, 60s) linear infinite; }
+  .pd-row:hover .pd-track, .pd-row:focus-within .pd-track { animation-play-state: paused; }
+}
+@keyframes pd-marquee { to { transform: translateX(-50%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .pd-track { animation: none; }
+  .pd-dup { display: none; }
+  .pd-row { overflow-x: auto; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ob-step-next, .ob-step-prev, .ob-rise, .ob-cell, .ob-cell-mine, .ob-ring, .ob-pointer { animation: none; }
   .ob-check-path { animation: none; stroke-dashoffset: 0; }
