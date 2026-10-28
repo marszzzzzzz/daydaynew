@@ -32,7 +32,7 @@ export function ApplyProductForm({ post, onDone }: { post: FbPostRow; onDone: ()
     description: clip(post.insight.summary, PRODUCT_DESC_MAX),
     price: first?.price != null ? String(first.price) : "",
     useImage: !!post.imageUrl,
-    featured: true,
+    latest: true,
   });
   const known = trpc.products.list.useQuery({ limit: 200 });
   const apply = trpc.facebook.applyProduct.useMutation(useDone(onDone, "已更新商品資料"));
@@ -45,7 +45,7 @@ export function ApplyProductForm({ post, onDone }: { post: FbPostRow; onDone: ()
       onSubmit={(e) => {
         e.preventDefault();
         if (invalid) return toast.error(invalid);
-        apply.mutate({ id: post.id, sourceName: f.sourceName, displayName: f.displayName, description: f.description, listPrice: price, useImage: f.useImage, featured: f.featured });
+        apply.mutate({ id: post.id, sourceName: f.sourceName, displayName: f.displayName, description: f.description, listPrice: price, useImage: f.useImage, latest: f.latest });
       }}
     >
       <div className="grid gap-4 sm:grid-cols-2">
@@ -74,8 +74,8 @@ export function ApplyProductForm({ post, onDone }: { post: FbPostRow; onDone: ()
           </label>
         )}
         <label className="flex cursor-pointer items-center gap-2">
-          <input type="checkbox" className="h-4 w-4 accent-[#1D1D1D]" checked={f.featured} onChange={(e) => setF({ ...f, featured: e.target.checked })} />
-          放入首頁精選
+          <input type="checkbox" className="h-4 w-4 accent-[#1D1D1D]" checked={f.latest} onChange={(e) => setF({ ...f, latest: e.target.checked })} />
+          放入首頁「最新商品」
         </label>
       </div>
       <div className="flex items-center gap-3">

@@ -1,10 +1,6 @@
-import { asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
-import { products, sales, showcaseSettings } from "@db/schema";
+import { asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { products, sales } from "@db/schema";
 import { getDb } from "./connection";
-
-/** 全站只有一條輪播設定 */
-const SETTINGS_ID = 1;
-export const DEFAULT_SETTINGS = { enabled: false, bestDays: 30, bestCount: 12 };
 
 /** 列表唔讀相片本身（每張幾百 KB），只讀有冇相同版本 */
 const productFields = {
@@ -15,8 +11,9 @@ const productFields = {
   keywords: products.keywords,
   category: products.category,
   listPrice: products.listPrice,
-  featured: products.featured,
-  featuredRank: products.featuredRank,
+  latestAt: products.latestAt,
+  bestSeller: products.bestSeller,
+  bestSellerRank: products.bestSellerRank,
   hidden: products.hidden,
   hasImage: sql<boolean>`${products.image} is not null`,
   imageVersion: products.imageVersion,
@@ -28,18 +25,6 @@ export function imageUrlOf(p: { id: number; hasImage: boolean; imageVersion: num
   return p.hasImage ? `/api/products/${p.id}/image?v=${p.imageVersion}` : null;
 }
 
-export async function readSettings() {
-  const [row] = await getDb().select().from(showcaseSettings).where(eq(showcaseSettings.id, SETTINGS_ID)).limit(1);
-  return row ? { enabled: row.enabled, bestDays: row.bestDays, bestCount: row.bestCount } : DEFAULT_SETTINGS;
-}
-
-export async function saveSettings(values: typeof DEFAULT_SETTINGS) {
-  await getDb()
-    .insert(showcaseSettings)
-    .values({ id: SETTINGS_ID, ...values })
-    .onConflictDoUpdate({ target: showcaseSettings.id, set: { ...values, updatedAt: new Date() } });
-}
-
 export async function listProducts() {
   return getDb().select(productFields).from(products);
 }
@@ -49,12 +34,24 @@ export async function findProduct(sourceName: string) {
   return row ?? null;
 }
 
-export async function listFeatured() {
+/** 首頁上行：最新加入排最前 */
+export async function listLatest(limit: number) {
   return getDb()
     .select(productFields)
     .from(products)
-    .where(sql`${products.featured} and not ${products.hidden}`)
-    .orderBy(asc(products.featuredRank), asc(products.id));
+    .where(sql`${products.latestAt} is not null and not ${products.hidden}`)
+    .orderBy(desc(products.latestAt), desc(products.id))
+    .limit(limit);
+}
+
+/** 首頁下行：店主排嘅次序 */
+export async function listBestSellers(limit: number) {
+  return getDb()
+    .select(productFields)
+    .from(products)
+    .where(sql`${products.bestSeller} and not ${products.hidden}`)
+    .orderBy(asc(products.bestSellerRank), asc(products.id))
+    .limit(limit);
 }
 
 /** 每件貨最近一次售價（DISTINCT ON：每個名取最新一筆）；傳入 names 就只查嗰啲 */
@@ -81,27 +78,6 @@ export async function salesByProduct() {
   return rows.map((r) => ({ name: r.name, qty: Number(r.qty), lastSold: String(r.lastSold) }));
 }
 
-/**
- * 熱銷：由最新一筆銷售日期倒數 days 日（POS 通常成個月一次過匯入，用今日計會經常係空）。
- * 多攞啲，俾上層濾走隱藏貨品後再截。
- */
-export async function bestSellers(days: number, limit: number) {
-  const db = getDb();
-  const [latest] = await db.select({ d: sql<string | null>`max(${sales.saleDate})` }).from(sales);
-  if (!latest?.d) return [];
-  const from = new Date(`${latest.d}T00:00:00Z`);
-  from.setUTCDate(from.getUTCDate() - (days - 1));
-  const qty = sql<number>`sum(${sales.quantity})`;
-  const rows = await db
-    .select({ name: sales.productName, qty })
-    .from(sales)
-    .where(gte(sales.saleDate, from.toISOString().slice(0, 10)))
-    .groupBy(sales.productName)
-    .orderBy(desc(qty), desc(sql`sum(${sales.totalAmount})`), asc(sales.productName))
-    .limit(limit);
-  return rows.map((r) => r.name);
-}
-
 export async function upsertProduct(sourceName: string, values: Partial<typeof products.$inferInsert>) {
   const [row] = await getDb()
     .insert(products)
@@ -111,19 +87,19 @@ export async function upsertProduct(sourceName: string, values: Partial<typeof p
   return row.id;
 }
 
-export async function nextFeaturedRank() {
+export async function nextBestSellerRank() {
   const [row] = await getDb()
-    .select({ max: sql<number | null>`max(${products.featuredRank})` })
+    .select({ max: sql<number | null>`max(${products.bestSellerRank})` })
     .from(products)
-    .where(eq(products.featured, true));
+    .where(eq(products.bestSeller, true));
   return Number(row?.max ?? -1) + 1;
 }
 
-export async function setFeaturedRanks(sourceNames: string[]) {
+export async function setBestSellerRanks(sourceNames: string[]) {
   const db = getDb();
   await db.transaction(async (tx) => {
     for (const [rank, name] of sourceNames.entries()) {
-      await tx.update(products).set({ featuredRank: rank }).where(eq(products.sourceName, name));
+      await tx.update(products).set({ bestSellerRank: rank }).where(eq(products.sourceName, name));
     }
   });
 }

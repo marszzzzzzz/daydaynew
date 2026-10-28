@@ -1,12 +1,10 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { IMAGE_MAX_BYTES, isImageDataUrl, productInputSchema, publicName, seoScore, type ShowcaseCard } from "@contracts/products";
+import { IMAGE_MAX_BYTES, LATEST_SHOWN, isImageDataUrl, productInputSchema, publicName, seoScore, type ShowcaseCard } from "@contracts/products";
 import { createRouter, publicQuery, adminQuery } from "./middleware";
 import * as q from "./queries/products";
 
-/** 熱銷名單多攞幾個，濾走隱藏貨品之後都夠數 */
-const HIDDEN_MARGIN = 20;
-const FEATURED_MAX = 30;
+const BEST_SELLER_MAX = 30;
 const LIST_MAX = 200;
 
 function toCard(name: string, p: q.ProductRow | undefined, price: string | undefined): ShowcaseCard {
@@ -19,23 +17,22 @@ function toCard(name: string, p: q.ProductRow | undefined, price: string | undef
   };
 }
 
-/** 首頁輪播內容；店主未開啟 = null（llms.txt 亦用） */
+/** 首頁輪播內容（llms.txt 亦用）：上行最新商品、下行熱銷產品；兩行都由店主揀，冇揀就係空 */
 export async function buildShowcase() {
-  const settings = await q.readSettings();
-  if (!settings.enabled) return null;
-  const [all, featuredRows, bestNames] = await Promise.all([
-    q.listProducts(),
-    q.listFeatured(),
-    q.bestSellers(settings.bestDays, settings.bestCount + HIDDEN_MARGIN),
-  ]);
-  const byName = new Map(all.map((p) => [p.sourceName, p]));
-  const best = bestNames.filter((n) => !byName.get(n)?.hidden).slice(0, settings.bestCount);
-  const featured = featuredRows.slice(0, FEATURED_MAX);
-  const prices = await q.latestPrices([...featured.map((p) => p.sourceName), ...best]);
-  return {
-    featured: featured.map((p) => toCard(p.sourceName, p, prices.get(p.sourceName))),
-    bestSellers: best.map((n) => toCard(n, byName.get(n), prices.get(n))),
-  };
+  const [latest, best] = await Promise.all([q.listLatest(LATEST_SHOWN), q.listBestSellers(BEST_SELLER_MAX)]);
+  const prices = await q.latestPrices([...latest, ...best].map((p) => p.sourceName));
+  const cards = (rows: q.ProductRow[]) => rows.map((p) => toCard(p.sourceName, p, prices.get(p.sourceName)));
+  return { latest: cards(latest), bestSellers: cards(best) };
+}
+
+/**
+ * 首頁位置 → DB 值。latestAt：新放入最新用 since（Facebook 帖文時間）或者而家；已經喺最新就唔郁，免得舊貨跳返最前。
+ * 熱銷新加入排最尾，已經喺熱銷就保留次序。
+ */
+export async function placementValues(prev: q.ProductRow | null, flags: { latest: boolean; bestSeller: boolean }, since?: Date) {
+  const latestAt = !flags.latest ? null : (since ?? prev?.latestAt ?? new Date());
+  const bestSellerRank = !flags.bestSeller ? 0 : prev?.bestSeller ? prev.bestSellerRank : await q.nextBestSellerRank();
+  return { latestAt, bestSeller: flags.bestSeller, bestSellerRank };
 }
 
 const imageInput = z.object({
@@ -46,14 +43,15 @@ const imageInput = z.object({
     .refine((s) => s === null || isImageDataUrl(s), `相片格式唔啱或者太大（最大 ${IMAGE_MAX_BYTES / 1000}KB，只收 JPG / PNG / WebP）`),
 });
 
-const settingsInput = z.object({
-  enabled: z.boolean(),
-  bestDays: z.number().int().min(7, "最少 7 日").max(365, "最多 365 日"),
-  bestCount: z.number().int().min(4, "最少 4 件").max(24, "最多 24 件"),
-});
+type ListRow = { sourceName: string; qty: number; latestAt: Date | null; bestSellerRank: number };
+const byQty = (a: ListRow, b: ListRow) => b.qty - a.qty || a.sourceName.localeCompare(b.sourceName);
+const sorters: Partial<Record<string, (a: ListRow, b: ListRow) => number>> = {
+  latest: (a, b) => (b.latestAt?.getTime() ?? 0) - (a.latestAt?.getTime() ?? 0),
+  bestSeller: (a, b) => a.bestSellerRank - b.bestSellerRank,
+};
 
 export const productsRouter = createRouter({
-  /** 公開：首頁輪播（精選 + 熱銷）；只回傳對外資料，唔包括銷量 */
+  /** 公開：首頁輪播（最新 + 熱銷）；只回傳對外資料，唔包括銷量 */
   showcase: publicQuery.query(() => buildShowcase()),
 
   /** 店主：所有賣過嘅貨品 + 已設定 SEO 嘅貨品 */
@@ -61,7 +59,7 @@ export const productsRouter = createRouter({
     .input(
       z.object({
         search: z.string().trim().max(100).default(""),
-        filter: z.enum(["all", "todo", "featured", "hidden"]).default("all"),
+        filter: z.enum(["all", "todo", "latest", "bestSeller", "hidden"]).default("all"),
         limit: z.number().int().min(1).max(LIST_MAX).default(60),
       }),
     )
@@ -77,8 +75,10 @@ export const productsRouter = createRouter({
         return {
           ...seo,
           category: p?.category ?? "",
-          featured: !!p?.featured,
-          featuredRank: p?.featuredRank ?? 0,
+          latest: !!p?.latestAt,
+          latestAt: p?.latestAt ?? null,
+          bestSeller: !!p?.bestSeller,
+          bestSellerRank: p?.bestSellerRank ?? 0,
           hidden: !!p?.hidden,
           imageUrl: p ? q.imageUrlOf(p) : null,
           qty: s?.qty ?? 0,
@@ -92,24 +92,25 @@ export const productsRouter = createRouter({
       const counts = {
         all: rows.length,
         todo: rows.filter((r) => r.score < 100).length,
-        featured: rows.filter((r) => r.featured).length,
+        latest: rows.filter((r) => r.latest).length,
+        bestSeller: rows.filter((r) => r.bestSeller).length,
         hidden: rows.filter((r) => r.hidden).length,
       };
       const needle = input.search.toLowerCase();
       const matched = rows
         .filter((r) => (input.filter === "all" ? true : input.filter === "todo" ? r.score < 100 : r[input.filter]))
         .filter((r) => !needle || [r.sourceName, r.displayName, r.keywords].some((t) => t.toLowerCase().includes(needle)))
-        .sort((a, b) => (input.filter === "featured" ? a.featuredRank - b.featuredRank : b.qty - a.qty || a.sourceName.localeCompare(b.sourceName)));
+        .sort(sorters[input.filter] ?? byQty);
       return { rows: matched.slice(0, input.limit), total: matched.length, counts };
     }),
 
-  /** 店主：儲存 SEO 名稱、描述、關鍵字、精選／隱藏 */
+  /** 店主：儲存 SEO 名稱、描述、關鍵字、首頁位置（最新／熱銷／隱藏） */
   save: adminQuery.input(productInputSchema).mutation(async ({ ctx, input }) => {
     const prev = await q.findProduct(input.sourceName);
-    const featuredRank = !input.featured ? 0 : prev?.featured ? prev.featuredRank : await q.nextFeaturedRank();
-    const { sourceName, listPrice, ...values } = input;
+    const { sourceName, listPrice, latest, bestSeller, ...values } = input;
     const price = listPrice === undefined ? {} : { listPrice: listPrice === null ? null : listPrice.toFixed(2) };
-    await q.upsertProduct(sourceName, { ...values, ...price, featuredRank, updatedBy: ctx.user.id });
+    const placement = await placementValues(prev, { latest, bestSeller });
+    await q.upsertProduct(sourceName, { ...values, ...price, ...placement, updatedBy: ctx.user.id });
     return { ok: true as const };
   }),
 
@@ -122,18 +123,11 @@ export const productsRouter = createRouter({
     return { ok: true as const, imageUrl: input.image ? q.imageUrlOf({ id, hasImage: true, imageVersion }) : null };
   }),
 
-  /** 店主：精選排序（傳入新次序嘅 POS 名） */
-  reorderFeatured: adminQuery
-    .input(z.object({ sourceNames: z.array(z.string().min(1).max(200)).max(FEATURED_MAX * 4) }))
+  /** 店主：熱銷排序（傳入新次序嘅 POS 名） */
+  reorderBestSellers: adminQuery
+    .input(z.object({ sourceNames: z.array(z.string().min(1).max(200)).max(BEST_SELLER_MAX * 4) }))
     .mutation(async ({ input }) => {
-      await q.setFeaturedRanks(input.sourceNames);
+      await q.setBestSellerRanks(input.sourceNames);
       return { ok: true as const };
     }),
-
-  settings: adminQuery.query(() => q.readSettings()),
-
-  saveSettings: adminQuery.input(settingsInput).mutation(async ({ input }) => {
-    await q.saveSettings(input);
-    return { ok: true as const };
-  }),
 });

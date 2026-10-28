@@ -3,18 +3,18 @@ import { toast } from "sonner";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../../../server/router";
 import { trpc } from "@/providers/trpc";
-import { publicName } from "@contracts/products";
+import { LATEST_SHOWN, publicName } from "@contracts/products";
 import { SectionTitle } from "../../ui";
-import ShowcaseSettings from "./ShowcaseSettings";
 import ProductEditor from "./ProductEditor";
 
 export type ProductListRow = inferRouterOutputs<AppRouter>["products"]["list"]["rows"][number];
-type Filter = "all" | "todo" | "featured" | "hidden";
+type Filter = "all" | "todo" | "latest" | "bestSeller" | "hidden";
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "全部" },
   { id: "todo", label: "未完成 SEO" },
-  { id: "featured", label: "精選" },
+  { id: "bestSeller", label: "熱銷" },
+  { id: "latest", label: "最新" },
   { id: "hidden", label: "隱藏" },
 ];
 
@@ -41,14 +41,41 @@ function ScoreBar({ score }: { score: number }) {
   );
 }
 
-/** 14 商品 SEO：首頁輪播設定 + 逐件貨改對外名稱、描述、關鍵字、相片 */
+function HomeRow({ title, count, how, onClick }: { title: string; count: number; how: string; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="flex-1 p-4 text-left transition-colors hover:bg-ochre/10 sm:p-5">
+      <p className="flex items-baseline justify-between gap-3">
+        <span className="font-semibold">{title}</span>
+        <span className={`font-mono text-[12px] ${count ? "text-ink" : "text-ochre-deep"}`}>{count ? `${count} 件` : "未有貨品"}</span>
+      </p>
+      <p className="mt-1 text-[12.5px] leading-[1.75] text-ink/60">{how}</p>
+    </button>
+  );
+}
+
+/** 首頁兩行點樣嚟：上行 Facebook、下行店主揀；兩行都冇貨就唔顯示 */
+function HomeRows({ latest, bestSeller, onPick }: { latest: number; bestSeller: number; onPick: (f: Filter) => void }) {
+  return (
+    <div className="mb-10 border-2 border-ink">
+      <p className="border-b border-ink/15 px-4 py-2.5 text-[12.5px] text-ink/65 sm:px-5">
+        首頁商品輪播：有貨品就自動出現，唔使開任何開關。<a href="/#products" target="_blank" rel="noopener" className="text-ochre-deep underline-offset-2 hover:underline">去首頁睇 ↗</a>
+      </p>
+      <div className="flex flex-col divide-y divide-ink/15 sm:flex-row sm:divide-x sm:divide-y-0">
+        <HomeRow title="上行：最新商品" count={latest} onClick={() => onPick("latest")} how={`喺後台 15「Facebook 消息」將新貨帖「轉做商品」就會加入，最新嘅排最前（首頁顯示最近 ${LATEST_SHOWN} 件）。都可以喺下面逐件剔。`} />
+        <HomeRow title="下行：熱銷產品" count={bestSeller} onClick={() => onPick("bestSeller")} how="喺下面逐件撳「編輯」→ 剔「放入首頁熱銷產品」。列表按 POS 銷量排，賣得最多嘅喺最頂；揀「熱銷」篩選可以用 ↑ ↓ 調次序。" />
+      </div>
+    </div>
+  );
+}
+
+/** 14 商品 SEO：首頁兩行商品 + 逐件貨改對外名稱、描述、關鍵字、相片 */
 export default function ProductsTab() {
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const utils = trpc.useUtils();
   const list = trpc.products.list.useQuery({ filter, search }, { placeholderData: (prev) => prev });
-  const reorder = trpc.products.reorderFeatured.useMutation({
+  const reorder = trpc.products.reorderBestSellers.useMutation({
     onSuccess: () => void utils.products.invalidate(),
     onError: (e) => toast.error(e.message),
   });
@@ -69,7 +96,7 @@ export default function ProductsTab() {
         title="商品 SEO"
         desc="幫貨品改一個客人搜得到嘅名、寫一兩句描述同關鍵字，Google 同 AI 搜尋（ChatGPT、Perplexity）都會讀到。對外名稱只用喺首頁同搜尋，唔會改到銷售記錄。"
       />
-      <ShowcaseSettings />
+      <HomeRows latest={list.data?.counts.latest ?? 0} bestSeller={list.data?.counts.bestSeller ?? 0} onPick={setFilter} />
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="篩選貨品">
@@ -95,7 +122,8 @@ export default function ProductsTab() {
         />
       </div>
 
-      {filter === "featured" && rows.length > 1 && <p className="mb-3 text-[12.5px] text-ink/55">用 ↑ ↓ 調整首頁精選商品嘅次序（由左至右）。</p>}
+      {filter === "bestSeller" && rows.length > 1 && <p className="mb-3 text-[12.5px] text-ink/55">用 ↑ ↓ 調整首頁熱銷產品嘅次序（由左至右）。</p>}
+      {filter === "latest" && rows.length > LATEST_SHOWN && <p className="mb-3 text-[12.5px] text-ink/55">首頁只顯示最頂 {LATEST_SHOWN} 件，下面嘅已經退落嚟。</p>}
 
       <ul className="border-b border-ink/15">
         {rows.map((r, i) => (
@@ -108,10 +136,11 @@ export default function ProductsTab() {
                   {r.displayName ? `POS：${r.sourceName}` : "未設定對外名稱"} · 售出 {r.qty} 件{r.price ? ` · HK$${Number(r.price).toFixed(0)}` : ""}
                 </p>
               </div>
-              {r.featured && <span className="badge-frame hidden border border-ochre-deep font-mono text-[10.5px] text-ochre-deep sm:inline">精選</span>}
+              {r.latest && <span className="badge-frame hidden border border-ochre-deep font-mono text-[10.5px] text-ochre-deep sm:inline">最新</span>}
+              {r.bestSeller && <span className="badge-frame hidden border border-ochre-deep font-mono text-[10.5px] text-ochre-deep sm:inline">熱銷</span>}
               {r.hidden && <span className="badge-frame hidden border border-ink/30 font-mono text-[10.5px] text-ink/50 sm:inline">隱藏</span>}
               <ScoreBar score={r.score} />
-              {filter === "featured" && (
+              {filter === "bestSeller" && (
                 <div className="flex gap-1">
                   <button aria-label={`${publicName(r)} 向前`} disabled={i === 0 || reorder.isPending} onClick={() => move(i, -1)} className="h-8 w-8 border border-ink/30 text-[13px] transition-colors hover:bg-ink hover:text-cream disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-ink">
                     ↑

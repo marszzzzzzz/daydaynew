@@ -8,7 +8,7 @@ const MIN_TO_ANIMATE = 4;
 /** 每輪最少幾多張卡，闊過大畫面先唔會喺循環接駁位露出空位 */
 const MIN_LOOP_CARDS = 8;
 /** 每張卡行幾耐（秒）；第二行慢少少，兩行唔會同步 */
-const SECONDS_PER_CARD = { featured: 4.5, best: 5.2 };
+const SECONDS_PER_CARD = { latest: 4.5, best: 5.2 };
 
 function repeatToFill<T>(items: T[]): T[] {
   const times = Math.ceil(MIN_LOOP_CARDS / items.length);
@@ -47,14 +47,14 @@ function MarqueeRow({ id, label, sub, items, ranked, secondsPerCard }: { id: str
 }
 
 /**
- * 首頁「店內好物」：上面精選、下面熱銷，自動向左循環移動。
- * 店主喺後台 14「商品 SEO」開啟先會出現；兩行都冇貨就成段唔顯示。
+ * 首頁「店內好物」：上面最新商品（Facebook 帖文帶入）、下面熱銷產品（店主喺後台 14 揀），自動向左循環移動。
+ * 兩行都冇貨就成段唔顯示。
  */
 export default function ProductShowcase() {
   const { data } = trpc.products.showcase.useQuery(undefined, { staleTime: 5 * 60_000 });
-  if (!data || (data.featured.length === 0 && data.bestSellers.length === 0)) return null;
+  if (!data || (data.latest.length === 0 && data.bestSellers.length === 0)) return null;
 
-  const unique = [...new Map([...data.featured, ...data.bestSellers].map((p) => [p.name, p])).values()];
+  const unique = [...new Map([...data.latest, ...data.bestSellers].map((p) => [p.name, p])).values()];
   const jsonLd = safeJsonLd(showcaseJsonLd(unique, window.location.origin));
 
   return (
@@ -69,7 +69,7 @@ export default function ProductShowcase() {
         </div>
       </div>
       <div className="mt-10 space-y-12">
-        {data.featured.length > 0 && <MarqueeRow id="featured-title" label="精選商品" sub="Featured" items={data.featured} secondsPerCard={SECONDS_PER_CARD.featured} />}
+        {data.latest.length > 0 && <MarqueeRow id="latest-title" label="最新商品" sub="New in" items={data.latest} secondsPerCard={SECONDS_PER_CARD.latest} />}
         {data.bestSellers.length > 0 && (
           <MarqueeRow id="best-title" label="熱銷產品" sub="Best sellers" items={data.bestSellers} ranked secondsPerCard={SECONDS_PER_CARD.best} />
         )}

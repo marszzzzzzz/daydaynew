@@ -33,7 +33,7 @@ export async function buildLlmsTxt(origin: string): Promise<string> {
     `- 共 ${stats.grids.total} 格，而家 ${stats.grids.vacant} 格招租中`,
     ...(rent ? [`- 收費：${rent}，包上架及收銀，簽約收一個月按金`] : []),
   ];
-  if (showcase?.featured.length) lines.push("", "## 精選商品", ...showcase.featured.map(productLine));
-  if (showcase?.bestSellers.length) lines.push("", "## 熱銷產品", ...showcase.bestSellers.map(productLine));
+  if (showcase.latest.length) lines.push("", "## 最新商品", ...showcase.latest.map(productLine));
+  if (showcase.bestSellers.length) lines.push("", "## 熱銷產品", ...showcase.bestSellers.map(productLine));
   return lines.join("\n") + "\n";
 }

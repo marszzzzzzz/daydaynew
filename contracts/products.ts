@@ -10,6 +10,8 @@ export const PRODUCT_DESC_MAX = 160;
 export const PRODUCT_KEYWORDS_MAX = 120;
 export const PRODUCT_CATEGORY_MAX = 30;
 export const PRODUCT_PRICE_MAX = 1_000_000;
+/** 首頁「最新商品」只顯示最新幾件；舊嘅自動退落嚟（後台仍然見到） */
+export const LATEST_SHOWN = 12;
 /** 相片解碼後上限；前端會先壓縮到大約 800px WebP */
 export const IMAGE_MAX_BYTES = 400_000;
 
@@ -71,10 +73,13 @@ export const productInputSchema = z
     category: text(PRODUCT_CATEGORY_MAX, "分類"),
     /** 對外售價；null = 用 POS 最近售價；唔傳 = 唔改 */
     listPrice: z.number().min(0, "售價唔可以係負數").max(PRODUCT_PRICE_MAX).nullable().optional(),
-    featured: z.boolean(),
+    /** 首頁上行「最新商品」（通常由 Facebook 帖文帶入） */
+    latest: z.boolean(),
+    /** 首頁下行「熱銷產品」（店主喺後台揀，次序可調） */
+    bestSeller: z.boolean(),
     hidden: z.boolean(),
   })
-  .refine((p) => !(p.featured && p.hidden), { message: "隱藏咗嘅貨品唔可以同時做精選", path: ["hidden"] });
+  .refine((p) => !(p.hidden && (p.latest || p.bestSeller)), { message: "隱藏咗嘅貨品唔可以放上首頁", path: ["hidden"] });
 
 export type ProductInput = z.infer<typeof productInputSchema>;
 
@@ -99,7 +104,7 @@ export function showcaseJsonLd(items: ShowcaseCard[], origin: string) {
   return {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    name: "日日新格仔鋪 店內精選及熱銷貨品",
+    name: "日日新格仔鋪 最新及熱銷貨品",
     itemListElement: items.map((p, i) => ({
       "@type": "ListItem",
       position: i + 1,

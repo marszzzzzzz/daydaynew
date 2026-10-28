@@ -22,13 +22,17 @@ export default function ProductEditor({ row, onClose }: { row: ProductListRow; o
     description: row.description,
     keywords: row.keywords,
     category: row.category,
-    featured: row.featured,
+    latest: row.latest,
+    bestSeller: row.bestSeller,
     hidden: row.hidden,
   });
   const [imageUrl, setImageUrl] = useState(row.imageUrl);
   const [priceText, setPriceText] = useState(row.listPrice !== null ? String(Number(row.listPrice)) : "");
   const [compressing, setCompressing] = useState(false);
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((prev) => ({ ...prev, [k]: v }));
+  /** 隱藏同首頁位置互斥：剔隱藏就退出兩行，剔任何一行就取消隱藏 */
+  const place = (k: "latest" | "bestSeller" | "hidden", on: boolean) =>
+    setForm((prev) => (k === "hidden" ? { ...prev, hidden: on, ...(on && { latest: false, bestSeller: false }) } : { ...prev, [k]: on, ...(on && { hidden: false }) }));
 
   const save = trpc.products.save.useMutation({
     onSuccess: () => {
@@ -122,11 +126,15 @@ export default function ProductEditor({ row, onClose }: { row: ProductListRow; o
 
           <div className="flex flex-wrap gap-x-6 gap-y-3 text-[13.5px]">
             <label className="flex cursor-pointer items-center gap-2">
-              <input type="checkbox" className="h-4 w-4 accent-[#1D1D1D]" checked={form.featured} onChange={(e) => setForm((p) => ({ ...p, featured: e.target.checked, hidden: e.target.checked ? false : p.hidden }))} />
-              放入首頁「精選商品」
+              <input type="checkbox" className="h-4 w-4 accent-[#1D1D1D]" checked={form.bestSeller} onChange={(e) => place("bestSeller", e.target.checked)} />
+              放入首頁「熱銷產品」
             </label>
             <label className="flex cursor-pointer items-center gap-2">
-              <input type="checkbox" className="h-4 w-4 accent-[#1D1D1D]" checked={form.hidden} onChange={(e) => setForm((p) => ({ ...p, hidden: e.target.checked, featured: e.target.checked ? false : p.featured }))} />
+              <input type="checkbox" className="h-4 w-4 accent-[#1D1D1D]" checked={form.latest} onChange={(e) => place("latest", e.target.checked)} />
+              放入首頁「最新商品」
+            </label>
+            <label className="flex cursor-pointer items-center gap-2">
+              <input type="checkbox" className="h-4 w-4 accent-[#1D1D1D]" checked={form.hidden} onChange={(e) => place("hidden", e.target.checked)} />
               唔喺首頁出現（隱藏）
             </label>
           </div>

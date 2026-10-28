@@ -287,10 +287,13 @@ export const products = gridbox.table("products", {
   category: text("category").notNull().default(""),
   /** 對外售價（例如由 Facebook 帖文帶入）；null = 用 POS 最近售價 */
   listPrice: money("listPrice"),
-  featured: boolean("featured").notNull().default(false),
-  /** 精選排序（細 = 前） */
-  featuredRank: integer("featuredRank").notNull().default(0),
-  /** 唔喺首頁出現（例如熱銷但唔想公開） */
+  /** 首頁「熱銷產品」（店主揀）；DB 欄位沿用舊名 featured */
+  bestSeller: boolean("featured").notNull().default(false),
+  /** 熱銷排序（細 = 前） */
+  bestSellerRank: integer("featuredRank").notNull().default(0),
+  /** 首頁「最新商品」：加入時間（Facebook 帖文時間或者店主剔選時間）；null = 唔喺最新 */
+  latestAt: timestamp("latestAt", { withTimezone: true, mode: "date" }),
+  /** 唔喺首頁出現 */
   hidden: boolean("hidden").notNull().default(false),
   /** data:image/webp;base64,…（經 /api/products/:id/image 派） */
   image: text("image"),
@@ -301,16 +304,6 @@ export const products = gridbox.table("products", {
 });
 
 export type Product = typeof products.$inferSelect;
-
-/** 首頁商品輪播設定（全站只有一條，id 固定 = 1） */
-export const showcaseSettings = gridbox.table("showcase_settings", {
-  id: integer("id").primaryKey(),
-  enabled: boolean("enabled").notNull().default(false),
-  /** 熱銷計最近幾多日（由最新一筆銷售日期倒數） */
-  bestDays: integer("bestDays").notNull().default(30),
-  bestCount: integer("bestCount").notNull().default(12),
-  updatedAt: updatedAt(),
-});
 
 /** Facebook 專頁帖文收件箱；insight = FbInsight JSON（規則或 AI 整理） */
 export const fbPosts = gridbox.table(
@@ -364,7 +357,6 @@ export const ALL_TABLES = [
   "attendance",
   "site_banner",
   "products",
-  "showcase_settings",
   "fb_posts",
   "fb_sync",
 ] as const;

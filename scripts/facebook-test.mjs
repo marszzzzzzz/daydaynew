@@ -97,17 +97,18 @@ try {
   const badBanner = await boss("facebook.applyBanner", { id: posts[3].id, title: "", body: "", startDate: "", endDate: "" });
   ck("橫幅冇標題 → 拒絕", badBanner.code === "BAD_REQUEST", badBanner);
 
-  const applied = await boss("facebook.applyProduct", { id: posts[4].id, sourceName: "Neoflam 陶瓷保鮮盒", displayName: "Neoflam 陶瓷保鮮盒 900ml", description: "韓國 Neoflam 陶瓷保鮮盒，北角日日新有售", listPrice: 89, useImage: true, featured: true });
+  const applied = await boss("facebook.applyProduct", { id: posts[4].id, sourceName: "Neoflam 陶瓷保鮮盒", displayName: "Neoflam 陶瓷保鮮盒 900ml", description: "韓國 Neoflam 陶瓷保鮮盒，北角日日新有售", listPrice: 89, useImage: true, latest: true });
   ck("新貨帖轉做商品（連相）", applied.ok && applied.imageSaved, applied);
-  await boss("products.saveSettings", { enabled: true, bestDays: 30, bestCount: 12 });
-  const card = (await anon("products.showcase", undefined, true)).featured[0];
-  ck("首頁精選即刻出現，用帖文售價同相", card?.name === "Neoflam 陶瓷保鮮盒 900ml" && card.price === "89.00" && !!card.imageUrl, card);
+  const card = (await anon("products.showcase", undefined, true)).latest[0];
+  ck("首頁「最新商品」即刻出現，用帖文售價同相（唔使開任何開關）", card?.name === "Neoflam 陶瓷保鮮盒 900ml" && card.price === "89.00" && !!card.imageUrl, card);
+  const listed = (await boss("products.list", { filter: "latest" }, true)).rows[0];
+  ck("最新商品時間 = Facebook 帖文時間", listed?.sourceName === "Neoflam 陶瓷保鮮盒" && new Date(listed.latestAt).toISOString() === "2026-10-14T03:00:00.000Z", listed);
   const img = await fetch(ORIGIN + card.imageUrl);
   ck("商品相 = 帖文相", img.headers.get("content-type") === "image/jpeg" && Buffer.from(await img.arrayBuffer()).equals(JPEG), img.status);
 
-  const ssrf = await boss("facebook.applyProduct", { id: posts[2].id, sourceName: "測試", displayName: "", description: "", listPrice: null, useImage: true, featured: false });
+  const ssrf = await boss("facebook.applyProduct", { id: posts[2].id, sourceName: "測試", displayName: "", description: "", listPrice: null, useImage: true, latest: false });
   ck("相片唔係 Facebook CDN → 拒絕下載", ssrf.code === "BAD_REQUEST" && /唔係來自 Facebook/.test(ssrf.err), ssrf);
-  const negative = await boss("facebook.applyProduct", { id: posts[4].id, sourceName: "x", displayName: "", description: "", listPrice: -1, useImage: false, featured: false });
+  const negative = await boss("facebook.applyProduct", { id: posts[4].id, sourceName: "x", displayName: "", description: "", listPrice: -1, useImage: false, latest: false });
   ck("負數售價 → 拒絕", negative.code === "BAD_REQUEST", negative);
 
   await boss("facebook.setStatus", { id: posts[1].id, status: "ignored" });

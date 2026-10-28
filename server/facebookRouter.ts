@@ -6,6 +6,7 @@ import { PRODUCT_DESC_MAX, PRODUCT_NAME_MAX, PRODUCT_PRICE_MAX } from "@contract
 import { createRouter, adminQuery } from "./middleware";
 import { env } from "./lib/env";
 import { saveBanner } from "./bannerRouter";
+import { placementValues } from "./productsRouter";
 import * as q from "./queries/facebook";
 import * as products from "./queries/products";
 import { FacebookError, downloadImage, isFacebookConfigured } from "./facebook/graph";
@@ -125,7 +126,8 @@ export const facebookRouter = createRouter({
         description: z.string().trim().max(PRODUCT_DESC_MAX, `描述最多 ${PRODUCT_DESC_MAX} 字`),
         listPrice: z.number().min(0, "售價唔可以係負數").max(PRODUCT_PRICE_MAX).nullable(),
         useImage: z.boolean(),
-        featured: z.boolean(),
+        /** 放入首頁「最新商品」（時間 = 帖文時間） */
+        latest: z.boolean(),
       }),
     )
     .mutation(({ ctx, input }) =>
@@ -133,14 +135,15 @@ export const facebookRouter = createRouter({
         const post = await requirePost(input.id);
         const prev = await products.findProduct(input.sourceName);
         const image = input.useImage && post.imageUrl ? await downloadImage(post.imageUrl) : null;
-        const featuredRank = !input.featured ? 0 : prev?.featured ? prev.featuredRank : await products.nextFeaturedRank();
+        // 冇剔「最新」就保留原本首頁位置；有剔就用帖文時間排
+        const flags = { latest: input.latest || !!prev?.latestAt, bestSeller: !!prev?.bestSeller };
+        const placement = await placementValues(prev, flags, input.latest ? new Date(post.createdTime) : undefined);
         await products.upsertProduct(input.sourceName, {
           displayName: input.displayName,
           description: input.description,
           listPrice: input.listPrice === null ? null : input.listPrice.toFixed(2),
-          featured: input.featured,
-          featuredRank,
-          ...(input.featured && { hidden: false }),
+          ...placement,
+          ...(input.latest && { hidden: false }),
           ...(image && { image, imageVersion: (prev?.imageVersion ?? 0) + 1 }),
           updatedBy: ctx.user.id,
         });

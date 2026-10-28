@@ -46,16 +46,20 @@ describe("seoChecks", () => {
 });
 
 describe("productInputSchema", () => {
+  const base = { sourceName: "髮夾", displayName: "", description: "", keywords: "", category: "", latest: false, bestSeller: false, hidden: false };
   it("accepts a valid edit and trims text", () => {
-    const r = productInputSchema.parse({ sourceName: " 髮夾 ", displayName: " 韓系珍珠髮夾 ", description: "", keywords: "", category: "", featured: true, hidden: false });
+    const r = productInputSchema.parse({ ...base, sourceName: " 髮夾 ", displayName: " 韓系珍珠髮夾 ", bestSeller: true, latest: true });
     expect(r.sourceName).toBe("髮夾");
     expect(r.displayName).toBe("韓系珍珠髮夾");
   });
-  it("rejects a product that is both featured and hidden", () => {
-    expect(productInputSchema.safeParse({ sourceName: "髮夾", displayName: "", description: "", keywords: "", category: "", featured: true, hidden: true }).success).toBe(false);
+  it("rejects a best seller that is also hidden", () => {
+    expect(productInputSchema.safeParse({ ...base, bestSeller: true, hidden: true }).success).toBe(false);
+  });
+  it("rejects a latest product that is also hidden", () => {
+    expect(productInputSchema.safeParse({ ...base, latest: true, hidden: true }).success).toBe(false);
   });
   it("rejects names longer than the limit", () => {
-    expect(productInputSchema.safeParse({ sourceName: "髮夾", displayName: "長".repeat(61), description: "", keywords: "", category: "", featured: false, hidden: false }).success).toBe(false);
+    expect(productInputSchema.safeParse({ ...base, displayName: "長".repeat(61) }).success).toBe(false);
   });
 });
 

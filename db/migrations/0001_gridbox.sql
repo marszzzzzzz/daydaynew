@@ -213,15 +213,9 @@ CREATE TABLE IF NOT EXISTS gridbox.products (
     "updatedAt" timestamptz NOT NULL DEFAULT now()
   );
 
-CREATE TABLE IF NOT EXISTS gridbox.showcase_settings (
-    id integer PRIMARY KEY CHECK (id = 1),
-    enabled boolean NOT NULL DEFAULT false,
-    "bestDays" integer NOT NULL DEFAULT 30,
-    "bestCount" integer NOT NULL DEFAULT 12,
-    "updatedAt" timestamptz NOT NULL DEFAULT now()
-  );
-
 ALTER TABLE gridbox.products ADD COLUMN IF NOT EXISTS "listPrice" numeric(12,2);
+
+ALTER TABLE gridbox.products ADD COLUMN IF NOT EXISTS "latestAt" timestamptz;
 
 CREATE TABLE IF NOT EXISTS gridbox.fb_posts (
     id serial PRIMARY KEY,
@@ -276,8 +270,6 @@ ALTER TABLE gridbox.attendance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gridbox.site_banner ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE gridbox.products ENABLE ROW LEVEL SECURITY;
-
-ALTER TABLE gridbox.showcase_settings ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE gridbox.fb_posts ENABLE ROW LEVEL SECURITY;
 
