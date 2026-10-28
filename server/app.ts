@@ -7,6 +7,10 @@ import { ensureDb } from "./bootstrap";
 import { initDb } from "./queries/connection";
 import { readImage } from "./queries/products";
 import { buildLlmsTxt } from "./llmsTxt";
+import { timingSafeEqual } from "node:crypto";
+import { env } from "./lib/env";
+import { isFacebookConfigured } from "./facebook/graph";
+import { runSync } from "./facebook/sync";
 
 const IMAGE_CACHE_IMMUTABLE = "public, max-age=31536000, immutable";
 const IMAGE_CACHE_SHORT = "public, max-age=300";
@@ -62,6 +66,24 @@ app.get("/llms.txt", async (c) => {
   const origin = `${c.req.header("x-forwarded-proto") ?? url.protocol.replace(":", "")}://${c.req.header("host") ?? url.host}`;
   const body = await buildLlmsTxt(origin);
   return c.text(body, 200, { "cache-control": LLMS_CACHE });
+});
+
+// Vercel Cron 每日同步 Facebook 專頁（Authorization: Bearer <CRON_SECRET>）
+const isCronAuthorized = (header: string | undefined) => {
+  if (!env.cronSecret || !header) return false;
+  const a = Buffer.from(header);
+  const b = Buffer.from(`Bearer ${env.cronSecret}`);
+  return a.length === b.length && timingSafeEqual(a, b);
+};
+app.get("/api/cron/facebook-sync", async (c) => {
+  if (!isCronAuthorized(c.req.header("authorization"))) return c.json({ ok: false, error: "Unauthorized" }, 401);
+  if (!isFacebookConfigured()) return c.json({ ok: true, skipped: "未設定 Facebook" });
+  try {
+    return c.json({ ok: true, ...(await runSync()) });
+  } catch (e) {
+    // 錯誤已經記入 fb_sync，後台會顯示
+    return c.json({ ok: false, error: e instanceof Error ? e.message : "同步失敗" }, 502);
+  }
 });
 
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));

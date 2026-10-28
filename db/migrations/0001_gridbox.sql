@@ -221,6 +221,36 @@ CREATE TABLE IF NOT EXISTS gridbox.showcase_settings (
     "updatedAt" timestamptz NOT NULL DEFAULT now()
   );
 
+ALTER TABLE gridbox.products ADD COLUMN IF NOT EXISTS "listPrice" numeric(12,2);
+
+CREATE TABLE IF NOT EXISTS gridbox.fb_posts (
+    id serial PRIMARY KEY,
+    "postId" text NOT NULL UNIQUE,
+    "createdTime" timestamptz NOT NULL,
+    message text NOT NULL DEFAULT '',
+    permalink text NOT NULL DEFAULT '',
+    "imageUrl" text NOT NULL DEFAULT '',
+    type text NOT NULL DEFAULT 'other',
+    insight text NOT NULL DEFAULT '{}',
+    "analyzedBy" text NOT NULL DEFAULT 'rule',
+    "aiPending" boolean NOT NULL DEFAULT false,
+    status text NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'done', 'ignored')),
+    action text NOT NULL DEFAULT '',
+    "reviewedBy" integer REFERENCES gridbox.users(id) ON DELETE SET NULL,
+    "reviewedAt" timestamptz,
+    "fetchedAt" timestamptz NOT NULL DEFAULT now()
+  );
+
+CREATE INDEX IF NOT EXISTS fb_posts_created_idx ON gridbox.fb_posts ("createdTime");
+
+CREATE TABLE IF NOT EXISTS gridbox.fb_sync (
+    id integer PRIMARY KEY CHECK (id = 1),
+    "lastSyncAt" timestamptz,
+    "lastOk" boolean NOT NULL DEFAULT true,
+    "lastMessage" text NOT NULL DEFAULT '',
+    "lastNew" integer NOT NULL DEFAULT 0
+  );
+
 CREATE INDEX IF NOT EXISTS sales_product_idx ON gridbox.sales ("productName");
 
 ALTER TABLE gridbox.users ENABLE ROW LEVEL SECURITY;
@@ -248,6 +278,10 @@ ALTER TABLE gridbox.site_banner ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gridbox.products ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE gridbox.showcase_settings ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE gridbox.fb_posts ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE gridbox.fb_sync ENABLE ROW LEVEL SECURITY;
 
 -- 只限 Supabase：確保公開 API 角色（anon / authenticated）完全掂唔到 gridbox
 REVOKE ALL ON SCHEMA gridbox FROM anon, authenticated;

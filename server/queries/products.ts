@@ -14,6 +14,7 @@ const productFields = {
   description: products.description,
   keywords: products.keywords,
   category: products.category,
+  listPrice: products.listPrice,
   featured: products.featured,
   featuredRank: products.featuredRank,
   hidden: products.hidden,

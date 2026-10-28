@@ -14,7 +14,7 @@ function toCard(name: string, p: q.ProductRow | undefined, price: string | undef
     name: p ? publicName(p) : name,
     description: p?.description ?? "",
     category: p?.category ?? "",
-    price: price ?? null,
+    price: p?.listPrice ?? price ?? null,
     imageUrl: p ? q.imageUrlOf(p) : null,
   };
 }
@@ -83,7 +83,9 @@ export const productsRouter = createRouter({
           imageUrl: p ? q.imageUrlOf(p) : null,
           qty: s?.qty ?? 0,
           lastSold: s?.lastSold ?? null,
-          price: prices.get(name) ?? null,
+          price: p?.listPrice ?? prices.get(name) ?? null,
+          listPrice: p?.listPrice ?? null,
+          posPrice: prices.get(name) ?? null,
           score: seoScore(seo),
         };
       });
@@ -105,8 +107,9 @@ export const productsRouter = createRouter({
   save: adminQuery.input(productInputSchema).mutation(async ({ ctx, input }) => {
     const prev = await q.findProduct(input.sourceName);
     const featuredRank = !input.featured ? 0 : prev?.featured ? prev.featuredRank : await q.nextFeaturedRank();
-    const { sourceName, ...values } = input;
-    await q.upsertProduct(sourceName, { ...values, featuredRank, updatedBy: ctx.user.id });
+    const { sourceName, listPrice, ...values } = input;
+    const price = listPrice === undefined ? {} : { listPrice: listPrice === null ? null : listPrice.toFixed(2) };
+    await q.upsertProduct(sourceName, { ...values, ...price, featuredRank, updatedBy: ctx.user.id });
     return { ok: true as const };
   }),
 

@@ -26,6 +26,7 @@ export default function ProductEditor({ row, onClose }: { row: ProductListRow; o
     hidden: row.hidden,
   });
   const [imageUrl, setImageUrl] = useState(row.imageUrl);
+  const [priceText, setPriceText] = useState(row.listPrice !== null ? String(Number(row.listPrice)) : "");
   const [compressing, setCompressing] = useState(false);
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((prev) => ({ ...prev, [k]: v }));
 
@@ -46,9 +47,12 @@ export default function ProductEditor({ row, onClose }: { row: ProductListRow; o
     onError: (e) => toast.error(e.message),
   });
 
-  const input = { sourceName: row.sourceName, ...form };
+  const listPrice = priceText.trim() === "" ? null : Number(priceText);
+  const priceError = listPrice !== null && !Number.isFinite(listPrice) ? "售價要係數字" : null;
+  const input = { sourceName: row.sourceName, ...form, listPrice: priceError ? null : listPrice };
   const parsed = productInputSchema.safeParse(input);
-  const firstError = parsed.success ? null : parsed.error.issues[0].message;
+  const firstError = priceError ?? (parsed.success ? null : parsed.error.issues[0].message);
+  const shownPrice = listPrice !== null && !priceError ? listPrice.toFixed(2) : row.posPrice;
   const busy = save.isPending || setImage.isPending || compressing;
 
   const onFile = async (file: File) => {
@@ -96,7 +100,7 @@ export default function ProductEditor({ row, onClose }: { row: ProductListRow; o
             />
             <Counter value={form.description} max={PRODUCT_DESC_MAX} />
           </Field>
-          <div className="grid gap-5 sm:grid-cols-[1.6fr_1fr]">
+          <div className="grid gap-5 sm:grid-cols-[1.6fr_1fr_0.9fr]">
             <Field label="關鍵字（逗號分隔）">
               <input className="underline-input" value={form.keywords} onChange={(e) => set("keywords", e.target.value)} placeholder="保鮮盒, Neoflam, 北角" />
               <Counter value={form.keywords} max={PRODUCT_KEYWORDS_MAX} />
@@ -104,6 +108,15 @@ export default function ProductEditor({ row, onClose }: { row: ProductListRow; o
             <Field label="分類">
               <input className="underline-input" value={form.category} onChange={(e) => set("category", e.target.value)} placeholder="廚具" />
               <Counter value={form.category} max={PRODUCT_CATEGORY_MAX} />
+            </Field>
+            <Field label="對外售價 HK$">
+              <input
+                className="underline-input font-mono"
+                inputMode="decimal"
+                value={priceText}
+                onChange={(e) => setPriceText(e.target.value)}
+                placeholder={row.posPrice ? `POS ${Number(row.posPrice)}` : "留空"}
+              />
             </Field>
           </div>
 
@@ -140,10 +153,10 @@ export default function ProductEditor({ row, onClose }: { row: ProductListRow; o
           <div>
             <p className="spec-label mb-2">首頁卡預覽</p>
             <div className="pointer-events-none" aria-hidden="true">
-              <ProductCard product={{ name: publicName({ sourceName: row.sourceName, displayName: form.displayName }), description: form.description, category: form.category, price: row.price, imageUrl }} />
+              <ProductCard product={{ name: publicName({ sourceName: row.sourceName, displayName: form.displayName }), description: form.description, category: form.category, price: shownPrice, imageUrl }} />
             </div>
           </div>
-          <SeoPanel seo={{ sourceName: row.sourceName, displayName: form.displayName, description: form.description, keywords: form.keywords, hasImage: !!imageUrl }} price={row.price} />
+          <SeoPanel seo={{ sourceName: row.sourceName, displayName: form.displayName, description: form.description, keywords: form.keywords, hasImage: !!imageUrl }} price={shownPrice} />
         </div>
       </div>
     </div>

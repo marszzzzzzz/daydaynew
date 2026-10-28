@@ -42,6 +42,8 @@ fs.writeFileSync(
         { handle: "filesystem" },
         { src: "/(.*)", dest: "/index.html" },
       ],
+      // 每日香港時間 09:00 同步 Facebook 專頁（Hobby plan 每日最多一次）
+      crons: [{ path: "/api/cron/facebook-sync", schedule: "0 1 * * *" }],
     },
     null,
     2,

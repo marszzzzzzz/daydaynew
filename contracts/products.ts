@@ -9,6 +9,7 @@ export const PRODUCT_NAME_MAX = 60;
 export const PRODUCT_DESC_MAX = 160;
 export const PRODUCT_KEYWORDS_MAX = 120;
 export const PRODUCT_CATEGORY_MAX = 30;
+export const PRODUCT_PRICE_MAX = 1_000_000;
 /** 相片解碼後上限；前端會先壓縮到大約 800px WebP */
 export const IMAGE_MAX_BYTES = 400_000;
 
@@ -68,6 +69,8 @@ export const productInputSchema = z
     description: text(PRODUCT_DESC_MAX, "描述"),
     keywords: text(PRODUCT_KEYWORDS_MAX, "關鍵字"),
     category: text(PRODUCT_CATEGORY_MAX, "分類"),
+    /** 對外售價；null = 用 POS 最近售價；唔傳 = 唔改 */
+    listPrice: z.number().min(0, "售價唔可以係負數").max(PRODUCT_PRICE_MAX).nullable().optional(),
     featured: z.boolean(),
     hidden: z.boolean(),
   })

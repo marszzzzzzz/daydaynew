@@ -285,6 +285,8 @@ export const products = gridbox.table("products", {
   /** 逗號分隔 */
   keywords: text("keywords").notNull().default(""),
   category: text("category").notNull().default(""),
+  /** 對外售價（例如由 Facebook 帖文帶入）；null = 用 POS 最近售價 */
+  listPrice: money("listPrice"),
   featured: boolean("featured").notNull().default(false),
   /** 精選排序（細 = 前） */
   featuredRank: integer("featuredRank").notNull().default(0),
@@ -310,6 +312,45 @@ export const showcaseSettings = gridbox.table("showcase_settings", {
   updatedAt: updatedAt(),
 });
 
+/** Facebook 專頁帖文收件箱；insight = FbInsight JSON（規則或 AI 整理） */
+export const fbPosts = gridbox.table(
+  "fb_posts",
+  {
+    id: serial("id").primaryKey(),
+    /** Graph API 帖文 id（{page-id}_{post-id}） */
+    postId: text("postId").notNull().unique(),
+    createdTime: timestamp("createdTime", { withTimezone: true, mode: "date" }).notNull(),
+    message: text("message").notNull().default(""),
+    permalink: text("permalink").notNull().default(""),
+    imageUrl: text("imageUrl").notNull().default(""),
+    type: text("type").notNull().default("other"),
+    insight: text("insight").notNull().default("{}"),
+    /** "rule" | "ai" */
+    analyzedBy: text("analyzedBy").notNull().default("rule"),
+    /** 有 AI key 但未用 AI 整理（下次同步會補做） */
+    aiPending: boolean("aiPending").notNull().default(false),
+    /** "new" | "done" | "ignored" */
+    status: text("status").notNull().default("new"),
+    /** 店主確認時做咗咩（例如「已加入商品：…」） */
+    action: text("action").notNull().default(""),
+    reviewedBy: integer("reviewedBy"),
+    reviewedAt: timestamp("reviewedAt", { withTimezone: true, mode: "date" }),
+    fetchedAt: timestamp("fetchedAt", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [index("fb_posts_created_idx").on(table.createdTime)],
+);
+
+export type FbPost = typeof fbPosts.$inferSelect;
+
+/** Facebook 同步狀態（全站只有一條，id 固定 = 1） */
+export const fbSync = gridbox.table("fb_sync", {
+  id: integer("id").primaryKey(),
+  lastSyncAt: timestamp("lastSyncAt", { withTimezone: true, mode: "date" }),
+  lastOk: boolean("lastOk").notNull().default(true),
+  lastMessage: text("lastMessage").notNull().default(""),
+  lastNew: integer("lastNew").notNull().default(0),
+});
+
 export const ALL_TABLES = [
   "users",
   "tenants",
@@ -324,4 +365,6 @@ export const ALL_TABLES = [
   "site_banner",
   "products",
   "showcase_settings",
+  "fb_posts",
+  "fb_sync",
 ] as const;

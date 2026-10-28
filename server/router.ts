@@ -5,6 +5,7 @@ import { accountRouter } from "./accountRouter";
 import { payrollRouter } from "./payrollRouter";
 import { bannerRouter } from "./bannerRouter";
 import { productsRouter } from "./productsRouter";
+import { facebookRouter } from "./facebookRouter";
 
 export const appRouter = createRouter({
   ping: publicQuery.query(() => ({ ok: true, ts: Date.now() })),
@@ -14,6 +15,7 @@ export const appRouter = createRouter({
   payroll: payrollRouter,
   banner: bannerRouter,
   products: productsRouter,
+  facebook: facebookRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { siteBanner } from "@db/schema";
-import { bannerInputSchema, hkToday, isBannerLive } from "@contracts/banner";
+import { bannerInputSchema, hkToday, isBannerLive, type BannerContent } from "@contracts/banner";
 import { createRouter, publicQuery, adminQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 
@@ -12,6 +12,18 @@ const EMPTY = { enabled: false, title: "", body: "", linkUrl: "", linkLabel: "",
 async function readBanner() {
   const [row] = await getDb().select().from(siteBanner).where(eq(siteBanner.id, BANNER_ID)).limit(1);
   return row ?? null;
+}
+
+/** 儲存橫幅（後台 13 同 Facebook 帖文「轉做宣傳」共用）；input 要先經 bannerInputSchema 驗證 */
+export async function saveBanner(input: BannerContent, userId: number) {
+  const prev = await readBanner();
+  const version = (prev?.version ?? 0) + 1;
+  const values = { ...input, version, updatedBy: userId, updatedAt: new Date() };
+  await getDb()
+    .insert(siteBanner)
+    .values({ id: BANNER_ID, ...values })
+    .onConflictDoUpdate({ target: siteBanner.id, set: values });
+  return { ok: true as const, version, live: isBannerLive(input, hkToday()) };
 }
 
 export const bannerRouter = createRouter({
@@ -31,14 +43,5 @@ export const bannerRouter = createRouter({
   }),
 
   /** 店主：儲存（每次 version + 1，訪客之前閂咗都會再見到新內容） */
-  save: adminQuery.input(bannerInputSchema).mutation(async ({ ctx, input }) => {
-    const prev = await readBanner();
-    const version = (prev?.version ?? 0) + 1;
-    const values = { ...input, version, updatedBy: ctx.user.id, updatedAt: new Date() };
-    await getDb()
-      .insert(siteBanner)
-      .values({ id: BANNER_ID, ...values })
-      .onConflictDoUpdate({ target: siteBanner.id, set: values });
-    return { ok: true as const, version, live: isBannerLive(input, hkToday()) };
-  }),
+  save: adminQuery.input(bannerInputSchema).mutation(({ ctx, input }) => saveBanner(input, ctx.user.id)),
 });
