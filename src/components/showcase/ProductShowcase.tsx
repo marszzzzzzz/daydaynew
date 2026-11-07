@@ -1,8 +1,10 @@
-import type { CSSProperties } from "react";
+import { useEffect, type CSSProperties } from "react";
 import { trpc } from "@/providers/trpc";
+import { scrollToHashSection } from "@/lib/scrollToHash";
 import { safeJsonLd, showcaseJsonLd, type ShowcaseCard } from "@contracts/products";
 import ProductCard from "./ProductCard";
 
+const SECTION_ID = "products";
 /** 少過呢個數唔郁（太少件會見到同一件貨重複出現） */
 const MIN_TO_ANIMATE = 4;
 /** 每輪最少幾多張卡，闊過大畫面先唔會喺循環接駁位露出空位 */
@@ -52,13 +54,20 @@ function MarqueeRow({ id, label, sub, items, ranked, secondsPerCard }: { id: str
  */
 export default function ProductShowcase() {
   const { data } = trpc.products.showcase.useQuery(undefined, { staleTime: 5 * 60_000 });
-  if (!data || (data.latest.length === 0 && data.bestSellers.length === 0)) return null;
+  const hasProducts = !!data && (data.latest.length > 0 || data.bestSellers.length > 0);
+
+  // 呢段要等資料返嚟先存在，所以後台「去首頁睇」嘅 /#products 要喺呢度補捲
+  useEffect(() => {
+    if (hasProducts) scrollToHashSection(SECTION_ID, window.location.hash, document);
+  }, [hasProducts]);
+
+  if (!hasProducts) return null;
 
   const unique = [...new Map([...data.latest, ...data.bestSellers].map((p) => [p.name, p])).values()];
   const jsonLd = safeJsonLd(showcaseJsonLd(unique, window.location.origin));
 
   return (
-    <section id="products" aria-labelledby="products-title" className="scroll-mt-28 border-t border-ink/15 pb-20 pt-16">
+    <section id={SECTION_ID} aria-labelledby="products-title" className="scroll-mt-28 border-t border-ink/15 pb-20 pt-16">
       <div className="mx-auto max-w-6xl px-5">
         <p className="spec-label mb-3">In store — 店內好物</p>
         <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
