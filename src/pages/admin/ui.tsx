@@ -24,11 +24,14 @@ export function ActionButton({
   onClick,
   disabled,
   tone = "ink",
+  type,
 }: {
   children: ReactNode;
   onClick?: () => void;
   disabled?: boolean;
   tone?: "ink" | "ochre" | "ghost" | "red";
+  /** 唔寫嘅話：有 onClick 就係普通掣，冇 onClick 就係表單嘅提交掣 */
+  type?: "button" | "submit";
 }) {
   const cls =
     tone === "ink"
@@ -40,6 +43,7 @@ export function ActionButton({
           : "border border-ink/40 text-ink hover:bg-ink hover:text-cream";
   return (
     <button
+      type={type ?? (onClick ? "button" : "submit")}
       onClick={onClick}
       disabled={disabled}
       className={`px-4 py-2 font-mono text-[11.5px] uppercase tracking-[0.14em] transition-all disabled:cursor-not-allowed disabled:opacity-40 ${cls}`}
