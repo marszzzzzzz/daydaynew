@@ -37,6 +37,7 @@ function MyCards({ me }: { me: Me }) {
       <PageTitle title={t('sell.title')} sub={t('sell.sub')} action={
         <div className="flex flex-wrap gap-2">
           <ButtonLink href="/sell/batch" variant="secondary">📷 {t('batch.cta')}</ButtonLink>
+          <ButtonLink href="/sell/multi" variant="secondary">🖼️ {t('multi.cta')}</ButtonLink>
           <ButtonLink href="/sell/new">＋ {t('sell.add')}</ButtonLink>
         </div>
       } />

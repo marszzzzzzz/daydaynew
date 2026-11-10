@@ -18,10 +18,11 @@ async function decode(file: Blob): Promise<{ source: CanvasImageSource; width: n
   return { source: img, width: img.naturalWidth, height: img.naturalHeight, done: () => URL.revokeObjectURL(url) };
 }
 
-export async function shrinkPhoto(file: Blob): Promise<Blob> {
+/** `maxSide` defaults to the upload size; a photo of several cards keeps more pixels so each card can be read. */
+export async function shrinkPhoto(file: Blob, maxSide = MAX_SIDE): Promise<Blob> {
   const { source, width, height, done } = await decode(file);
   try {
-    const scale = Math.min(1, MAX_SIDE / Math.max(width, height));
+    const scale = Math.min(1, maxSide / Math.max(width, height));
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(width * scale);
     canvas.height = Math.round(height * scale);
