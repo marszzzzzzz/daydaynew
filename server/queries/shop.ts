@@ -1,6 +1,7 @@
 import { getDb } from "./connection";
-import { grids, leases, rentRecords, sales, tenants, users } from "@db/schema";
+import { grids, leases, products, rentRecords, sales, tenants, users } from "@db/schema";
 import { and, desc, eq, gte, isNotNull, isNull, like, lte, ne, sql, type SQL } from "drizzle-orm";
+import type { ProductTotal } from "../salesRanking";
 
 // ─── 公用 ────────────────────────────────────────────────────
 
@@ -893,14 +894,36 @@ export async function shopTrend(
   g: Granularity,
   from: string,
   to: string,
-  filter: { scope: "all" | "grids" | "direct"; tenantId?: number; gridId?: number },
+  filter: ShopFilter,
 ) {
+  return salesTrend(shopFilterConds(filter), g, from, to);
+}
+
+type ShopFilter = { scope: "all" | "grids" | "direct"; tenantId?: number; gridId?: number };
+
+/** 店主分析共用嘅範圍篩選：全店／格仔銷售／店舖直銷，再按租戶或者格仔收窄 */
+function shopFilterConds(filter: ShopFilter): SQL[] {
   const conds: SQL[] = [];
   if (filter.scope === "grids") conds.push(isNotNull(sales.gridId));
   if (filter.scope === "direct") conds.push(isNull(sales.gridId));
   if (filter.tenantId) conds.push(eq(sales.tenantId, filter.tenantId));
   if (filter.gridId) conds.push(eq(sales.gridId, filter.gridId));
-  return salesTrend(conds, g, from, to);
+  return conds;
+}
+
+/** 期間內每件貨品嘅總銷量／銷售額，連同店主喺「商品 SEO」設定嘅類別（冇設定 = 空字串） */
+export async function shopProductTotals(from: string, to: string, filter: ShopFilter): Promise<ProductTotal[]> {
+  return getDb()
+    .select({
+      name: sales.productName,
+      qty: sql<number>`sum(${sales.quantity})`.mapWith(Number),
+      amount: sql<number>`sum(${sales.totalAmount})`.mapWith(Number),
+      category: sql<string>`coalesce(${products.category}, '')`,
+    })
+    .from(sales)
+    .leftJoin(products, eq(products.sourceName, sales.productName))
+    .where(and(...shopFilterConds(filter), gte(sales.saleDate, from), lte(sales.saleDate, to)))
+    .groupBy(sales.productName, products.category);
 }
 
 /** 最早／最遲銷售日期（店主走勢圖揀「最近」期間用） */

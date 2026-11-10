@@ -15,6 +15,7 @@ import {
   DEMO_TENANT,
 } from "../db/seed-lib";
 import * as q from "./queries/shop";
+import { rankProducts } from "./salesRanking";
 import { env } from "./lib/env";
 
 function assertDemoMode() {
@@ -553,6 +554,25 @@ export const shopRouter = createRouter({
         return q.shopTrend(input.granularity, input.from, input.to, { scope: input.scope, tenantId: input.tenantId, gridId: grid?.id });
       }),
     salesDateRange: adminQuery.query(() => q.salesDateRange()),
+
+    /** 全店銷售排行：期間內銷量最多嘅貨品，同各類別（店主喺商品 SEO 設定）入面最好賣嘅貨品；同走勢圖用同一套範圍篩選 */
+    productRanking: adminQuery
+      .input(
+        z.object({
+          from: dateStr,
+          to: dateStr,
+          scope: z.enum(["all", "grids", "direct"]).default("all"),
+          tenantId: z.number().optional(),
+          gridCode: z.string().regex(/^\d{3}$/).optional(),
+        }),
+      )
+      .query(async ({ input }) => {
+        if (input.from > input.to) throw new TRPCError({ code: "BAD_REQUEST", message: "開始日期唔可以遲過結束日期" });
+        const grid = input.gridCode ? await q.findGridByCode(input.gridCode) : null;
+        if (input.gridCode && !grid) throw new TRPCError({ code: "NOT_FOUND", message: `搵唔到格仔 ${input.gridCode}` });
+        const totals = await q.shopProductTotals(input.from, input.to, { scope: input.scope, tenantId: input.tenantId, gridId: grid?.id });
+        return { from: input.from, to: input.to, ...rankProducts(totals) };
+      }),
 
     /** 租戶銷售情況：按租戶（或未有租約嘅格仔）統計期間銷售，同上一段期間比較 */
     tenantSalesReport: adminQuery

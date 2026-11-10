@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { trpc } from "@/providers/trpc";
 import SalesTrend from "@/components/SalesTrend";
+import ProductRankings from "./analytics/ProductRankings";
 import { SectionTitle } from "../ui";
 
 /**
  * 12 銷售分析（店主）：用全店數據畫走勢圖，同租戶專區同一套圖（日／週／月、頭 5 位貨品、時段下鑽），
- * 可以揀範圍（全店／格仔銷售／店舖直銷），再按租戶或者格仔篩。
+ * 可以揀範圍（全店／格仔銷售／店舖直銷），再按租戶或者格仔篩；圖下面係貨品排行（銷量最多、各類別最好賣）。
  */
 type Scope = "all" | "grids" | "direct";
 const SCOPES: { id: Scope; label: string }[] = [
@@ -37,7 +38,7 @@ export default function AnalyticsTab() {
       <SectionTitle
         no="12 · Sales Analytics"
         title="全店銷售分析"
-        desc="用全店銷售數據睇走勢：每日／週／月總銷售、頭 5 位貨品，撳柱或者時段列表下鑽。可以只睇格仔銷售、店舖直銷，或者某個租戶／格仔。"
+        desc="用全店銷售數據睇走勢：每日／週／月總銷售、頭 5 位貨品，撳柱或者時段列表下鑽；圖下面仲有貨品排行：銷量最多嘅貨品、各類別最好賣嘅貨品。可以只睇格仔銷售、店舖直銷，或者某個租戶／格仔。"
       />
 
       {/* 篩選：一行，喺圖之上 */}
@@ -124,6 +125,13 @@ export default function AnalyticsTab() {
             latestMonth={range.data.max?.slice(0, 7) ?? null}
           />
         )
+      )}
+
+      {range.data?.max && (
+        <ProductRankings
+          filter={{ scope: effectiveScope, tenantId: tenantId === "" ? undefined : tenantId, gridCode: gridCode || undefined }}
+          sales={{ first: range.data.min, last: range.data.max }}
+        />
       )}
     </div>
   );
