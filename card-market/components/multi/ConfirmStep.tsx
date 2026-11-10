@@ -9,11 +9,17 @@ import { useT } from '@/lib/i18n';
 
 export const MIN_CARDS = 3, MAX_CARDS = 5;
 
-export function ConfirmStep({ img, src, onBack, onConfirm }: { img: HTMLImageElement; src: string; onBack: () => void; onConfirm: (boxes: Box[]) => void }) {
+export function ConfirmStep({ img, src, onBack, onConfirm, onRotate }: {
+  img: HTMLImageElement; src: string; onBack: () => void; onConfirm: (boxes: Box[]) => void;
+  /** Turn the photo clockwise; the page swaps in the turned photo and this step starts over on it. */
+  onRotate: (deg: 90 | 180 | 270) => Promise<void>;
+}) {
   const { t } = useT();
   const [sens, setSens] = useState(50);
   const [boxes, setBoxes] = useState<Box[]>(() => detectCards(img, 50));
   const [found, setFound] = useState(boxes.length);
+  const [turning, setTurning] = useState(false);
+  const turn = async (deg: 90 | 180 | 270) => { setTurning(true); try { await onRotate(deg); } finally { setTurning(false); } };
   const [drawing, setDrawing] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
   const area = useRef<HTMLDivElement>(null);
   const W = img.naturalWidth, H = img.naturalHeight;
@@ -55,6 +61,14 @@ export function ConfirmStep({ img, src, onBack, onConfirm }: { img: HTMLImageEle
         {(n < MIN_CARDS || n > MAX_CARDS) && <p className="mt-1 text-sm text-warn">{t('multi.outOfRange', { min: MIN_CARDS, max: MAX_CARDS })}</p>}
       </div>
 
+      {/* Turn the photo upright: the cut-out cards come out the same way round. */}
+      <div className="mx-auto flex max-w-xl flex-wrap items-center justify-center gap-2" role="group" aria-label={t('multi.rotate')}>
+        <span className="hidden text-sm text-muted sm:inline">{t('multi.rotate')}</span>
+        <Button variant="secondary" disabled={turning} onClick={() => turn(270)} aria-label={t('multi.rotateLeft')}>↺ {t('multi.rotateLeft')}</Button>
+        <Button variant="secondary" disabled={turning} onClick={() => turn(90)} aria-label={t('multi.rotateRight')}>↻ {t('multi.rotateRight')}</Button>
+        <Button variant="secondary" disabled={turning} onClick={() => turn(180)} aria-label={t('multi.rotate180')}>⇅ 180°</Button>
+      </div>
+
       <div ref={area} className="relative mx-auto max-w-xl touch-none select-none overflow-hidden rounded-2xl bg-black"
         onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => setDrawing(null)}>
         <img src={src} alt={t('multi.photoAlt')} className="block w-full" draggable={false} />
@@ -67,7 +81,7 @@ export function ConfirmStep({ img, src, onBack, onConfirm }: { img: HTMLImageEle
         ))}
         {draft && <div className="pointer-events-none absolute rounded-lg border-[3px] border-dashed border-accent" style={pct(draft)} />}
       </div>
-      <p className="text-center text-xs text-muted">{t('multi.drawHint')}</p>
+      <p className="text-center text-xs text-muted">{t('multi.drawHint')} {t('multi.rotateHint')}</p>
 
       <label className="mx-auto flex max-w-xl items-center gap-3 text-sm">
         <span className="shrink-0 text-muted">{t('multi.sensitivity')}</span>

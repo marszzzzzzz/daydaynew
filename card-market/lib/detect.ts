@@ -164,3 +164,20 @@ export async function cropCard(img: HTMLImageElement, b: Box): Promise<Blob> {
   g.drawImage(img, b.x, b.y, b.w, b.h, 0, 0, w, h);
   return new Promise((resolve, reject) => c.toBlob((x) => (x ? resolve(x) : reject(new Error('crop'))), 'image/jpeg', 0.9));
 }
+
+/** The photo turned by a quarter, half or three-quarter turn clockwise, as a new image (JPEG). */
+export async function rotateImage(img: HTMLImageElement, deg: 90 | 180 | 270): Promise<{ img: HTMLImageElement; src: string }> {
+  const W = img.naturalWidth, H = img.naturalHeight;
+  const c = document.createElement('canvas');
+  c.width = deg === 180 ? W : H;
+  c.height = deg === 180 ? H : W;
+  const g = c.getContext('2d')!;
+  g.translate(c.width / 2, c.height / 2);
+  g.rotate((deg * Math.PI) / 180);
+  g.drawImage(img, -W / 2, -H / 2);
+  const blob = await new Promise<Blob>((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error('rotate'))), 'image/jpeg', 0.92));
+  const src = URL.createObjectURL(blob);
+  const out = new Image();
+  await new Promise<void>((resolve, reject) => { out.onload = () => resolve(); out.onerror = () => reject(new Error('rotate')); out.src = src; });
+  return { img: out, src };
+}

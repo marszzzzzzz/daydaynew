@@ -7,7 +7,7 @@ import { ConfirmStep, MAX_CARDS, MIN_CARDS } from '@/components/multi/ConfirmSte
 import { ReviewStep } from '@/components/multi/ReviewStep';
 import { RequireSignIn } from '@/components/RequireSignIn';
 import { Notice, PageTitle } from '@/components/ui';
-import type { Box } from '@/lib/detect';
+import { rotateImage, type Box } from '@/lib/detect';
 import { useT } from '@/lib/i18n';
 import { shrinkPhoto } from '@/lib/image';
 
@@ -80,9 +80,14 @@ function Multi() {
         </div>
       )}
 
+      {err && step.kind !== 'photo' && <Notice tone="danger" className="mb-4">{err}</Notice>}
       {step.kind === 'confirm' && (
-        <ConfirmStep img={step.img} src={step.src} onBack={() => setStep({ kind: 'photo' })}
-          onConfirm={(boxes) => setStep({ kind: 'review', img: step.img, boxes })} />
+        <ConfirmStep key={step.src} img={step.img} src={step.src} onBack={() => setStep({ kind: 'photo' })}
+          onConfirm={(boxes) => setStep({ kind: 'review', img: step.img, boxes })}
+          onRotate={async (deg) => {
+            try { const r = await rotateImage(step.img, deg); setStep({ kind: 'confirm', ...r }); }
+            catch { setErr(t('err.PHOTO_UNREADABLE')); }
+          }} />
       )}
 
       {step.kind === 'review' && <ReviewStep img={step.img} boxes={step.boxes} onRestart={() => setStep({ kind: 'photo' })} />}
