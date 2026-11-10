@@ -5,6 +5,8 @@
 // wide blob; it is split by the card's shape (63 × 88). The person confirms or fixes the boxes after.
 
 export interface Box { x: number; y: number; w: number; h: number } // in original photo pixels
+/** One photo of the cards (fronts, or backs) and the confirmed frame of each card in it. */
+export interface Shot { img: HTMLImageElement; boxes: Box[] }
 
 const WORK = 640; // working size (long side)
 const CARD = 63 / 88; // portrait card width / height

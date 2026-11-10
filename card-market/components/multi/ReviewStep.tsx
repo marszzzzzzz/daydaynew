@@ -1,6 +1,7 @@
 'use client';
-// Step 3 of 一相多卡: every confirmed card is cut out and read on the phone, one after another; its name,
-// number and language are filled in as each reading finishes. The person checks, prices and saves all.
+// Last step of 一相多卡: every confirmed card is cut out (front, and its paired back if any) and read on the
+// phone, one after another; name, number, language and — from a player card's back — publisher and year
+// are filled in as each reading finishes. The person checks, prices and saves all, both photos per card.
 import Link from 'next/link';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useSWRConfig } from 'swr';
@@ -8,7 +9,7 @@ import { TagPicker } from '@/components/TagPicker';
 import { Button, ButtonLink, Field, Input, Notice, Panel, Select } from '@/components/ui';
 import { api } from '@/lib/api';
 import { CARD_LANGUAGES, CONDITIONS, clampInt, sellerReady } from '@/lib/cards';
-import { cropCard, type Box } from '@/lib/detect';
+import { cropCard, type Shot } from '@/lib/detect';
 import { useConfig, useMe } from '@/lib/hooks';
 import { useT } from '@/lib/i18n';
 import { joinNotes } from '@/lib/meta';
@@ -18,15 +19,16 @@ import type { CardLanguage, Condition, RealCard } from '@/lib/types';
 
 interface Item {
   blob: Blob; url: string;
-  ocr: OcrResult | null; reading: boolean; failed: boolean;
+  back: { blob: Blob; url: string } | null;
+  ocr: OcrResult | null; ocrBack: OcrResult | null; reading: boolean; failed: boolean;
   name: string; number: string; setName: string; language: CardLanguage; condition: Condition; categoryId: string;
   asking: string; quantity: string; listed: string; isPublic: boolean; tags: string[]; notes: string;
-  savedId: string | null; photoUp: boolean; listedDone: boolean; error: string | null;
+  savedId: string | null; photoUp: boolean; backUp: boolean; listedDone: boolean; error: string | null;
 }
 const priceOrNull = (s: string) => (s.trim() === '' ? null : Number(s));
-const done = (x: Item) => !!x.savedId && x.photoUp && (!x.isPublic || x.listedDone);
+const done = (x: Item) => !!x.savedId && x.photoUp && (!x.back || x.backUp) && (!x.isPublic || x.listedDone);
 
-export function ReviewStep({ img, boxes, onRestart }: { img: HTMLImageElement; boxes: Box[]; onRestart: () => void }) {
+export function ReviewStep({ front, back, pairs, onRestart }: { front: Shot; back: Shot | null; pairs: number[]; onRestart: () => void }) {
   const { t, errorText } = useT();
   const { me } = useMe();
   const config = useConfig();
@@ -47,23 +49,27 @@ export function ReviewStep({ img, boxes, onRestart }: { img: HTMLImageElement; b
     let live = true;
     const urls: string[] = [];
     (async () => {
-      const cut = await Promise.all(boxes.map((b) => cropCard(img, b)));
+      const cut = await Promise.all(front.boxes.map((b) => cropCard(front.img, b)));
+      const cutBack = await Promise.all(front.boxes.map((_, i) => (back && pairs[i] >= 0 && back.boxes[pairs[i]] ? cropCard(back.img, back.boxes[pairs[i]]) : null)));
       if (!live) return;
-      const first: Item[] = cut.map((blob) => {
-        const url = URL.createObjectURL(blob); urls.push(url);
-        return { blob, url, ocr: null, reading: true, failed: false, name: '', number: '', setName: '', language: 'en', condition: 'NEAR_MINT', categoryId: '',
-          asking: '', quantity: '1', listed: '1', isPublic: ready, tags: [], notes: '', savedId: null, photoUp: false, listedDone: false, error: null };
-      });
+      const keep = (blob: Blob) => { const url = URL.createObjectURL(blob); urls.push(url); return url; };
+      const first: Item[] = cut.map((blob, i) => ({
+        blob, url: keep(blob), back: cutBack[i] ? { blob: cutBack[i]!, url: keep(cutBack[i]!) } : null,
+        ocr: null, ocrBack: null, reading: true, failed: false, name: '', number: '', setName: '', language: 'en', condition: 'NEAR_MINT', categoryId: '',
+        asking: '', quantity: '1', listed: '1', isPublic: ready, tags: [], notes: '', savedId: null, photoUp: false, backUp: false, listedDone: false, error: null,
+      }));
       ref.current = first;
       setItems(first);
       for (let i = 0; i < cut.length; i++) {
         try {
           const r = await readText(cut[i], 'auto');
+          const rb = cutBack[i] ? await readText(cutBack[i]!, 'auto').catch(() => null) : null;
           if (!live) return;
-          const pc = readPlayerCard(r.layout, []);
+          // A player card's back has the number at the top and the publisher and year at the bottom.
+          const pc = readPlayerCard(r.layout, rb?.layout ?? []);
           set(i, (x) => ({
-            ocr: r, reading: false, language: r.language,
-            number: x.number || pc.number || r.numbers[0] || '',
+            ocr: r, ocrBack: rb, reading: false, language: r.language,
+            number: x.number || pc.number || r.numbers[0] || rb?.numbers[0] || '',
             name: x.name || pc.name || r.lines[0] || '',
             notes: x.notes || pc.note || '',
           }));
@@ -73,8 +79,8 @@ export function ReviewStep({ img, boxes, onRestart }: { img: HTMLImageElement; b
       }
     })();
     return () => { live = false; urls.forEach((u) => URL.revokeObjectURL(u)); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per confirmed set of boxes
-  }, [img, boxes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per confirmed set of cards
+  }, [front, back, pairs]);
 
   // Photos exist only in this page until saved.
   const unsaved = items.some((x) => !done(x));
@@ -103,7 +109,7 @@ export function ReviewStep({ img, boxes, onRestart }: { img: HTMLImageElement; b
         };
         let id = x.savedId;
         if (!id) {
-          const ocrText = (x.ocr?.text ?? '').slice(0, 4000);
+          const ocrText = [x.ocr?.text, x.ocrBack?.text].filter(Boolean).join('\n').slice(0, 4000);
           id = (await api<RealCard>('real-cards', { body: { ...fields, ocrText, source: ocrText ? 'OCR' : 'MANUAL' } })).id;
           set(i, { savedId: id });
         } else {
@@ -112,6 +118,10 @@ export function ReviewStep({ img, boxes, onRestart }: { img: HTMLImageElement; b
         if (!ref.current[i].photoUp) {
           await api(`real-cards/${encodeURIComponent(id)}/photos/front`, { method: 'PUT', body: x.blob });
           set(i, { photoUp: true });
+        }
+        if (x.back && !ref.current[i].backUp) {
+          await api(`real-cards/${encodeURIComponent(id)}/photos/back`, { method: 'PUT', body: x.back.blob });
+          set(i, { backUp: true });
         }
         if (ref.current[i].isPublic && !ref.current[i].listedDone) {
           await api(`real-cards/${encodeURIComponent(id)}/market`, { body: { public: true } });
@@ -149,7 +159,16 @@ export function ReviewStep({ img, boxes, onRestart }: { img: HTMLImageElement; b
             <li key={x.url}>
               <Panel className={done(x) ? 'opacity-80' : ''}>
                 <div className="flex gap-4">
-                  <img src={x.url} alt={`#${i + 1}`} className="h-36 w-26 shrink-0 rounded-xl object-cover" style={{ width: '6.5rem' }} />
+                  <div className="flex shrink-0 flex-col gap-1.5">
+                    {([[x.url, 'FRONT'], [x.back?.url, 'BACK']] as const).map(([u, s]) => (
+                      <figure key={s} className="w-20">
+                        <div className="aspect-[63/88] overflow-hidden rounded-lg bg-surface-2">
+                          {u ? <img src={u} alt={`#${i + 1} ${t(`side.${s}`)}`} className="size-full object-cover" /> : <span className="grid size-full place-items-center text-[10px] text-muted">{t('batch.noBack')}</span>}
+                        </div>
+                        <figcaption className="text-center text-[10px] text-muted">{t(`side.${s}`)}</figcaption>
+                      </figure>
+                    ))}
+                  </div>
                   <div className="min-w-0 flex-1 space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <h2 className="font-bold">#{i + 1} {x.name || <span className="font-normal text-muted">{t('batch.unnamed')}</span>}</h2>
@@ -159,8 +178,8 @@ export function ReviewStep({ img, boxes, onRestart }: { img: HTMLImageElement; b
                       : x.failed || !x.ocr?.text ? <p className="text-sm text-muted">{t('batch.noText')}</p>
                       : (
                         <div className="flex flex-wrap gap-1.5">
-                          {x.ocr.numbers.map((nm) => <Chip key={`n:${nm}`} strong disabled={locked} onClick={() => set(i, { number: nm })}>#{nm}</Chip>)}
-                          {x.ocr.lines.slice(0, 8).map((l) => <Chip key={`l:${l}`} disabled={locked} onClick={() => set(i, { name: l.slice(0, 80) })}>{l}</Chip>)}
+                          {[...new Set([...x.ocr.numbers, ...(x.ocrBack?.numbers ?? [])])].map((nm) => <Chip key={`n:${nm}`} strong disabled={locked} onClick={() => set(i, { number: nm })}>#{nm}</Chip>)}
+                          {[...new Set([...x.ocr.lines.slice(0, 8), ...(x.ocrBack?.lines.slice(0, 6) ?? [])])].map((l) => <Chip key={`l:${l}`} disabled={locked} onClick={() => set(i, { name: l.slice(0, 80) })}>{l}</Chip>)}
                         </div>
                       )}
                     <p className="text-xs text-muted">{t('multi.chipHint')}</p>

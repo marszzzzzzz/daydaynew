@@ -9,8 +9,10 @@ import { useT } from '@/lib/i18n';
 
 export const MIN_CARDS = 3, MAX_CARDS = 5;
 
-export function ConfirmStep({ img, src, onBack, onConfirm, onRotate }: {
+export function ConfirmStep({ img, src, expected, onBack, onConfirm, onRotate }: {
   img: HTMLImageElement; src: string; onBack: () => void; onConfirm: (boxes: Box[]) => void;
+  /** For the backs: how many fronts there were (the counts should match). */
+  expected?: number;
   /** Turn the photo clockwise; the page swaps in the turned photo and this step starts over on it. */
   onRotate: (deg: 90 | 180 | 270) => Promise<void>;
 }) {
@@ -58,7 +60,9 @@ export function ConfirmStep({ img, src, onBack, onConfirm, onRotate }: {
       <div className="rounded-2xl bg-surface p-4 text-center">
         <p className="text-sm text-muted">{t('multi.found', { n: found })}</p>
         <p className="mt-1 text-xl font-bold">{t('multi.confirmQ', { n })}</p>
-        {(n < MIN_CARDS || n > MAX_CARDS) && <p className="mt-1 text-sm text-warn">{t('multi.outOfRange', { min: MIN_CARDS, max: MAX_CARDS })}</p>}
+        {expected !== undefined
+          ? n !== expected && <p className="mt-1 text-sm text-warn">{t('multi.backMismatch', { front: expected, n })}</p>
+          : (n < MIN_CARDS || n > MAX_CARDS) && <p className="mt-1 text-sm text-warn">{t('multi.outOfRange', { min: MIN_CARDS, max: MAX_CARDS })}</p>}
       </div>
 
       {/* Turn the photo upright: the cut-out cards come out the same way round. */}
