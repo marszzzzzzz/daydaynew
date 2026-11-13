@@ -671,11 +671,16 @@ export const shopRouter = createRouter({
           quantity: z.number().int().min(1).optional(),
           unitPrice: money.optional(),
           note: z.string().optional(),
+          /** 隱藏：租客頁面唔顯示呢條記錄（只限店主） */
+          hidden: z.boolean().optional(),
         }),
       )
       .mutation(async ({ ctx, input }) => {
         const { id, ...data } = input;
         await assertSaleEditable(id, ctx.user);
+        if (data.hidden !== undefined && ctx.user.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "只有店主可以隱藏／取消隱藏銷售記錄" });
+        }
         const patch: Parameters<typeof q.updateSale>[1] = { ...data };
         if (data.quantity !== undefined && data.unitPrice !== undefined) {
           patch.totalAmount = (data.quantity * Number(data.unitPrice)).toFixed(2);

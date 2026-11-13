@@ -231,6 +231,7 @@ export const DDL: string[] = [
     "confirmedAt" timestamptz NOT NULL DEFAULT now()
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS statement_tenant_month_uq ON gridbox.tenant_statements ("tenantId", month)`,
+  `ALTER TABLE gridbox.sales ADD COLUMN IF NOT EXISTS hidden boolean NOT NULL DEFAULT false`,
   `CREATE INDEX IF NOT EXISTS sales_product_idx ON gridbox.sales ("productName")`,
   `ALTER TABLE gridbox.users ENABLE ROW LEVEL SECURITY`,
   `ALTER TABLE gridbox.tenants ENABLE ROW LEVEL SECURITY`,

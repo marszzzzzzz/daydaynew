@@ -183,6 +183,7 @@ type SaleRowData = {
   unitPrice: string;
   totalAmount: string;
   note: string | null;
+  hidden: boolean;
 };
 
 function SaleRow({ row, onDelete, onSaved }: { row: SaleRowData; onDelete: () => void; onSaved: () => void }) {
@@ -191,6 +192,7 @@ function SaleRow({ row, onDelete, onSaved }: { row: SaleRowData; onDelete: () =>
   const [qty, setQty] = useState(String(row.quantity));
   const [price, setPrice] = useState(String(Number(row.unitPrice)));
   const [note, setNote] = useState(row.note ?? "");
+  const [hidden, setHidden] = useState(row.hidden);
 
   const update = trpc.shop.admin.updateSale.useMutation({
     onSuccess: () => {
@@ -210,6 +212,12 @@ function SaleRow({ row, onDelete, onSaved }: { row: SaleRowData; onDelete: () =>
         <td className="py-2 pr-4">
           <input className="underline-input !py-1 text-[13px]" value={product} onChange={(e) => setProduct(e.target.value)} placeholder="貨品" />
           <input className="underline-input mt-1 !py-1 font-mono text-[11.5px] text-ink/70" value={note} onChange={(e) => setNote(e.target.value)} placeholder="備註（可留空）" />
+          {row.gridCode && (
+            <label className="mt-2 flex items-center gap-2 text-[12px] text-ink/75">
+              <input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} />
+              隱藏（租客頁面唔顯示呢筆；店主報表照計）
+            </label>
+          )}
         </td>
         <td className="py-2 pr-4">
           <input className="underline-input !py-1 w-16 text-right font-mono text-[13px]" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} />
@@ -227,13 +235,19 @@ function SaleRow({ row, onDelete, onSaved }: { row: SaleRowData; onDelete: () =>
                 const q = parseInt(qty, 10);
                 const p = Number(price);
                 if (!product.trim() || !Number.isFinite(q) || q < 1 || !Number.isFinite(p) || p < 0) return toast.error("請檢查輸入");
-                update.mutate({ id: row.id, productName: product.trim(), quantity: q, unitPrice: p, note: note || undefined });
+                update.mutate({ id: row.id, productName: product.trim(), quantity: q, unitPrice: p, note: note || undefined, ...(hidden !== row.hidden && { hidden }) });
               }}
               className="px-2 py-1 font-mono text-[11.5px] text-ochre-deep underline-offset-2 hover:underline"
             >
               保存
             </button>
-            <button onClick={() => setEditing(false)} className="px-2 py-1 font-mono text-[11.5px] text-ink/50 underline-offset-2 hover:underline">
+            <button
+              onClick={() => {
+                setHidden(row.hidden);
+                setEditing(false);
+              }}
+              className="px-2 py-1 font-mono text-[11.5px] text-ink/50 underline-offset-2 hover:underline"
+            >
               取消
             </button>
           </div>
@@ -249,6 +263,11 @@ function SaleRow({ row, onDelete, onSaved }: { row: SaleRowData; onDelete: () =>
       <td className="py-3 pr-4">{row.tenantName ?? <span className="text-ink/45">店舖直銷</span>}</td>
       <td className="py-3 pr-4">
         {row.productName}
+        {row.hidden && (
+          <span className="ml-2 whitespace-nowrap border border-ink/40 px-1.5 py-0.5 font-mono text-[10.5px] text-ink/60" title="租客頁面睇唔到呢筆">
+            已隱藏
+          </span>
+        )}
         {row.note && <p className="mt-0.5 max-w-xs truncate font-mono text-[10.5px] text-ink/45" title={row.note}>{row.note}</p>}
       </td>
       <td className="py-3 pr-4 text-right font-mono">{row.quantity}</td>

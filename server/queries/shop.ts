@@ -218,6 +218,7 @@ export async function listSales(filters: SaleFilters = {}, limit = 500) {
       unitPrice: sales.unitPrice,
       totalAmount: sales.totalAmount,
       note: sales.note,
+      hidden: sales.hidden,
       createdBy: sales.createdBy,
       createdAt: sales.createdAt,
       gridCode: grids.code,
@@ -284,6 +285,7 @@ export async function updateSale(
     unitPrice: string;
     totalAmount: string;
     note: string;
+    hidden: boolean;
   }>,
 ) {
   await getDb().update(sales).set(data).where(eq(sales.id, id));
@@ -509,7 +511,7 @@ export async function tenantStats(tenantId: number) {
       qty: sql<number>`coalesce(sum(${sales.quantity}), 0)`,
     })
     .from(sales)
-    .where(and(eq(sales.tenantId, tenantId), like(sales.saleDate, `${month}%`)));
+    .where(and(eq(sales.tenantId, tenantId), eq(sales.hidden, false), like(sales.saleDate, `${month}%`)));
 
   const [totalAgg] = await db
     .select({
@@ -517,7 +519,7 @@ export async function tenantStats(tenantId: number) {
       qty: sql<number>`coalesce(sum(${sales.quantity}), 0)`,
     })
     .from(sales)
-    .where(eq(sales.tenantId, tenantId));
+    .where(and(eq(sales.tenantId, tenantId), eq(sales.hidden, false)));
 
   const activeLeases = await findActiveLeasesByTenant(tenantId);
 
@@ -563,7 +565,7 @@ export async function publicStats() {
 
 // 租戶專用：租戶嘅銷售記錄
 export async function listSalesByTenant(tenantId: number, month?: string) {
-  const conds = [eq(sales.tenantId, tenantId)];
+  const conds = [eq(sales.tenantId, tenantId), eq(sales.hidden, false)];
   if (month) conds.push(like(sales.saleDate, `${month}%`));
 
   return getDb()
@@ -852,7 +854,7 @@ export async function tenantSalesReport(from: string, to: string) {
 
 /** 租戶專區：總銷售 + 按貨品合計（唔包備註／條碼等內部資料） */
 export async function tenantItemSummary(tenantId: number, month?: string, gridId?: number) {
-  const conds = [eq(sales.tenantId, tenantId)];
+  const conds = [eq(sales.tenantId, tenantId), eq(sales.hidden, false)];
   if (month) conds.push(like(sales.saleDate, `${month}%`));
   if (gridId) conds.push(eq(sales.gridId, gridId));
   const items = await getDb()
@@ -880,7 +882,7 @@ export async function tenantSaleGrids(tenantId: number) {
     .selectDistinct({ code: grids.code })
     .from(sales)
     .innerJoin(grids, eq(sales.gridId, grids.id))
-    .where(eq(sales.tenantId, tenantId));
+    .where(and(eq(sales.tenantId, tenantId), eq(sales.hidden, false)));
   return rows.map((r) => r.code);
 }
 
@@ -889,7 +891,7 @@ export async function tenantSaleMonths(tenantId: number) {
   const rows = await getDb()
     .selectDistinct({ m: sql<string>`substr(${sales.saleDate}, 1, 7)` })
     .from(sales)
-    .where(eq(sales.tenantId, tenantId));
+    .where(and(eq(sales.tenantId, tenantId), eq(sales.hidden, false)));
   return rows.map((r) => r.m).sort().reverse();
 }
 
@@ -954,7 +956,7 @@ function bucketLabel(start: string, g: Granularity): string {
  * 每個時段亦附上貨品明細（畀「時段列表」下鑽用）。冇銷售嘅時段都會列出（0）。
  */
 export async function tenantTrend(tenantId: number, g: Granularity, from: string, to: string, gridId?: number) {
-  const conds = [eq(sales.tenantId, tenantId)];
+  const conds = [eq(sales.tenantId, tenantId), eq(sales.hidden, false)];
   if (gridId) conds.push(eq(sales.gridId, gridId));
   return salesTrend(conds, g, from, to);
 }

@@ -120,6 +120,8 @@ export const sales = gridbox.table(
     unitPrice: money("unitPrice").notNull(),
     totalAmount: money("totalAmount").notNull(),
     note: text("note"),
+    /** 店主隱藏：租客頁面（貨品明細、合計、走勢）唔顯示；店主／店員報表照常計 */
+    hidden: boolean("hidden").notNull().default(false),
     createdBy: integer("createdBy"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
