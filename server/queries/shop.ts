@@ -1,5 +1,5 @@
 import { getDb } from "./connection";
-import { grids, leases, products, rentRecords, sales, tenants, users } from "@db/schema";
+import { grids, leases, products, rentRecords, sales, tenantStatements, tenants, users } from "@db/schema";
 import { and, desc, eq, gte, isNotNull, isNull, like, lte, ne, sql, type SQL } from "drizzle-orm";
 import type { ProductTotal } from "../salesRanking";
 
@@ -377,6 +377,60 @@ export async function markRentUnpaid(id: number) {
 
 export async function deleteRentRecord(id: number) {
   await getDb().delete(rentRecords).where(eq(rentRecords.id, id));
+}
+
+// ─── 租戶月結單 ───────────────────────────────────────────────
+
+/** 某租戶某月每個格仔嘅銷售總額（月結單用）；只計有格仔嘅銷售 */
+export async function tenantMonthSalesByGrid(tenantId: number, month: string) {
+  return getDb()
+    .select({
+      gridId: sales.gridId,
+      gridCode: grids.code,
+      amount: sql<number>`sum(${sales.totalAmount})`.mapWith(Number),
+    })
+    .from(sales)
+    .innerJoin(grids, eq(grids.id, sales.gridId))
+    .where(and(eq(sales.tenantId, tenantId), gte(sales.saleDate, `${month}-01`), lte(sales.saleDate, `${month}-31`)))
+    .groupBy(sales.gridId, grids.code);
+}
+
+export async function findStatement(tenantId: number, month: string) {
+  const rows = await getDb()
+    .select()
+    .from(tenantStatements)
+    .where(and(eq(tenantStatements.tenantId, tenantId), eq(tenantStatements.month, month)))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/** 已確認月結單（唔帶明細），新月份喺前 */
+export async function listStatements(filter: { tenantId?: number } = {}) {
+  return getDb()
+    .select({
+      id: tenantStatements.id,
+      tenantId: tenantStatements.tenantId,
+      tenantName: tenantStatements.tenantName,
+      month: tenantStatements.month,
+      totalSales: tenantStatements.totalSales,
+      totalPayroll: tenantStatements.totalPayroll,
+      totalRent: tenantStatements.totalRent,
+      totalPayback: tenantStatements.totalPayback,
+      confirmedAt: tenantStatements.confirmedAt,
+    })
+    .from(tenantStatements)
+    .where(filter.tenantId ? eq(tenantStatements.tenantId, filter.tenantId) : undefined)
+    .orderBy(desc(tenantStatements.month), tenantStatements.tenantName)
+    .limit(1000);
+}
+
+export async function insertStatement(data: typeof tenantStatements.$inferInsert) {
+  const [{ id }] = await getDb().insert(tenantStatements).values(data).returning({ id: tenantStatements.id });
+  return id;
+}
+
+export async function deleteStatement(id: number) {
+  await getDb().delete(tenantStatements).where(eq(tenantStatements.id, id));
 }
 
 // ─── 統計 ────────────────────────────────────────────────────

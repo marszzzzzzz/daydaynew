@@ -6,6 +6,7 @@ import { fmtMoney, todayStr } from "@/lib/format";
 import { SectionTitle, Field, ActionButton, EmptyRow, statusBadge, statusLabel } from "../ui";
 import RentSummaryCell from "./leases/RentSummaryCell";
 import LeaseRentPanel from "./leases/LeaseRentPanel";
+import MonthlyStatement from "./leases/MonthlyStatement";
 
 export default function LeasesTab() {
   const utils = trpc.useUtils();
@@ -130,7 +131,7 @@ export default function LeasesTab() {
       <SectionTitle
         no="05 · Leases"
         title="租約管理"
-        desc="記錄租約起訖日期、免租期、月租同按金。建立租約後格仔自動標記為已租出；終止後回復招租。日期、租金寫錯可以撳「修改」直接改，唔使終止再新增。每份租約仲可以撳「每月租金」，逐月睇租約期內嘅租金確認狀況同數目，直接確認收款。"
+        desc="記錄租約起訖日期、免租期、月租同按金。建立租約後格仔自動標記為已租出；終止後回復招租。日期、租金寫錯可以撳「修改」直接改，唔使終止再新增。每份租約仲可以撳「每月租金」，逐月睇租約期內嘅租金確認狀況同數目，直接確認收款。最底仲有「租戶月結單」：揀租戶同月份，列出每格銷售、payroll、租金、payback，確認後存低。"
       />
 
       {/* 新增租約 */}
@@ -303,6 +304,8 @@ export default function LeasesTab() {
           </tbody>
         </table>
       </div>
+
+      <MonthlyStatement tenants={(tenants.data ?? []).map((t) => ({ id: t.id, name: t.name }))} />
     </div>
   );
 }

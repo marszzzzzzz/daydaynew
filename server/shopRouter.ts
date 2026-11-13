@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { sql, eq, like } from "drizzle-orm";
 import { createRouter, publicQuery, authedQuery, adminQuery, staffQuery } from "./middleware";
-import { withDbRetry, dbStatus } from "./bootstrap";
+import { withDbRetry, dbStatus, rootCause } from "./bootstrap";
 import { getDb } from "./queries/connection";
 import { users, tenants, grids } from "@db/schema";
 import {
@@ -17,6 +17,7 @@ import {
 import * as q from "./queries/shop";
 import { rankProducts } from "./salesRanking";
 import { buildRentSchedule, hkDateOf, hkMonthOf, monthsOfLease, type RentRecordLite } from "@contracts/leaseRent";
+import { PAYROLL_RATE_PERCENT, buildStatement, parseStatementLines, sameStatement } from "@contracts/statement";
 import { env } from "./lib/env";
 
 function assertDemoMode() {
@@ -176,6 +177,21 @@ export function parsePosCsv(text: string):
     });
   }
   return { period, items, errors, skippedRent };
+}
+
+/** 實時計某租戶某月嘅月結單（銷售 + 租約逐月租金） */
+async function computeStatement(tenantId: number, month: string) {
+  const [salesByGrid, allLeases, rentRecords] = await Promise.all([q.tenantMonthSalesByGrid(tenantId, month), q.listLeases(), q.listRentRecordsForLeases()]);
+  const leases = allLeases.filter((l) => l.tenantId === tenantId).map((l) => ({ ...l, gridCode: l.gridCode ?? "" }));
+  const leaseIds = new Set(leases.map((l) => l.id));
+  return buildStatement({
+    month,
+    currentMonth: hkMonthOf(new Date()),
+    payrollRatePercent: PAYROLL_RATE_PERCENT,
+    sales: salesByGrid.filter((r): r is typeof r & { gridId: number } => r.gridId !== null).map((r) => ({ gridId: r.gridId, gridCode: r.gridCode, amount: r.amount })),
+    leases,
+    records: rentRecords.filter((r) => leaseIds.has(r.leaseId)),
+  });
 }
 
 export const shopRouter = createRouter({
@@ -768,6 +784,78 @@ export const shopRouter = createRouter({
         await q.markRentPaid(id, input.paidAt ?? hkDateOf(new Date()));
         return { ok: true as const, created: !existing };
       }),
+    // ─── 租戶月結單（揀租戶 + 月份 → 每格銷售／payroll／租金／payback；核對後確認存低） ───
+    /** 預覽：實時計；已經確認過就連同存低嘅月結單（凍結）一齊回傳，並提示確認之後數字有冇變 */
+    statementPreview: adminQuery
+      .input(z.object({ tenantId: z.number(), month: monthStr }))
+      .query(async ({ input }) => {
+        const tenant = await q.findTenantById(input.tenantId);
+        if (!tenant) throw new TRPCError({ code: "NOT_FOUND", message: "搵唔到租戶" });
+        const live = await computeStatement(input.tenantId, input.month);
+        const saved = await q.findStatement(input.tenantId, input.month);
+        const confirmed = saved && {
+          id: saved.id,
+          tenantName: saved.tenantName,
+          confirmedAt: saved.confirmedAt,
+          payrollRate: Number(saved.payrollRate),
+          lines: parseStatementLines(saved.lines),
+          totals: { sales: Number(saved.totalSales), payroll: Number(saved.totalPayroll), rent: Number(saved.totalRent), payback: Number(saved.totalPayback) },
+        };
+        return {
+          tenantName: tenant.name,
+          month: input.month,
+          payrollRate: PAYROLL_RATE_PERCENT,
+          live,
+          confirmed,
+          /** 確認之後，實時計出嚟嘅數同存低嗰份唔同（例如之後補錄、改咗銷售） */
+          changedSince: confirmed ? !sameStatement(confirmed, live) : false,
+        };
+      }),
+    /** 確認月結單：伺服器重新計一次先存（唔信前端傳嘅數），存咗就凍結；同一租戶同一月份只可以有一張 */
+    confirmStatement: adminQuery
+      .input(z.object({ tenantId: z.number(), month: monthStr }))
+      .mutation(async ({ ctx, input }) => {
+        const tenant = await q.findTenantById(input.tenantId);
+        if (!tenant) throw new TRPCError({ code: "NOT_FOUND", message: "搵唔到租戶" });
+        if (input.month > hkMonthOf(new Date())) throw new TRPCError({ code: "BAD_REQUEST", message: "未到嘅月份唔可以確認月結單" });
+        if (await q.findStatement(input.tenantId, input.month)) {
+          throw new TRPCError({ code: "CONFLICT", message: `${tenant.name} ${input.month} 已經確認過月結單；要重新計就要先撤銷` });
+        }
+        const live = await computeStatement(input.tenantId, input.month);
+        if (live.lines.length === 0) throw new TRPCError({ code: "BAD_REQUEST", message: `${tenant.name} ${input.month} 冇可以結算嘅格仔（冇銷售，亦冇生效租約）` });
+        try {
+          const id = await q.insertStatement({
+            tenantId: tenant.id,
+            tenantName: tenant.name,
+            month: input.month,
+            payrollRate: PAYROLL_RATE_PERCENT.toFixed(2),
+            lines: JSON.stringify(live.lines),
+            totalSales: live.totals.sales.toFixed(2),
+            totalPayroll: live.totals.payroll.toFixed(2),
+            totalRent: live.totals.rent.toFixed(2),
+            totalPayback: live.totals.payback.toFixed(2),
+            confirmedBy: ctx.user.id,
+          });
+          return { id, totals: live.totals };
+        } catch (e) {
+          // 兩個視窗同時確認：唯一索引會擋住第二張
+          if (rootCause(e).includes("statement_tenant_month_uq")) {
+            throw new TRPCError({ code: "CONFLICT", message: `${tenant.name} ${input.month} 已經確認過月結單` });
+          }
+          throw e;
+        }
+      }),
+    /** 撤銷已確認嘅月結單（例如確認咗先發覺銷售未匯入齊）；撤銷後可以重新核對再確認 */
+    deleteStatement: adminQuery
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await q.deleteStatement(input.id);
+        return { ok: true as const };
+      }),
+    /** 已確認月結單列表（每個租戶每月 payback 總數），可以按租戶篩 */
+    listStatements: adminQuery
+      .input(z.object({ tenantId: z.number().optional() }))
+      .query(({ input }) => q.listStatements(input)),
     markRentPaid: adminQuery
       .input(z.object({ id: z.number(), paidAt: dateStr.optional() }))
       .mutation(async ({ input }) => {

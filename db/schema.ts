@@ -344,6 +344,34 @@ export const fbSync = gridbox.table("fb_sync", {
   lastNew: integer("lastNew").notNull().default(0),
 });
 
+/**
+ * 租戶月結單（店主核對後「確認」先存，之後改銷售／租金都唔會郁；每個租戶每月一張）。
+ * lines 係 JSON 字串（StatementLine[]，見 contracts/statement.ts），同 fb_posts.insight 一樣用文字欄。
+ */
+export const tenantStatements = gridbox.table(
+  "tenant_statements",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenantId").notNull(),
+    /** 確認嗰刻嘅租戶名（租戶之後改名，舊月結單都照舊） */
+    tenantName: text("tenantName").notNull(),
+    /** YYYY-MM */
+    month: text("month").notNull(),
+    /** 確認時用嘅 payroll 比例（%） */
+    payrollRate: numeric("payrollRate", { precision: 5, scale: 2 }).notNull(),
+    lines: text("lines").notNull(),
+    totalSales: money("totalSales").notNull(),
+    totalPayroll: money("totalPayroll").notNull(),
+    totalRent: money("totalRent").notNull(),
+    totalPayback: money("totalPayback").notNull(),
+    confirmedBy: integer("confirmedBy"),
+    confirmedAt: timestamp("confirmedAt", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("statement_tenant_month_uq").on(table.tenantId, table.month)],
+);
+
+export type TenantStatement = typeof tenantStatements.$inferSelect;
+
 export const ALL_TABLES = [
   "users",
   "tenants",
@@ -359,4 +387,5 @@ export const ALL_TABLES = [
   "products",
   "fb_posts",
   "fb_sync",
+  "tenant_statements",
 ] as const;

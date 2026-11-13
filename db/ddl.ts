@@ -216,6 +216,21 @@ export const DDL: string[] = [
     "lastMessage" text NOT NULL DEFAULT '',
     "lastNew" integer NOT NULL DEFAULT 0
   )`,
+  `CREATE TABLE IF NOT EXISTS gridbox.tenant_statements (
+    id serial PRIMARY KEY,
+    "tenantId" integer NOT NULL REFERENCES gridbox.tenants(id),
+    "tenantName" text NOT NULL,
+    month text NOT NULL,
+    "payrollRate" numeric(5,2) NOT NULL,
+    lines text NOT NULL,
+    "totalSales" numeric(12,2) NOT NULL,
+    "totalPayroll" numeric(12,2) NOT NULL,
+    "totalRent" numeric(12,2) NOT NULL,
+    "totalPayback" numeric(12,2) NOT NULL,
+    "confirmedBy" integer REFERENCES gridbox.users(id) ON DELETE SET NULL,
+    "confirmedAt" timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS statement_tenant_month_uq ON gridbox.tenant_statements ("tenantId", month)`,
   `CREATE INDEX IF NOT EXISTS sales_product_idx ON gridbox.sales ("productName")`,
   `ALTER TABLE gridbox.users ENABLE ROW LEVEL SECURITY`,
   `ALTER TABLE gridbox.tenants ENABLE ROW LEVEL SECURITY`,
@@ -231,4 +246,5 @@ export const DDL: string[] = [
   `ALTER TABLE gridbox.products ENABLE ROW LEVEL SECURITY`,
   `ALTER TABLE gridbox.fb_posts ENABLE ROW LEVEL SECURITY`,
   `ALTER TABLE gridbox.fb_sync ENABLE ROW LEVEL SECURITY`,
+  `ALTER TABLE gridbox.tenant_statements ENABLE ROW LEVEL SECURITY`,
 ];

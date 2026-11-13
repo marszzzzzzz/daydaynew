@@ -1,5 +1,5 @@
 import { sql, eq, and, like, inArray, notLike } from "drizzle-orm";
-import { users, grids, tenants, leases, sales, rentRecords } from "./schema";
+import { users, grids, tenants, leases, sales, rentRecords, tenantStatements } from "./schema";
 import { allGridCodes, gridSizeOf, gridRentOf } from "@contracts/gridLayout";
 import { hashPassword } from "../server/password";
 import { env } from "../server/lib/env";
@@ -144,6 +144,7 @@ export async function clearDemoBusiness(db: Db): Promise<number> {
 
   await db.delete(sales).where(inArray(sales.tenantId, ids));
   await db.delete(rentRecords).where(inArray(rentRecords.tenantId, ids));
+  await db.delete(tenantStatements).where(inArray(tenantStatements.tenantId, ids));
   await db.delete(leases).where(inArray(leases.tenantId, ids));
   await db.delete(tenants).where(inArray(tenants.id, ids));
   if (gridIds.length) {
