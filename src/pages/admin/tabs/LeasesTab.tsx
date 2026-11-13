@@ -1,15 +1,22 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { askConfirm } from "@/components/AppDialog";
 import { trpc } from "@/providers/trpc";
 import { toast } from "sonner";
 import { fmtMoney, todayStr } from "@/lib/format";
 import { SectionTitle, Field, ActionButton, EmptyRow, statusBadge, statusLabel } from "../ui";
+import RentSummaryCell from "./leases/RentSummaryCell";
+import LeaseRentPanel from "./leases/LeaseRentPanel";
 
 export default function LeasesTab() {
   const utils = trpc.useUtils();
   const leases = trpc.shop.admin.listLeases.useQuery();
   const grids = trpc.shop.admin.listGrids.useQuery();
   const tenants = trpc.shop.admin.listTenants.useQuery();
+  const rentOverview = trpc.shop.admin.leaseRentOverview.useQuery();
+  const scheduleOf = (leaseId: number) => rentOverview.data?.items.find((i) => i.leaseId === leaseId);
+  // 展開咗逐月租金嘅租約
+  const [openRent, setOpenRent] = useState<ReadonlySet<number>>(new Set());
+  const toggleRent = (id: number) => setOpenRent(openRent.has(id) ? new Set([...openRent].filter((x) => x !== id)) : new Set([...openRent, id]));
 
   const vacantGrids = (grids.data ?? []).filter((g) => g.status !== "occupied");
 
@@ -24,6 +31,7 @@ export default function LeasesTab() {
 
   const invalidate = () => {
     utils.shop.admin.listLeases.invalidate();
+    utils.shop.admin.leaseRentOverview.invalidate();
     utils.shop.admin.listGrids.invalidate();
     utils.shop.admin.stats.invalidate();
     utils.shop.publicGridWall.invalidate();
@@ -122,7 +130,7 @@ export default function LeasesTab() {
       <SectionTitle
         no="05 · Leases"
         title="租約管理"
-        desc="記錄租約起訖日期、免租期、月租同按金。建立租約後格仔自動標記為已租出；終止後回復招租。日期、租金寫錯可以撳「修改」直接改，唔使終止再新增。"
+        desc="記錄租約起訖日期、免租期、月租同按金。建立租約後格仔自動標記為已租出；終止後回復招租。日期、租金寫錯可以撳「修改」直接改，唔使終止再新增。每份租約仲可以撳「每月租金」，逐月睇租約期內嘅租金確認狀況同數目，直接確認收款。"
       />
 
       {/* 新增租約 */}
@@ -182,7 +190,7 @@ export default function LeasesTab() {
 
       {/* 列表 */}
       <div className="mt-10 overflow-x-auto">
-        <table className="ledger-table w-full min-w-[860px] text-[13.5px]">
+        <table className="ledger-table w-full min-w-[980px] text-[13.5px]">
           <thead>
             <tr className="text-left">
               <th className="py-3 pr-4">格仔</th>
@@ -191,6 +199,7 @@ export default function LeasesTab() {
               <th className="py-3 pr-4 text-right">免租期</th>
               <th className="py-3 pr-4 text-right">月租</th>
               <th className="py-3 pr-4 text-right">按金</th>
+              <th className="py-3 pr-4">租金確認</th>
               <th className="py-3 pr-4">狀態</th>
               <th className="py-3 pr-4">備註</th>
               <th className="py-3 text-right">操作</th>
@@ -218,6 +227,9 @@ export default function LeasesTab() {
                     <input className={`${cell} text-right`} value={eDeposit} onChange={(e) => setEDeposit(e.target.value)} inputMode="decimal" aria-label="按金" />
                   </td>
                   <td className="py-3 pr-4">
+                    <RentSummaryCell summary={scheduleOf(l.id)?.summary} />
+                  </td>
+                  <td className="py-3 pr-4">
                     <span className={`badge-frame border ${statusBadge[l.status]}`}>{statusLabel[l.status]}</span>
                   </td>
                   <td className="py-2.5 pr-4">
@@ -235,7 +247,8 @@ export default function LeasesTab() {
                   </td>
                 </tr>
               ) : (
-                <tr key={l.id} className="transition-colors hover:bg-ochre/10">
+                <Fragment key={l.id}>
+                <tr className="transition-colors hover:bg-ochre/10">
                   <td className="py-3 pr-4 font-mono text-[12.5px] font-semibold">{l.gridCode}</td>
                   <td className="py-3 pr-4">{l.tenantName}</td>
                   <td className="py-3 pr-4 font-mono text-[12.5px]">{l.startDate} → {l.endDate}</td>
@@ -243,11 +256,21 @@ export default function LeasesTab() {
                   <td className="py-3 pr-4 text-right font-mono">${fmtMoney(l.monthlyRent)}</td>
                   <td className="py-3 pr-4 text-right font-mono">${fmtMoney(l.deposit)}</td>
                   <td className="py-3 pr-4">
+                    <RentSummaryCell summary={scheduleOf(l.id)?.summary} />
+                  </td>
+                  <td className="py-3 pr-4">
                     <span className={`badge-frame border ${statusBadge[l.status]}`}>{statusLabel[l.status]}</span>
                   </td>
                   <td className="py-3 pr-4 text-ink/55">{l.note ?? ""}</td>
                   <td className="py-3 text-right">
                     <div className="flex flex-col items-end">
+                      <button
+                        onClick={() => toggleRent(l.id)}
+                        aria-expanded={openRent.has(l.id)}
+                        className="px-2 py-1 font-mono text-[11.5px] text-ochre-deep underline-offset-2 hover:underline"
+                      >
+                        {openRent.has(l.id) ? "收埋每月租金" : "每月租金"}
+                      </button>
                       <button
                         onClick={() => startEdit(l)}
                         disabled={editing !== null}
@@ -266,9 +289,17 @@ export default function LeasesTab() {
                     </div>
                   </td>
                 </tr>
+                {openRent.has(l.id) && (
+                  <tr>
+                    <td colSpan={10} className="p-0">
+                      {scheduleOf(l.id) ? <LeaseRentPanel leaseId={l.id} schedule={scheduleOf(l.id)!} /> : <p className="px-4 py-3 text-[12.5px] text-ink/50">載入中…</p>}
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ),
             )}
-            {rows.length === 0 && <EmptyRow colSpan={9} text={leases.isLoading ? "載入中…" : "未有租約"} />}
+            {rows.length === 0 && <EmptyRow colSpan={10} text={leases.isLoading ? "載入中…" : "未有租約"} />}
           </tbody>
         </table>
       </div>

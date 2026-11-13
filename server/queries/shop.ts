@@ -329,6 +329,22 @@ export async function listRentRecords(filters: { month?: string; status?: "unpai
     .limit(500);
 }
 
+/** 全部租金單（只限租金，唔計按金），租約管理逐月排程用；唔設上限，否則舊記錄會靜靜雞消失 */
+export async function listRentRecordsForLeases() {
+  return getDb()
+    .select({
+      id: rentRecords.id,
+      leaseId: rentRecords.leaseId,
+      month: rentRecords.month,
+      amount: rentRecords.amount,
+      status: rentRecords.status,
+      paidAt: rentRecords.paidAt,
+    })
+    .from(rentRecords)
+    .where(eq(rentRecords.type, "rent"))
+    .orderBy(rentRecords.id);
+}
+
 export async function createRentRecord(data: {
   leaseId: number;
   gridId: number;

@@ -16,6 +16,7 @@ import {
 } from "../db/seed-lib";
 import * as q from "./queries/shop";
 import { rankProducts } from "./salesRanking";
+import { buildRentSchedule, hkDateOf, hkMonthOf, monthsOfLease, type RentRecordLite } from "@contracts/leaseRent";
 import { env } from "./lib/env";
 
 function assertDemoMode() {
@@ -731,6 +732,41 @@ export const shopRouter = createRouter({
           amount: input.amount,
           note: input.note,
         });
+      }),
+    /** 租約管理：每份租約喺租約期內逐月嘅租金確認狀況同數目（已確認／未收／未開單／免租） */
+    leaseRentOverview: adminQuery.query(async () => {
+      const [allLeases, records] = await Promise.all([q.listLeases(), q.listRentRecordsForLeases()]);
+      const byLease = new Map<number, RentRecordLite[]>();
+      for (const r of records) byLease.set(r.leaseId, [...(byLease.get(r.leaseId) ?? []), r]);
+      const currentMonth = hkMonthOf(new Date());
+      return {
+        currentMonth,
+        items: allLeases.map((l) => ({ leaseId: l.id, ...buildRentSchedule(l, byLease.get(l.id) ?? [], currentMonth) })),
+      };
+    }),
+    /** 確認某份租約某個月嘅租金已收：未開單就先開單（金額用租約月租）再標記已收；已經係已收就唔改收款日 */
+    confirmLeaseMonth: adminQuery
+      .input(z.object({ leaseId: z.number(), month: monthStr, paidAt: dateStr.optional() }))
+      .mutation(async ({ input }) => {
+        const lease = (await q.listLeases()).find((l) => l.id === input.leaseId);
+        if (!lease) throw new TRPCError({ code: "NOT_FOUND", message: "搵唔到租約" });
+        if (!monthsOfLease(lease.startDate, lease.endDate).includes(input.month)) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: `${input.month} 唔喺租約期內（${lease.startDate} 至 ${lease.endDate}）` });
+        }
+        const existing = await q.findRentRecord(lease.id, input.month, "rent");
+        if (existing?.status === "paid") return { ok: true as const, created: false };
+        const id =
+          existing?.id ??
+          (await q.createRentRecord({
+            leaseId: lease.id,
+            gridId: lease.gridId,
+            tenantId: lease.tenantId,
+            month: input.month,
+            type: "rent",
+            amount: String(lease.monthlyRent),
+          }));
+        await q.markRentPaid(id, input.paidAt ?? hkDateOf(new Date()));
+        return { ok: true as const, created: !existing };
       }),
     markRentPaid: adminQuery
       .input(z.object({ id: z.number(), paidAt: dateStr.optional() }))
