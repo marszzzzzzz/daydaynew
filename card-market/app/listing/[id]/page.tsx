@@ -9,6 +9,7 @@ import { ShareButton } from '@/components/share/ShareSheet';
 import { Badge, Button, ButtonLink, Field, Input, Loading, LoadError, Notice, Panel, Textarea } from '@/components/ui';
 import { api, fetcher } from '@/lib/api';
 import { clampInt, coverSide, photoUrl, searchHint } from '@/lib/cards';
+import { hasPhone } from '@/lib/contact';
 import { useConfig } from '@/lib/hooks';
 import { useT } from '@/lib/i18n';
 import type { Deal, Listing, Me, PhotoSide } from '@/lib/types';
@@ -154,9 +155,10 @@ function OfferForm({ listing: l, onDone }: { listing: Listing; onDone: () => voi
         <Field label={t('offer.message')}>
           <Textarea maxLength={1000} value={message} onChange={(e) => setMessage(e.target.value)} placeholder={t('offer.message.ph')} />
         </Field>
+        {hasPhone(message) && <p role="alert" className="rounded-xl bg-danger-soft px-3 py-2 text-sm text-danger">{t('err.PHONE_IN_MESSAGE')}</p>}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm">{t('offer.total')}: <b className="text-lg">{Number.isFinite(total) && total > 0 ? money(total, l.currency) : '—'}</b></p>
-          <Button type="submit" busy={busy}>{t('offer.submit')}</Button>
+          <Button type="submit" busy={busy} disabled={hasPhone(message)}>{t('offer.submit')}</Button>
         </div>
         {err && <Notice tone="danger">{err}</Notice>}
         <p className="text-xs text-muted">{t('offer.note')}</p>

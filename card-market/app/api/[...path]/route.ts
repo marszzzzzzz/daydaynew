@@ -3,12 +3,15 @@
 // - The session token is kept in an httpOnly cookie and sent upstream as a bearer token.
 // - Login / register responses have their token swapped for that cookie.
 import { NextResponse, type NextRequest } from 'next/server';
+import { hasPhone } from '@/lib/contact';
 import { SESSION_COOKIE, UPSTREAM, clearSession, isSameOrigin, setSession } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
 
 const ALLOWED = /^(config|me|me\/whatsapp|auth\/(login|register|password|name-available)|real-cards(\/.*)?|real-market(\/.*)?)$/;
 const TOKEN_ROUTES = new Set(['auth/login', 'auth/register']);
+// Writes whose text goes to the other player: a deal message (`body`) or the note with an offer (`message`).
+const CHAT_ROUTES = /^real-market\/(deals\/[^/]+\/messages|[^/]+\/offers)$/;
 const PASS_HEADERS = ['content-type', 'cache-control', 'retry-after'];
 
 const fail = (status: number, error: string, code: string) => NextResponse.json({ error, code }, { status });
@@ -19,6 +22,15 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
   if (!ALLOWED.test(sub) || path.some((p) => p === '..' || p === '.')) return fail(404, 'Not found', 'NOT_FOUND');
   const write = req.method !== 'GET' && req.method !== 'HEAD';
   if (write && !isSameOrigin(req)) return fail(403, 'Cross-site request refused', 'CSRF');
+  const body = write ? await req.arrayBuffer() : undefined;
+  // No phone numbers in messages: contact details are shared by the platform once an offer is accepted.
+  if (body && req.method === 'POST' && CHAT_ROUTES.test(sub)) {
+    let data: { body?: unknown; message?: unknown } = {};
+    try { data = JSON.parse(new TextDecoder().decode(body)); } catch { /* the backend reports a bad body */ }
+    if ([data.body, data.message].some((v) => typeof v === 'string' && hasPhone(v))) {
+      return fail(400, 'Phone numbers can’t be sent in messages — WhatsApp numbers are shared when an offer is accepted', 'PHONE_IN_MESSAGE');
+    }
+  }
 
   const headers = new Headers({ accept: req.headers.get('accept') ?? 'application/json' });
   const type = req.headers.get('content-type');
@@ -31,7 +43,7 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
     res = await fetch(`${UPSTREAM}/api/${path.map(encodeURIComponent).join('/')}${req.nextUrl.search}`, {
       method: req.method,
       headers,
-      body: write ? await req.arrayBuffer() : undefined,
+      body,
       cache: 'no-store',
       redirect: 'manual',
     });

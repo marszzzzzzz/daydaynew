@@ -7,6 +7,7 @@ import { CardPhoto } from '@/components/CardPhoto';
 import { DealStatusBadge, isLive } from '@/components/DealBits';
 import { RequireSignIn } from '@/components/RequireSignIn';
 import { Button, ConfirmDialog, Loading, LoadError, Notice, Panel, Textarea } from '@/components/ui';
+import { hasPhone, maskPhones } from '@/lib/contact';
 import { ApiError, api, fetcher } from '@/lib/api';
 import { coverSide, formatWhatsApp, whatsAppLink } from '@/lib/cards';
 import { useT, type Key } from '@/lib/i18n';
@@ -63,7 +64,7 @@ function DealView() {
 
   async function send(e: FormEvent) {
     e.preventDefault();
-    if (sending.current || !text.trim()) return;
+    if (sending.current || !text.trim() || hasPhone(text)) return;
     sending.current = true;
     setBusy(true);
     setErr(null);
@@ -149,18 +150,21 @@ function DealView() {
               <li key={m.id} className={`flex ${m.mine ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-[15px] whitespace-pre-wrap break-words ${m.mine ? 'rounded-br-md bg-brand text-brand-ink' : m.fromAdmin ? 'rounded-bl-md bg-warn-soft text-ink' : 'rounded-bl-md bg-surface-2'}`}>
                   {m.fromAdmin && <span className="mb-0.5 block text-xs font-bold text-warn">{t('deal.admin')}</span>}
-                  {m.body}
+                  {maskPhones(m.body)}
                   <span className={`mt-0.5 block text-[11px] ${m.mine ? 'opacity-70' : 'text-muted'}`}>{ago(m.createdAt)}</span>
                 </div>
               </li>
             ))}
           </ol>
           {isLive(d.status) ? (
+            <>
+            {hasPhone(text) && <p role="alert" className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-sm text-danger">{t('err.PHONE_IN_MESSAGE')}</p>}
             <form onSubmit={send} className="mt-3 flex items-end gap-2 border-t border-line pt-3">
               <Textarea value={text} maxLength={1000} onChange={(e) => setText(e.target.value)} placeholder={t('deal.compose')} className="min-h-11 flex-1 resize-none" rows={1}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }} />
-              <Button type="submit" busy={busy} disabled={!text.trim()}>{t('deal.send')}</Button>
+              <Button type="submit" busy={busy} disabled={!text.trim() || hasPhone(text)}>{t('deal.send')}</Button>
             </form>
+            </>
           ) : <p className="mt-3 border-t border-line pt-3 text-center text-sm text-muted">{t('deal.closedNoMsg')}</p>}
         </Panel>
       </div>

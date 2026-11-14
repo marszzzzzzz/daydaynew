@@ -594,6 +594,7 @@ const D = {
   'err.CSRF': ['請在本網站內操作', 'Cross-site request refused'],
   'err.SIGNOUT_FAILED': ['未能登出，請再試一次', 'Could not sign out — please try again'],
   'err.PHOTO_UNREADABLE': ['無法讀取這張相片，請換一張（JPEG、PNG 或 WebP）', 'Could not read this photo — try another (JPEG, PNG or WebP)'],
+  'err.PHONE_IN_MESSAGE': ['訊息不可以包含電話號碼或聯絡連結。賣家接受出價後，雙方會自動看到對方的 WhatsApp。', 'Messages can’t include phone numbers or contact links — once an offer is accepted, both sides see each other’s WhatsApp.'],
   'err.uncoded': ['操作未能完成：{msg}', '{msg}'],
   'err.SCHEMA_OUTDATED': ['系統更新中，請稍後再試', 'Service is being updated — try again shortly'],
 } satisfies Record<string, [string, string]>;

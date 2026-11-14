@@ -8,6 +8,7 @@ import { RequireSignIn } from '@/components/RequireSignIn';
 import { Loading, LoadError, PageTitle } from '@/components/ui';
 import { fetcher } from '@/lib/api';
 import { coverSide } from '@/lib/cards';
+import { maskPhones } from '@/lib/contact';
 import { useT, type Key } from '@/lib/i18n';
 import type { Deal } from '@/lib/types';
 
@@ -58,7 +59,7 @@ function Deals() {
 function DealRow({ deal: d }: { deal: Deal }) {
   const { t, money, ago } = useT();
   const last = d.lastMessage;
-  const preview = !last ? '' : last.kind === 'EVENT' ? t(`event.${last.body}` as Key) : `${last.mine ? `${t('deal.you')}: ` : ''}${last.body}`;
+  const preview = !last ? '' : last.kind === 'EVENT' ? t(`event.${last.body}` as Key) : `${last.mine ? `${t('deal.you')}: ` : ''}${maskPhones(last.body)}`;
   return (
     <li>
       <Link href={`/deals/${encodeURIComponent(d.id)}`} className="flex gap-3 rounded-2xl border border-line bg-surface p-3 hover:bg-surface-2">
