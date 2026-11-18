@@ -12,13 +12,28 @@ import { markSeen, seen } from '@/lib/tour';
 import type { Me, RealCard } from '@/lib/types';
 import { ArtScan, Confetti } from './Art';
 
-/** Top of the home page: the camera is the main way in. Signed out, it leads through sign-up to the camera. */
-export function ScanHero({ signedIn }: { signedIn: boolean }) {
+/**
+ * Top of the home page: the camera is the main way in. Signed out, it leads through sign-up to the camera.
+ * `compact` (a collector who already has cards): one slim bar, so the market starts on the first screen.
+ */
+export function ScanHero({ signedIn, compact }: { signedIn: boolean; compact?: boolean }) {
   const { t } = useT();
   const scan = signedIn ? '/sell/batch' : `/signup?next=${encodeURIComponent('/sell/batch')}`;
+  if (compact) {
+    return (
+      <section className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl bg-[#121633] px-4 py-3 text-white">
+        <p className="w-full text-sm font-semibold sm:w-auto sm:min-w-0 sm:flex-1">{t('start.compact')}</p>
+        <Link href="/sell/new" className="ml-auto text-sm text-white/75 underline-offset-4 hover:underline sm:ml-0">{t('start.manualShort')}</Link>
+        <Link href={scan} data-tour="scan-cta" className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 font-bold text-[#17192c]">
+          <span aria-hidden>📷</span>{t('start.cta')}
+        </Link>
+      </section>
+    );
+  }
   return (
     <section className="relative mb-6 overflow-hidden rounded-3xl bg-[#121633] p-5 text-white sm:p-7">
-      <div aria-hidden className="pointer-events-none absolute -right-4 -bottom-10 flex gap-2 opacity-80 motion-safe-anim sm:-top-6 sm:bottom-auto sm:opacity-90">
+      {/* Decoration only where it can't cover the text (it did on phones). */}
+      <div aria-hidden className="pointer-events-none absolute -top-6 -right-4 hidden gap-2 opacity-90 motion-safe-anim sm:flex">
         {['#FFCB05', '#8B5CF6', '#FF4D2E'].map((c, i) => (
           <span key={c} className="h-20 w-14 rounded-lg border-2 border-white/70 shadow-lg sm:h-32 sm:w-24"
             style={{ background: c, ['--r' as string]: `${8 + i * 7}deg`, transform: `rotate(${8 + i * 7}deg)`, animation: `tour-float ${2.4 + i * 0.4}s ${i * 0.3}s ease-in-out infinite` }} />
@@ -34,7 +49,9 @@ export function ScanHero({ signedIn }: { signedIn: boolean }) {
             style={{ animation: 'tour-pulse 2s infinite' }}>
             <span aria-hidden className="text-2xl">📷</span>{t('start.cta')}
           </Link>
-          {signedIn && <Link href="/sell/new" className="text-sm font-semibold text-white/80 underline-offset-4 hover:underline">{t('start.manual')}</Link>}
+          {signedIn
+            ? <Link href="/sell/new" className="text-sm font-semibold text-white/80 underline-offset-4 hover:underline">{t('start.manual')}</Link>
+            : <Link href="/login" className="text-sm font-semibold text-white/80 underline-offset-4 hover:underline">{t('start.haveAccount')}</Link>}
         </div>
         <ol className="mt-5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/70">
           {(['start.s1', 'start.s2', 'start.s3'] as Key[]).map((k, i) => <li key={k}><b className="text-white">{i + 1}</b> {t(k)}</li>)}

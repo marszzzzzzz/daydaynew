@@ -13,7 +13,7 @@ export default function NewCardPage() {
         <div>
           <Link href="/sell" className="mb-4 inline-block text-sm text-muted hover:text-ink">← {t('sell.title')}</Link>
           <PageTitle title={t('form.new')} action={<ButtonLink href="/sell/batch" variant="secondary">📷 {t('batch.cta')}</ButtonLink>}
-            sub={t('batch.ctaHint')} />
+            sub={t('form.new.sub')} />
           <CardForm />
         </div>
       )}

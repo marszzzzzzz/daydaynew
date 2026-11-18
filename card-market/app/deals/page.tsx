@@ -73,7 +73,7 @@ function DealRow({ deal: d }: { deal: Deal }) {
           </div>
           <p className="text-sm">
             <b>{money(d.price * d.quantity, d.currency)}</b>
-            <span className="text-muted"> · {t('deal.each', { price: money(d.price, d.currency), qty: d.quantity })} · {t('deal.with', { name: d.counterpart.name })}</span>
+            <span className="text-muted"> · {t('deal.each', { price: money(d.price, d.currency), qty: d.quantity })} · <span className="whitespace-nowrap">{t('deal.with', { name: d.counterpart.name })}</span></span>
           </p>
           <div className="mt-0.5 flex items-center justify-between gap-2 text-xs text-muted">
             <span className="truncate">{preview}</span>

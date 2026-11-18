@@ -53,7 +53,9 @@ function ListingView({ me }: { me: Me }) {
       {back}
       <div className="grid gap-6 md:grid-cols-[minmax(0,22rem)_1fr] lg:gap-10">
         <div>
-          <CardPhoto cardId={l.id} side={side} has={l.photos.includes(side)} category={l.category} name={l.name} className="shadow-xl" />
+          <div className="mx-auto w-3/5 max-w-[15rem] md:w-auto md:max-w-none">
+            <CardPhoto cardId={l.id} side={side} has={l.photos.includes(side)} category={l.category} name={l.name} className="shadow-xl" />
+          </div>
           {l.photos.length > 1 && (
             <div className="mt-3 flex justify-center gap-2">
               {(['FRONT', 'BACK'] as const).map((s) => (

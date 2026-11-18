@@ -29,7 +29,7 @@ function HomeStart({ me }: { me: Me }) {
   const tour = useTour('home');
   return (
     <>
-      <ScanHero signedIn />
+      <ScanHero signedIn compact={me.facts.realCards > 0} />
       <StarterChecklist me={me} />
       <Tour id="home" open={tour.open} onClose={tour.close} finish={{ label: 'tour.home.go', action: () => router.push('/sell/batch') }}
         steps={[
@@ -46,22 +46,7 @@ function Landing() {
   const { t } = useT();
   const steps: [Key, Key, string][] = [['how.1.t', 'how.1.d', '📸'], ['how.2.t', 'how.2.d', '💬'], ['how.3.t', 'how.3.d', '🤝']];
   return (
-    <div className="space-y-10 pb-4 sm:pb-10">
-      <section className="relative overflow-hidden rounded-3xl bg-brand px-6 py-12 text-brand-ink sm:px-12 sm:py-16">
-        <div aria-hidden className="pointer-events-none absolute -top-10 -right-6 hidden rotate-12 gap-3 opacity-90 sm:flex">
-          {['#FFCB05', '#8B5CF6', '#FF4D2E'].map((c, i) => (
-            <div key={c} className="h-44 w-32 rounded-xl border-4 border-white/70 shadow-xl" style={{ background: c, transform: `translateY(${i * 24}px) rotate(${i * 6}deg)` }} />
-          ))}
-        </div>
-        <div className="relative max-w-xl">
-          <h1 className="text-3xl leading-tight font-extrabold tracking-tight sm:text-5xl">{t('hero.title')}</h1>
-          <p className="mt-4 text-base leading-relaxed opacity-90 sm:text-lg">{t('hero.sub')}</p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/signup" className="rounded-xl bg-accent px-5 py-3 font-semibold text-[#17192c] hover:opacity-90">{t('hero.start')}</Link>
-            <Link href="/login" className="rounded-xl border border-white/40 px-5 py-3 font-semibold hover:bg-white/10">{t('hero.browse')}</Link>
-          </div>
-        </div>
-      </section>
+    <div className="space-y-6 pb-4 sm:pb-10">
 
       <section className="grid gap-4 sm:grid-cols-3">
         {steps.map(([title, desc, icon], i) => (
@@ -140,7 +125,8 @@ function Market() {
                 <Link href={`/listing/${encodeURIComponent(l.id)}?q=${encodeURIComponent(searchHint(l.name))}`} className="group block rounded-2xl border border-line bg-surface p-2.5 transition hover:-translate-y-0.5 hover:shadow-lg">
                   <div className="relative">
                     <CardPhoto cardId={l.id} side={coverSide(l.photos)} has={l.photos.length > 0} category={l.category} name={l.name} />
-                    <div className="absolute top-2 left-2 flex flex-col items-start gap-1">
+                    {/* Bottom of the photo: the top is where a card prints its name. */}
+                    <div className="absolute bottom-2 left-2 flex flex-wrap items-start gap-1">
                       {l.mine && <Badge tone="brand">{t('listing.mine')}</Badge>}
                       {l.myOffer && <Badge tone="ok">{t('listing.offered')}</Badge>}
                     </div>
@@ -148,11 +134,9 @@ function Market() {
                   <div className="px-1 pt-2.5 pb-1">
                     <p className="truncate font-semibold">{l.name}</p>
                     <p className="truncate text-xs text-muted">{cardDetail(l) || l.category?.name || ' '}</p>
-                    <div className="mt-2 flex items-end justify-between gap-2">
-                      <span className="text-lg font-bold">{money(l.askingPrice, l.currency)}</span>
-                      <span className="text-xs text-muted">{t('listing.available', { n: l.available })}</span>
-                    </div>
-                    <p className="mt-1 truncate text-xs text-muted">{t(`cond.${l.condition}`)} · {l.seller.name}{l.seller.region ? ` · ${l.seller.region}` : ''}</p>
+                    <p className="mt-2 text-lg leading-tight font-bold">{money(l.askingPrice, l.currency)}</p>
+                    <p className="mt-0.5 truncate text-xs text-muted">{t(`cond.${l.condition}`)} · {t('listing.available', { n: l.available })}</p>
+                    <p className="truncate text-xs text-muted">{l.seller.name}{l.seller.region ? ` · ${l.seller.region}` : ''}</p>
                   </div>
                 </Link>
               </li>
