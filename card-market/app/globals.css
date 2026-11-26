@@ -1,24 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  /* Vitrine: a dark display case. The cards carry the colour; the UI stays black and warm white. */
-  --bg: #0b0b0c;
-  --surface: #141416;
-  --surface-2: #1d1d20;
-  --ink: #f5f5f4;
-  --muted: #a1a1aa;
-  --line: rgba(255, 255, 255, 0.12);
-  --brand: #f4f2ec;      /* shelf white: primary buttons */
-  --brand-ink: #0b0b0c;
-  --accent: #ffe9b0;     /* lamp glow: the camera button and prices */
-  --glow: rgba(255, 236, 190, 0.55);
-  --shelf: #f4f2ec;
-  --ok: #6fcf97;
-  --ok-soft: rgba(111, 207, 151, 0.12);
-  --warn: #f2b56b;
-  --warn-soft: rgba(242, 181, 107, 0.12);
-  --danger: #f08a8a;
-  --danger-soft: rgba(240, 138, 138, 0.12);
+  /* Galaxy: deep space, a starfield and violet-blue nebula light. The cards stay the brightest thing. */
+  --bg: #05060f;
+  --surface: rgba(18, 21, 48, 0.72);
+  --surface-2: #161a3a;
+  --ink: #eef0ff;
+  --muted: #9aa0c8;
+  --line: rgba(160, 170, 255, 0.16);
+  --brand: #eef0ff;      /* starlight: primary buttons */
+  --brand-ink: #070818;
+  --accent: #8fdcff;     /* comet cyan: prices */
+  --glow: rgba(139, 123, 255, 0.6);
+  --glow-2: rgba(90, 209, 255, 0.45);
+  --shelf: #c9c2ff;
+  --ok: #7be0b0;
+  --ok-soft: rgba(123, 224, 176, 0.12);
+  --warn: #ffc07a;
+  --warn-soft: rgba(255, 192, 122, 0.12);
+  --danger: #ff8fa3;
+  --danger-soft: rgba(255, 143, 163, 0.12);
   color-scheme: dark;
 }
 
@@ -40,6 +41,7 @@
   --color-danger-soft: var(--danger-soft);
   --color-glow: var(--glow);
   --color-shelf: var(--shelf);
+  --color-glow-2: var(--glow-2);
   --font-sans: var(--font-body), var(--font-tc), ui-sans-serif, system-ui, -apple-system, "PingFang HK", "Microsoft JhengHei", sans-serif;
   --font-display: var(--font-head), var(--font-tc), ui-sans-serif, system-ui, sans-serif;
 }
@@ -49,9 +51,51 @@ html {
 }
 
 body {
-  background: var(--bg);
   color: var(--ink);
   font-family: var(--font-sans);
+  /* Nebula clouds, fixed behind everything. */
+  background:
+    radial-gradient(60vmax 40vmax at 12% -5%, rgba(120, 80, 255, 0.28), transparent 60%),
+    radial-gradient(50vmax 35vmax at 95% 20%, rgba(40, 170, 255, 0.18), transparent 60%),
+    radial-gradient(55vmax 40vmax at 70% 110%, rgba(255, 70, 180, 0.14), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+/* Starfield: two layers of tiny points, the near one twinkles slowly. */
+body::before, body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+body::before {
+  background-image:
+    radial-gradient(1px 1px at 20px 30px, #fff, transparent),
+    radial-gradient(1px 1px at 140px 90px, rgba(255,255,255,0.8), transparent),
+    radial-gradient(1px 1px at 230px 160px, rgba(200,210,255,0.9), transparent),
+    radial-gradient(1px 1px at 60px 210px, rgba(255,255,255,0.6), transparent),
+    radial-gradient(1px 1px at 300px 40px, rgba(255,255,255,0.7), transparent),
+    radial-gradient(1px 1px at 180px 260px, rgba(180,200,255,0.8), transparent);
+  background-size: 320px 300px;
+  opacity: 0.55;
+}
+body::after {
+  background-image:
+    radial-gradient(1.5px 1.5px at 80px 120px, #fff, transparent),
+    radial-gradient(2px 2px at 420px 300px, rgba(190,180,255,0.9), transparent),
+    radial-gradient(1.5px 1.5px at 600px 80px, rgba(150,220,255,0.9), transparent),
+    radial-gradient(1.5px 1.5px at 260px 520px, #fff, transparent);
+  background-size: 700px 640px;
+  animation: twinkle 6s ease-in-out infinite alternate;
+}
+@keyframes twinkle {
+  from { opacity: 0.35; }
+  to { opacity: 0.9; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body::after { animation: none; opacity: 0.7; }
 }
 
 input, select, textarea, button {
@@ -164,16 +208,19 @@ input, select, textarea, button {
   content: "";
   position: absolute;
   inset: auto 0 0 0;
-  height: 6px;
-  border-radius: 1px;
-  background: var(--shelf);
-  box-shadow: 0 -10px 28px -6px var(--glow), 0 2px 0 rgba(255, 255, 255, 0.06);
+  height: 4px;
+  border-radius: 2px;
+  /* An orbit of light: violet into cyan across the whole row. */
+  background: linear-gradient(90deg, #8b7bff, #c9c2ff 45%, #5ad1ff);
+  background-size: 100vw 100%;
+  background-attachment: fixed;
+  box-shadow: 0 -14px 34px -6px var(--glow), 0 0 22px 0 var(--glow-2);
 }
 
 /* Acrylic case around a card: thin clear edge with a soft reflection. */
 .acrylic {
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 40%);
+  border: 1px solid rgba(190, 195, 255, 0.24);
+  background: linear-gradient(160deg, rgba(170, 160, 255, 0.10), rgba(255, 255, 255, 0) 45%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
@@ -182,7 +229,24 @@ input, select, textarea, button {
   transition: box-shadow 200ms ease, transform 200ms ease;
 }
 .lamp:hover {
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3), 0 12px 40px -8px var(--glow);
+  box-shadow: 0 0 0 1px rgba(200, 200, 255, 0.35), 0 12px 40px -8px var(--glow), 0 0 30px -6px var(--glow-2);
+}
+
+/* Starlight gradient on the big headings. */
+.cosmic {
+  background: linear-gradient(100deg, #ffffff 0%, #d8d2ff 45%, #9fe3ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* A planet rising behind the hero: a lit rim and a soft halo. */
+.planet {
+  position: absolute;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 30% 25%, #3b2f8f, #120f3a 55%, #05060f 75%);
+  box-shadow: inset 8px 10px 30px rgba(170, 150, 255, 0.35), 0 0 80px 10px rgba(110, 90, 255, 0.25);
+  pointer-events: none;
 }
 
 @keyframes shelve {

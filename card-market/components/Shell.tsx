@@ -24,8 +24,8 @@ export function Shell({ children }: { children: ReactNode }) {
   const isAdmin = !!useAdminSession(!!me)?.admin;
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-20 border-b border-line bg-bg/85 backdrop-blur">
+    <div className="flex min-h-dvh flex-col overflow-x-clip">
+      <header className="sticky top-0 z-20 border-b border-line bg-[#05060f]/70 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4">
           <Link href="/" className="display flex items-center gap-2 text-base">
             <span aria-hidden className="grid size-7 place-items-center rounded-sm bg-shelf text-sm text-bg">卡</span>
@@ -35,7 +35,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <nav className="hidden items-center gap-1 sm:flex">
               {NAV.map((n) => (
                 <Link key={n.href} href={n.href} data-tour={n.href === '/sell' ? 'nav-sell' : undefined}
-                  className={`relative px-3 py-1.5 text-sm font-medium ${active(path, n.href) ? 'text-ink after:absolute after:inset-x-3 after:-bottom-[13px] after:h-0.5 after:bg-shelf after:shadow-[0_0_12px_var(--glow)]' : 'text-muted hover:text-ink'}`}>
+                  className={`relative px-3 py-1.5 text-sm font-medium ${active(path, n.href) ? 'text-ink after:absolute after:inset-x-3 after:-bottom-[13px] after:h-0.5 after:bg-gradient-to-r after:from-[#8b7bff] after:to-[#5ad1ff] after:shadow-[0_0_12px_var(--glow)]' : 'text-muted hover:text-ink'}`}>
                   {t(n.key)}
                   {n.href === '/deals' && badge > 0 && <Dot n={badge} />}
                 </Link>
@@ -73,7 +73,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </footer>
 
       {me && (
-        <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t border-line bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden">
+        <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t border-line bg-[#05060f]/85 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden">
           {NAV.map((n) => (
             <Link key={n.href} href={n.href} data-tour={n.href === '/sell' ? 'nav-sell' : undefined}
               className={`relative flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium ${active(path, n.href) ? 'text-ink' : 'text-muted'}`}>

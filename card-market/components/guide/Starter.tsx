@@ -32,13 +32,14 @@ export function ScanHero({ signedIn, compact }: { signedIn: boolean; compact?: b
     );
   }
   return (
-    <section className="mb-12 pt-4 sm:pt-10">
-      <p className="text-xs font-medium tracking-[0.2em] text-muted uppercase">{t('start.kicker')}</p>
-      <h1 className="display mt-3 max-w-3xl text-4xl text-balance sm:text-6xl">{t('start.title')}</h1>
-      <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-muted">{t('start.sub')}</p>
-      <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
+    <section className="relative mb-12 pt-4 sm:pt-10">
+      <div aria-hidden className="planet -top-24 -right-40 size-72 opacity-80 sm:-top-16 sm:-right-16 sm:size-96" />
+      <p className="relative text-xs font-medium tracking-[0.3em] text-accent uppercase">{t('start.kicker')}</p>
+      <h1 className="display cosmic relative mt-3 max-w-3xl text-4xl text-balance sm:text-6xl">{t('start.title')}</h1>
+      <p className="relative mt-4 max-w-xl text-[15px] leading-relaxed text-muted">{t('start.sub')}</p>
+      <div className="relative mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
         <Link href={scan} data-tour="scan-cta"
-          className="lamp inline-flex items-center gap-3 rounded-lg bg-shelf px-6 py-4 text-base font-medium text-bg shadow-[0_0_40px_-10px_var(--glow)]">
+          className="lamp inline-flex items-center gap-3 rounded-lg bg-shelf px-6 py-4 text-base font-medium text-bg shadow-[0_0_40px_-6px_var(--glow)]">
           <Camera aria-hidden size={22} strokeWidth={1.75} />{t('start.cta')}
         </Link>
         {signedIn

@@ -110,7 +110,7 @@ export function ConfirmDialog({ open, message, confirmLabel, danger, busy, onCon
 export const PageTitle = ({ title, sub, action }: { title: ReactNode; sub?: ReactNode; action?: ReactNode }) => (
   <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
     <div>
-      <h1 className="display text-2xl sm:text-4xl">{title}</h1>
+      <h1 className="display cosmic text-2xl sm:text-4xl">{title}</h1>
       {sub && <p className="mt-1 text-sm text-muted">{sub}</p>}
     </div>
     {action}
