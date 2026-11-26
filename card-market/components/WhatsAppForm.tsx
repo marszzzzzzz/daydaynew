@@ -1,4 +1,5 @@
 'use client';
+import { Lock } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { useSWRConfig } from 'swr';
 import { api } from '@/lib/api';
@@ -53,7 +54,7 @@ export function WhatsAppForm({ me, onSaved, submitLabel }: { me: Me; onSaved?: (
             placeholder={country === '852' ? '9123 4567' : ''} />
         </Field>
       </div>
-      <p className="text-xs text-muted">🔒 {t('account.wa.hint')}</p>
+      <p className="text-xs text-muted"><Lock aria-hidden size={14} strokeWidth={1.75} className="inline align-[-2px]" /> {t('account.wa.hint')}</p>
       <div className="flex flex-wrap gap-2">
         <Button type="submit" busy={busy}>{submitLabel ?? t('account.wa.save')}</Button>
         {current && <Button type="button" variant="danger" onClick={() => setConfirmClear(true)} disabled={busy}>{t('account.wa.clear')}</Button>}

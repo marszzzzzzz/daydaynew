@@ -1,4 +1,5 @@
 'use client';
+import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -40,7 +41,7 @@ function DealView() {
   const loaded = !!deal;
   useEffect(() => { if (loaded) { mutateKey('me'); mutateKey('real-market/deals'); } }, [loaded, count, mutateKey]);
 
-  const back = <Link href="/deals" className="mb-4 inline-block text-sm text-muted hover:text-ink">← {t('deal.back')}</Link>;
+  const back = <Link href="/deals" className="mb-4 inline-block text-sm text-muted hover:text-ink"><ArrowLeft aria-hidden size={14} strokeWidth={1.75} className="inline align-[-2px]" /> {t('deal.back')}</Link>;
   if (error && !deal) {
     return <div>{back}{error instanceof ApiError && error.status === 404 ? <Notice>{t('deal.notFound')}</Notice> : <LoadError error={error} retry={() => mutate()} />}</div>;
   }
@@ -114,12 +115,12 @@ function DealView() {
 
           {(d.status === 'ACCEPTED' || d.status === 'COMPLETED') && (
             <Panel>
-              <p className="text-sm font-semibold">{t('deal.whatsapp', { name: d.counterpart.name })}</p>
+              <p className="text-sm font-medium">{t('deal.whatsapp', { name: d.counterpart.name })}</p>
               {wa ? (
                 <>
                   <p className="mt-1 text-lg font-bold tracking-wide">{formatWhatsApp(wa)}</p>
                   <a href={whatsAppLink(wa, waText)} target="_blank" rel="noopener noreferrer"
-                    className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-[#073b1d] hover:opacity-90">
+                    className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#25D366] px-4 py-2.5 text-sm font-medium text-[#073b1d] hover:opacity-90">
                     {t('deal.whatsapp.open')}
                   </a>
                 </>
@@ -148,7 +149,7 @@ function DealView() {
               </li>
             ) : (
               <li key={m.id} className={`flex ${m.mine ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-[15px] whitespace-pre-wrap break-words ${m.mine ? 'rounded-br-md bg-brand text-brand-ink' : m.fromAdmin ? 'rounded-bl-md bg-warn-soft text-ink' : 'rounded-bl-md bg-surface-2'}`}>
+                <div className={`max-w-[80%] rounded-md px-3.5 py-2 text-[15px] whitespace-pre-wrap break-words ${m.mine ? 'rounded-br-md bg-brand text-brand-ink' : m.fromAdmin ? 'rounded-bl-md bg-warn-soft text-ink' : 'rounded-bl-md bg-surface-2'}`}>
                   {m.fromAdmin && <span className="mb-0.5 block text-xs font-bold text-warn">{t('deal.admin')}</span>}
                   {maskPhones(m.body)}
                   <span className={`mt-0.5 block text-[11px] ${m.mine ? 'opacity-70' : 'text-muted'}`}>{ago(m.createdAt)}</span>
@@ -158,7 +159,7 @@ function DealView() {
           </ol>
           {isLive(d.status) ? (
             <>
-            {hasPhone(text) && <p role="alert" className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-sm text-danger">{t('err.PHONE_IN_MESSAGE')}</p>}
+            {hasPhone(text) && <p role="alert" className="mt-3 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{t('err.PHONE_IN_MESSAGE')}</p>}
             <form onSubmit={send} className="mt-3 flex items-end gap-2 border-t border-line pt-3">
               <Textarea value={text} maxLength={1000} onChange={(e) => setText(e.target.value)} placeholder={t('deal.compose')} className="min-h-11 flex-1 resize-none" rows={1}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }} />

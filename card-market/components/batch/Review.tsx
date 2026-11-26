@@ -2,6 +2,7 @@
 // Batch review (spec §10.3): for every captured card, pick the text that names it — tap a recognised line, or
 // select part of the recognised text — add the price, then save all. Saving is sequential with progress and
 // retry; a card that already has a record is never created twice.
+import { Camera, Check, Medal } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useSWRConfig } from 'swr';
@@ -103,9 +104,9 @@ export function BatchReview({ langs, setLangs, onCamera }: { langs: OcrLangs; se
 
   if (!cards.length) {
     return (
-      <div className="rounded-2xl border border-dashed border-line px-6 py-14 text-center">
+      <div className="rounded-md border border-dashed border-line px-6 py-14 text-center">
         <p className="text-muted">{t('batch.empty')}</p>
-        <Button className="mt-4" onClick={onCamera}>📷 {t('batch.open')}</Button>
+        <Button className="mt-4" onClick={onCamera}><Camera aria-hidden size={16} strokeWidth={1.75} />{t('batch.open')}</Button>
       </div>
     );
   }
@@ -124,7 +125,7 @@ export function BatchReview({ langs, setLangs, onCamera }: { langs: OcrLangs; se
               {OCR_LANGS.map((l) => <option key={l} value={l}>{t(`ocrLang.${l}`)}</option>)}
             </Select>
           </label>
-          {cards.length < BATCH_MAX && <Button variant="secondary" onClick={onCamera}>📷 {t('batch.more')}</Button>}
+          {cards.length < BATCH_MAX && <Button variant="secondary" onClick={onCamera}><Camera aria-hidden size={16} strokeWidth={1.75} />{t('batch.more')}</Button>}
         </div>
       </div>
 
@@ -156,7 +157,7 @@ export function BatchReview({ langs, setLangs, onCamera }: { langs: OcrLangs; se
           </div>
           {saved === cards.length ? (
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => { batch.clearSaved(); onCamera(); }}>📷 {t('batch.newBatch')}</Button>
+              <Button variant="secondary" onClick={() => { batch.clearSaved(); onCamera(); }}><Camera aria-hidden size={16} strokeWidth={1.75} />{t('batch.newBatch')}</Button>
               <ButtonLink href="/sell">{t('batch.toMyCards')}</ButtonLink>
             </div>
           ) : (
@@ -221,7 +222,7 @@ function CardRow({ card: c, index, currency, maxPrice, canList, disabled }: { ca
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-bold">#{index} {c.name || <span className="font-normal text-muted">{t('batch.unnamed')}</span>}</h2>
           <div className="flex items-center gap-2">
-            {done ? <Badge tone="ok">✓ {t('batch.savedOne')}</Badge> : c.savedId ? <Badge tone="warn">{t('batch.partly')}</Badge> : null}
+            {done ? <Badge tone="ok"><Check aria-hidden size={12} strokeWidth={1.75} />{t('batch.savedOne')}</Badge> : c.savedId ? <Badge tone="warn">{t('batch.partly')}</Badge> : null}
             {!c.savedId && <button type="button" disabled={disabled} onClick={() => batch.remove(c.key)} className="text-sm text-danger">{t('batch.delete')}</button>}
           </div>
         </div>
@@ -231,7 +232,7 @@ function CardRow({ card: c, index, currency, maxPrice, canList, disabled }: { ca
           <div className="flex gap-2 md:flex-col">
             {(['FRONT', 'BACK'] as const).map((s) => (
               <figure key={s} className="w-24 md:w-full">
-                <div className="aspect-[63/88] overflow-hidden rounded-xl bg-surface-2">
+                <div className="aspect-[63/88] overflow-hidden rounded-lg bg-surface-2">
                   {c.photos[s] ? <img src={c.photos[s]!.url} alt={t(`side.${s}`)} className="size-full object-cover" /> : <span className="grid size-full place-items-center text-xs text-muted">{t('batch.noBack')}</span>}
                 </div>
                 <figcaption className="mt-1 text-center text-xs text-muted">{t(`side.${s}`)}</figcaption>
@@ -243,13 +244,13 @@ function CardRow({ card: c, index, currency, maxPrice, canList, disabled }: { ca
             {/* 1. pick text */}
             <section data-tour={index === 1 ? 'review-pick' : undefined}>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-semibold">{t('batch.fillInto')}</span>
+                <span className="text-sm font-medium">{t('batch.fillInto')}</span>
                 {TARGETS.map((k) => (
                   <button key={k} type="button" disabled={locked} onClick={() => setTarget(k)} aria-pressed={target === k}
                     className={`rounded-full px-3 py-1 text-sm ${target === k ? 'bg-brand text-brand-ink' : 'bg-surface-2'}`}>{t(LABEL[k])}</button>
                 ))}
               </div>
-              {c.sports && !reading && <p className="mt-2 rounded-lg bg-ok-soft px-2.5 py-1.5 text-xs text-ok">🏅 {t('batch.sports')}</p>}
+              {c.sports && !reading && <p className="mt-2 rounded-lg bg-ok-soft px-2.5 py-1.5 text-xs text-ok"><Medal aria-hidden size={14} strokeWidth={1.75} className="inline align-[-2px]" /> {t('batch.sports')}</p>}
               {reading ? (
                 <p className="mt-2 text-sm text-muted">⏳ {t('batch.reading')}</p>
               ) : !text ? (
@@ -263,7 +264,7 @@ function CardRow({ card: c, index, currency, maxPrice, canList, disabled }: { ca
                   </div>
                   <details className="mt-2">
                     <summary className="cursor-pointer text-sm text-muted">{t('batch.selectText')}</summary>
-                    <textarea ref={textBox} readOnly value={text} rows={5} className="mt-2 w-full rounded-xl border border-line bg-surface-2 p-2 font-mono text-sm" />
+                    <textarea ref={textBox} readOnly value={text} rows={5} className="mt-2 w-full rounded-lg border border-line bg-surface-2 p-2 font-mono text-sm" />
                     <Button variant="secondary" disabled={locked} onClick={applySelection} className="mt-1">{t('batch.useSelection', { field: t(LABEL[target]) })}</Button>
                   </details>
                 </>
@@ -333,7 +334,7 @@ function CardRow({ card: c, index, currency, maxPrice, canList, disabled }: { ca
 
 const Chip = ({ children, onClick, strong, disabled }: { children: ReactNode; onClick: () => void; strong?: boolean; disabled?: boolean }) => (
   <button type="button" onClick={onClick} disabled={disabled}
-    className={`max-w-full truncate rounded-full border px-2.5 py-1 text-sm hover:border-brand disabled:opacity-50 ${strong ? 'border-brand/40 bg-brand/10 font-semibold' : 'border-line bg-surface-2'}`}>
+    className={`max-w-full truncate rounded-full border px-2.5 py-1 text-sm hover:border-brand disabled:opacity-50 ${strong ? 'border-brand/40 bg-brand/10 font-medium' : 'border-line bg-surface-2'}`}>
     {children}
   </button>
 );

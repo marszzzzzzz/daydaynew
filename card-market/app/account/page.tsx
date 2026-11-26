@@ -1,4 +1,5 @@
 'use client';
+import { GraduationCap } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { useSWRConfig } from 'swr';
@@ -42,7 +43,7 @@ function Account({ me }: { me: Me }) {
             <h2 className="font-bold">{t('tour.replay')}</h2>
             <p className="text-sm text-muted">{t('tour.replay.d')}</p>
           </div>
-          <Button variant="secondary" onClick={() => { resetTours(); router.push('/'); }}>🎓 {t('tour.replay.cta')}</Button>
+          <Button variant="secondary" onClick={() => { resetTours(); router.push('/'); }}><GraduationCap aria-hidden size={16} strokeWidth={1.75} />{t('tour.replay.cta')}</Button>
         </Panel>
       </div>
     </div>

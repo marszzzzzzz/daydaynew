@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { glyph, photoUrl } from '@/lib/cards';
+import { photoUrl } from '@/lib/cards';
 import type { Category, PhotoSide } from '@/lib/types';
 
 /** A card photo at trading-card proportions (63 × 88 mm), or a category placeholder. */
@@ -11,13 +11,14 @@ export function CardPhoto({ cardId, side = 'FRONT', has, version, category, name
   const [broken, setBroken] = useState<string | null>(null); // the src that failed, so another side/version still tries
   const show = src !== null && broken !== src;
   return (
-    <div className={`relative aspect-[63/88] overflow-hidden rounded-xl bg-surface-2 ${className}`}>
+    <div className={`relative aspect-[63/88] overflow-hidden acrylic rounded-sm bg-surface-2 ${className}`}>
       {show ? (
         // Plain <img>: a private photo served by the cookie-authenticated proxy, not a static asset.
         <img src={src} alt={name} loading="lazy" onError={() => setBroken(src)} className="size-full object-cover" />
       ) : (
-        <div className="grid size-full place-items-center" style={{ background: category ? `${category.color}22` : undefined }}>
-          <span className="text-4xl" aria-hidden>{glyph(category?.glyph)}</span>
+        // No photo: an empty slot in the case, edged in the category's colour.
+        <div className="grid size-full place-items-center p-3 text-center" style={{ boxShadow: category ? `inset 0 -3px 0 ${category.color}` : undefined }}>
+          <span className="display text-xs text-muted" aria-hidden>{category?.name ?? ''}</span>
         </div>
       )}
     </div>

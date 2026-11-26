@@ -1,4 +1,5 @@
 'use client';
+import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState, type FormEvent } from 'react';
@@ -35,7 +36,7 @@ function ListingView({ me }: { me: Me }) {
   if (error && !data) return <LoadError error={error} retry={() => mutate()} />;
   if (!data) return <Loading />;
   const l = data.find((x) => x.id === id);
-  const back = <Link href="/" className="mb-4 inline-block text-sm text-muted hover:text-ink">← {t('listing.back')}</Link>;
+  const back = <Link href="/" className="mb-4 inline-block text-sm text-muted hover:text-ink"><ArrowLeft aria-hidden size={14} strokeWidth={1.75} className="inline align-[-2px]" /> {t('listing.back')}</Link>;
   if (!l) return <div>{back}<Notice>{t('listing.notFound')}</Notice></div>;
   const side = picked ?? coverSide(l.photos);
 
@@ -77,7 +78,7 @@ function ListingView({ me }: { me: Me }) {
                 photo: l.photos.length ? photoUrl(l.id, coverSide(l.photos)) : null,
               }} />
             </div>
-            <h1 className="mt-2 text-3xl font-extrabold tracking-tight">{l.name}</h1>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight">{l.name}</h1>
             <p className="mt-3 text-3xl font-bold">{money(l.askingPrice, l.currency)} <span className="text-base font-medium text-muted">{t('listing.each')}</span></p>
             <p className="mt-2 text-sm text-muted">
               {t('listing.seller')}: <b className="text-ink">{l.seller.name}</b>{l.seller.region ? ` · ${l.seller.region}` : ''}
@@ -85,7 +86,7 @@ function ListingView({ me }: { me: Me }) {
             </p>
           </div>
 
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-2xl border border-line bg-surface p-4 sm:grid-cols-3">
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-md border border-line bg-surface p-4 sm:grid-cols-3">
             {rows.map(([k, v]) => (
               <div key={k}><dt className="text-xs text-muted">{k}</dt><dd className="font-medium">{v}</dd></div>
             ))}
@@ -157,7 +158,7 @@ function OfferForm({ listing: l, onDone }: { listing: Listing; onDone: () => voi
         <Field label={t('offer.message')}>
           <Textarea maxLength={1000} value={message} onChange={(e) => setMessage(e.target.value)} placeholder={t('offer.message.ph')} />
         </Field>
-        {hasPhone(message) && <p role="alert" className="rounded-xl bg-danger-soft px-3 py-2 text-sm text-danger">{t('err.PHONE_IN_MESSAGE')}</p>}
+        {hasPhone(message) && <p role="alert" className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{t('err.PHONE_IN_MESSAGE')}</p>}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm">{t('offer.total')}: <b className="text-lg">{Number.isFinite(total) && total > 0 ? money(total, l.currency) : '—'}</b></p>
           <Button type="submit" busy={busy} disabled={hasPhone(message)}>{t('offer.submit')}</Button>

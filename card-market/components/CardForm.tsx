@@ -1,10 +1,11 @@
 'use client';
 // Add or edit one real-card record: photos, details, selling price and the public-listing switch.
+import { ImagePlus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useSWRConfig } from 'swr';
 import { api } from '@/lib/api';
-import { CARD_LANGUAGES, CONDITIONS, clampInt, glyph, photoUrl, sellerReady } from '@/lib/cards';
+import { CARD_LANGUAGES, CONDITIONS, clampInt, photoUrl, sellerReady } from '@/lib/cards';
 import { useConfig, useDebounced, useMe } from '@/lib/hooks';
 import { useT } from '@/lib/i18n';
 import { shrinkPhoto } from '@/lib/image';
@@ -207,13 +208,13 @@ export function CardForm({ card, stale, onSaved, onDeleted }: { card?: RealCard;
             return (
               <div key={side}>
                 <p className="mb-1.5 text-sm font-medium">{t(`form.photo.${side}`)}</p>
-                <label className="relative block aspect-[63/88] cursor-pointer overflow-hidden rounded-xl border-2 border-dashed border-line bg-surface-2 hover:border-brand lg:mx-auto lg:w-48">
+                <label className="relative block aspect-[63/88] cursor-pointer overflow-hidden rounded-lg border-2 border-dashed border-line bg-surface-2 hover:border-brand lg:mx-auto lg:w-48">
                   {src ? (
                     // Plain <img>: a local preview or a private photo from the proxy.
                     <img src={src} alt={t(`side.${side}`)} className="size-full object-cover" />
                   ) : (
                     <span className="grid size-full place-items-center p-3 text-center text-sm text-muted">
-                      <span><span className="block text-3xl" aria-hidden>{side === 'FRONT' ? glyph(category?.glyph) : '📷'}</span>{t('form.photo.add')}</span>
+                      <span><ImagePlus aria-hidden size={28} strokeWidth={1.5} className="mx-auto mb-2" />{t('form.photo.add')}</span>
                     </span>
                   )}
                   <input type="file" accept="image/jpeg,image/png,image/webp,image/*" className="sr-only" aria-label={t(`form.photo.${side}`)}
@@ -299,11 +300,11 @@ export function CardForm({ card, stale, onSaved, onDeleted }: { card?: RealCard;
           <Field label={t('form.notes')} hint={tags.length || serial ? t('tags.private') : undefined}>
             <Input maxLength={notesRoom({ tags, serial: cleanSerial(serial) })} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Field>
-          <label className={`flex items-start gap-3 rounded-xl border border-line p-3 ${card?.marketRemovedByAdmin ? 'opacity-60' : ''}`}>
+          <label className={`flex items-start gap-3 rounded-lg border border-line p-3 ${card?.marketRemovedByAdmin ? 'opacity-60' : ''}`}>
             <input type="checkbox" role="switch" className="mt-0.5 size-5 accent-[var(--brand)]" checked={isPublic}
               disabled={card?.marketRemovedByAdmin} onChange={(e) => setIsPublic(e.target.checked)} />
             <span>
-              <span className="block font-semibold">{t('form.public')}</span>
+              <span className="block font-medium">{t('form.public')}</span>
               <span className="block text-xs text-muted">{card?.marketRemovedByAdmin ? t('err.REMOVED_BY_ADMIN') : t('form.public.hint')}</span>
             </span>
           </label>

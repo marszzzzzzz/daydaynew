@@ -3,6 +3,7 @@
 // so card n's back starts as back n; the person can change any pair (a back used twice is swapped, so
 // every back belongs to at most one front), reverse the order if the row was turned over as a whole,
 // or leave a card without a back.
+import { ArrowLeft, ArrowLeftRight, ArrowUpDown } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button, Select } from '@/components/ui';
 import { cropCard, type Shot } from '@/lib/detect';
@@ -44,17 +45,17 @@ export function PairStep({ front, back, onBack, onConfirm }: { front: Shot; back
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl bg-surface p-4 text-center">
+      <div className="rounded-md bg-surface p-4 text-center">
         <p className="text-xl font-bold">{t('multi.pairQ')}</p>
         <p className="mt-1 text-sm text-muted">{t('multi.pairHint')}</p>
         {nF !== nB && <p className="mt-1 text-sm text-warn">{t('multi.backMismatch', { front: nF, n: nB })}</p>}
       </div>
       <ol className="space-y-3">
         {Array.from({ length: nF }, (_, i) => (
-          <li key={i} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3">
-            <span className="w-6 shrink-0 text-center text-lg font-extrabold">{i + 1}</span>
+          <li key={i} className="flex items-center gap-3 rounded-md border border-line bg-surface p-3">
+            <span className="w-6 shrink-0 text-center text-lg font-bold">{i + 1}</span>
             <Thumb src={fronts[i]} label={t('side.FRONT')} />
-            <span aria-hidden className="text-muted">⇄</span>
+            <ArrowLeftRight aria-hidden size={18} strokeWidth={1.75} className="text-muted" />
             <Thumb src={pairs[i] === NONE ? undefined : backs[pairs[i]]} label={t('side.BACK')} empty={pairs[i] === NONE} />
             <label className="ml-auto min-w-0 text-sm">
               <span className="mb-1 block text-xs text-muted">{t('multi.pairWhich', { n: i + 1 })}</span>
@@ -68,8 +69,8 @@ export function PairStep({ front, back, onBack, onConfirm }: { front: Shot; back
       </ol>
       <div className="flex flex-wrap justify-between gap-2">
         <div className="flex gap-2">
-          <Button variant="ghost" onClick={onBack}>← {t('multi.retakeBack')}</Button>
-          <Button variant="secondary" onClick={reverse}>⇆ {t('multi.reverse')}</Button>
+          <Button variant="ghost" onClick={onBack}><ArrowLeft aria-hidden size={16} strokeWidth={1.75} />{t('multi.retakeBack')}</Button>
+          <Button variant="secondary" onClick={reverse}><ArrowUpDown aria-hidden size={16} strokeWidth={1.75} />{t('multi.reverse')}</Button>
         </div>
         <Button onClick={() => onConfirm(pairs)}>{t('multi.pairOk')}</Button>
       </div>

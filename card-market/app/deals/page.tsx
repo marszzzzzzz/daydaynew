@@ -32,12 +32,12 @@ function Deals() {
   return (
     <div>
       <PageTitle title={t('deals.title')} />
-      <div role="tablist" className="mb-4 inline-flex rounded-xl bg-surface-2 p-1">
+      <div role="tablist" className="mb-4 inline-flex rounded-lg bg-surface-2 p-1">
         {tabs.map(([k, label]) => {
           const unread = data?.[k].filter((d) => d.unread > 0).length ?? 0;
           return (
             <button key={k} role="tab" aria-selected={tab === k} onClick={() => setPicked(k)}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold ${tab === k ? 'bg-surface shadow-sm' : 'text-muted'}`}>
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${tab === k ? 'bg-surface shadow-sm' : 'text-muted'}`}>
               {t(label)} {data && <span className="text-xs text-muted">{data[k].length}</span>}
               {unread > 0 && <span role="img" className="size-2 rounded-full bg-danger" aria-label={t('deals.unread', { n: unread })} />}
             </button>
@@ -48,7 +48,7 @@ function Deals() {
       {error && !data ? <LoadError error={error} retry={() => mutate()} />
         : !data ? <Loading />
         : data[tab].length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-line px-6 py-12 text-center text-muted">{t(tab === 'received' ? 'deals.empty.received' : 'deals.empty.sent')}</p>
+          <p className="rounded-md border border-dashed border-line px-6 py-12 text-center text-muted">{t(tab === 'received' ? 'deals.empty.received' : 'deals.empty.sent')}</p>
         ) : (
           <ul className="space-y-2">{data[tab].map((d) => <DealRow key={d.id} deal={d} />)}</ul>
         )}
@@ -62,13 +62,13 @@ function DealRow({ deal: d }: { deal: Deal }) {
   const preview = !last ? '' : last.kind === 'EVENT' ? t(`event.${last.body}` as Key) : `${last.mine ? `${t('deal.you')}: ` : ''}${maskPhones(last.body)}`;
   return (
     <li>
-      <Link href={`/deals/${encodeURIComponent(d.id)}`} className="flex gap-3 rounded-2xl border border-line bg-surface p-3 hover:bg-surface-2">
+      <Link href={`/deals/${encodeURIComponent(d.id)}`} className="flex gap-3 rounded-md border border-line bg-surface p-3 hover:bg-surface-2">
         <div className="w-12 shrink-0">
           <CardPhoto cardId={d.realCardId} side={coverSide(d.card.photos)} has={d.card.photos.length > 0} name={d.card.name} className="rounded-lg" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <p className={`truncate ${d.unread ? 'font-bold' : 'font-semibold'}`}>{d.card.name}</p>
+            <p className={`truncate ${d.unread ? 'font-bold' : 'font-medium'}`}>{d.card.name}</p>
             <DealStatusBadge status={d.status} />
           </div>
           <p className="text-sm">

@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Camera, Handshake, Layers, Lock, MessageCircle, Plus, type LucideIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import useSWR from 'swr';
 import { CardPhoto } from '@/components/CardPhoto';
@@ -44,26 +45,25 @@ function HomeStart({ me }: { me: Me }) {
 
 function Landing() {
   const { t } = useT();
-  const steps: [Key, Key, string][] = [['how.1.t', 'how.1.d', '📸'], ['how.2.t', 'how.2.d', '💬'], ['how.3.t', 'how.3.d', '🤝']];
+  const steps: [Key, Key, LucideIcon][] = [['how.1.t', 'how.1.d', Camera], ['how.2.t', 'how.2.d', MessageCircle], ['how.3.t', 'how.3.d', Handshake]];
   return (
-    <div className="space-y-6 pb-4 sm:pb-10">
-
-      <section className="grid gap-4 sm:grid-cols-3">
-        {steps.map(([title, desc, icon], i) => (
-          <div key={title} className="rounded-2xl border border-line bg-surface p-5">
-            <div className="flex items-center gap-3">
-              <span className="grid size-10 place-items-center rounded-xl bg-surface-2 text-xl" aria-hidden>{icon}</span>
-              <span className="text-xs font-bold text-muted">0{i + 1}</span>
+    <div className="space-y-12 pb-4 sm:pb-10">
+      <section className="grid gap-px overflow-hidden rounded-md border border-line bg-line sm:grid-cols-3">
+        {steps.map(([title, desc, Icon], i) => (
+          <div key={title} className="bg-bg p-6">
+            <div className="flex items-center justify-between text-muted">
+              <Icon aria-hidden size={22} strokeWidth={1.5} />
+              <span className="display text-sm">0{i + 1}</span>
             </div>
-            <h2 className="mt-4 text-lg font-bold">{t(title)}</h2>
-            <p className="mt-1 text-sm leading-relaxed text-muted">{t(desc)}</p>
+            <h2 className="display mt-6 text-lg">{t(title)}</h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted">{t(desc)}</p>
           </div>
         ))}
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2">
-        <Notice>🔒 {t('landing.safe')}</Notice>
-        <Notice>🗂 {t('landing.shared')} <Link href="/login" className="font-semibold text-brand underline">{t('nav.signin')}</Link></Notice>
+      <section className="grid gap-6 text-sm text-muted sm:grid-cols-2">
+        <p className="flex gap-3"><Lock aria-hidden size={18} strokeWidth={1.5} className="mt-0.5 shrink-0 text-ink" />{t('landing.safe')}</p>
+        <p className="flex gap-3"><Layers aria-hidden size={18} strokeWidth={1.5} className="mt-0.5 shrink-0 text-ink" /><span>{t('landing.shared')} <Link href="/login" className="text-ink underline underline-offset-4">{t('nav.signin')}</Link></span></p>
       </section>
     </div>
   );
@@ -91,7 +91,7 @@ function Market() {
   return (
     <div>
       <PageTitle title={t('market.title')} sub={data ? t(data.length >= 200 ? 'market.countCap' : 'market.count', { n: data.length }) : undefined}
-        action={<ButtonLink href="/sell/new" variant="secondary">＋ {t('sell.add')}</ButtonLink>} />
+        action={<ButtonLink href="/sell/new" variant="secondary"><Plus aria-hidden size={16} strokeWidth={1.75} />{t('sell.add')}</ButtonLink>} />
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row">
         <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('market.search')} className="sm:max-w-sm" aria-label={t('market.search')} />
@@ -113,29 +113,33 @@ function Market() {
         : error && !data ? <LoadError error={error} retry={() => mutate()} />
         : !data && isLoading ? <Loading />
         : data && data.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-line px-6 py-14 text-center">
+          <div className="shelf px-6 pt-14 pb-16 text-center">
             <p className="text-muted">{t('market.empty')}</p>
             <ButtonLink href="/sell/new" className="mt-4">{t('market.empty.cta')}</ButtonLink>
           </div>
         ) : (
-          <ul className={`grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 ${isLoading ? 'opacity-60' : ''}`}>
-            {data?.map((l) => (
-              <li key={l.id}>
+          // Each card stands on its own piece of shelf; with no gap between columns the pieces join into one
+          // lit ledge per row, like the display case. The label hangs under the shelf.
+          <ul className={`grid grid-cols-2 gap-y-10 sm:grid-cols-3 lg:grid-cols-4 ${isLoading ? 'opacity-60' : ''}`}>
+            {data?.map((l, i) => (
+              <li key={l.id} className="shelve" style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}>
                 {/* ?q= lets the listing page find a card outside the newest 200 */}
-                <Link href={`/listing/${encodeURIComponent(l.id)}?q=${encodeURIComponent(searchHint(l.name))}`} className="group block rounded-2xl border border-line bg-surface p-2.5 transition hover:-translate-y-0.5 hover:shadow-lg">
-                  <div className="relative">
-                    <CardPhoto cardId={l.id} side={coverSide(l.photos)} has={l.photos.length > 0} category={l.category} name={l.name} />
-                    {/* Bottom of the photo: the top is where a card prints its name. */}
-                    <div className="absolute bottom-2 left-2 flex flex-wrap items-start gap-1">
-                      {l.mine && <Badge tone="brand">{t('listing.mine')}</Badge>}
-                      {l.myOffer && <Badge tone="ok">{t('listing.offered')}</Badge>}
+                <Link href={`/listing/${encodeURIComponent(l.id)}?q=${encodeURIComponent(searchHint(l.name))}`} className="group block">
+                  <div className="shelf px-3 pt-2 sm:px-5">
+                    <div className="lamp relative rounded-sm transition group-hover:-translate-y-1">
+                      <CardPhoto cardId={l.id} side={coverSide(l.photos)} has={l.photos.length > 0} category={l.category} name={l.name} />
+                      {/* Bottom of the photo: the top is where a card prints its name. */}
+                      <div className="absolute bottom-2 left-2 flex flex-wrap items-start gap-1">
+                        {l.mine && <span className="rounded-full bg-black/80 px-2 py-0.5 text-xs text-white">{t('listing.mine')}</span>}
+                        {l.myOffer && <span className="rounded-full bg-black/80 px-2 py-0.5 text-xs text-ok">{t('listing.offered')}</span>}
+                      </div>
                     </div>
                   </div>
-                  <div className="px-1 pt-2.5 pb-1">
-                    <p className="truncate font-semibold">{l.name}</p>
-                    <p className="truncate text-xs text-muted">{cardDetail(l) || l.category?.name || ' '}</p>
-                    <p className="mt-2 text-lg leading-tight font-bold">{money(l.askingPrice, l.currency)}</p>
-                    <p className="mt-0.5 truncate text-xs text-muted">{t(`cond.${l.condition}`)} · {t('listing.available', { n: l.available })}</p>
+                  <div className="px-3 pt-3 sm:px-5">
+                    <p className="text-[15px] font-medium leading-tight text-accent">{money(l.askingPrice, l.currency)}</p>
+                    <p className="mt-1 truncate text-sm">{l.name}</p>
+                    <p className="truncate text-xs text-muted">{cardDetail(l) || l.category?.name || ' '}</p>
+                    <p className="mt-1 truncate text-xs text-muted">{t(`cond.${l.condition}`)} · {t('listing.available', { n: l.available })}</p>
                     <p className="truncate text-xs text-muted">{l.seller.name}{l.seller.region ? ` · ${l.seller.region}` : ''}</p>
                   </div>
                 </Link>
@@ -150,7 +154,7 @@ function Market() {
 function Chip({ on, onClick, color, children }: { on: boolean; onClick: () => void; color?: string; children: ReactNode }) {
   return (
     <button onClick={onClick} aria-pressed={on}
-      className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${on ? 'border-ink bg-ink text-bg' : 'border-line bg-surface hover:bg-surface-2'}`}>
+      className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${on ? 'border-shelf bg-shelf text-bg' : 'border-line text-muted hover:text-ink'}`}>
       {color && <span aria-hidden className="size-2.5 rounded-full" style={{ background: color }} />}
       {children}
     </button>

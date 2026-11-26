@@ -1,4 +1,5 @@
 'use client';
+import { Shield } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState, type FormEvent } from 'react';
@@ -52,8 +53,8 @@ function Login() {
           <Button type="submit" busy={busy} className="w-full">{t('login.submit')}</Button>
         </form>
         <p className="mt-4 text-xs leading-relaxed text-muted">{t('login.help')}</p>
-        <p className="mt-6 text-center text-sm">{t('login.noAccount')} <Link href="/signup" className="font-semibold text-brand">{t('nav.signup')}</Link></p>
-        <p className="mt-3 text-center text-xs"><Link href="/login?next=%2Fadmin" className="text-muted hover:text-ink">🛡️ {t('admin.login')}</Link></p>
+        <p className="mt-6 text-center text-sm">{t('login.noAccount')} <Link href="/signup" className="font-medium text-brand">{t('nav.signup')}</Link></p>
+        <p className="mt-3 text-center text-xs"><Link href="/login?next=%2Fadmin" className="text-muted hover:text-ink"><Shield aria-hidden size={14} strokeWidth={1.75} className="inline align-[-2px]" /> {t('admin.login')}</Link></p>
       </Panel>
     </div>
   );

@@ -2,6 +2,7 @@
 // Continuous capture (spec §10.3): rear camera, a card-shaped frame, tap to shoot the front, then the back
 // (or skip it), then the next card — up to 10 in a row. A live sharpness reading tells the user when the
 // printed text is crisp enough to read; text recognition runs in the background while they keep shooting.
+import { Images, X, Zap, ZapOff } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArtFlip, ArtFrame, ArtStack, ArtTap } from '@/components/guide/Art';
@@ -164,14 +165,14 @@ export function BatchCamera({ onReview, onClose, defaultPublic }: { onReview: ()
 
       {/* top bar */}
       <div className="relative z-10 flex items-center justify-between px-4 pt-[max(12px,env(safe-area-inset-top))] pb-2">
-        <Round label={t('batch.close')} onClick={onClose}>✕</Round>
-        <div className="flex items-center gap-2 rounded-full bg-black/55 px-4 py-2 text-sm font-semibold backdrop-blur">
+        <Round label={t('batch.close')} onClick={onClose}><X aria-hidden size={20} strokeWidth={1.75} /></Round>
+        <div className="flex items-center gap-2 rounded-full bg-black/55 px-4 py-2 text-sm font-medium backdrop-blur">
           <span aria-hidden className={`size-2.5 rounded-full ${!ready ? 'bg-white/40' : sharp ? 'bg-[#34d27b]' : 'bg-[#f5b544]'}`} />
           {!ready ? t('batch.starting') : full ? t('batch.fullShort') : `${t(`side.${side}`)} · ${current}/${BATCH_MAX} · ${sharp ? t('batch.sharp') : t('batch.steady')}`}
         </div>
         <div className="flex gap-2">
           <Round label={t('batch.help')} onClick={tour.start}>?</Round>
-          <Round label={t('batch.torch')} onClick={toggleTorch} disabled={!torchOk} active={torch}>{torch ? '⚡' : '⚡︎'}</Round>
+          <Round label={t('batch.torch')} onClick={toggleTorch} disabled={!torchOk} active={torch}>{torch ? <Zap aria-hidden size={20} strokeWidth={1.75} fill="currentColor" /> : <ZapOff aria-hidden size={20} strokeWidth={1.75} />}</Round>
         </div>
       </div>
 
@@ -188,7 +189,7 @@ export function BatchCamera({ onReview, onClose, defaultPublic }: { onReview: ()
             <span className="absolute inset-x-0 top-4 flex justify-center">
               <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setAwaitingBack(null); }}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setAwaitingBack(null); } }}
-                className="rounded-full bg-black/60 px-4 py-1.5 text-sm font-semibold backdrop-blur">{t('batch.skipBack')}</span>
+                className="rounded-full bg-black/60 px-4 py-1.5 text-sm font-medium backdrop-blur">{t('batch.skipBack')}</span>
             </span>
           )}
         </button>
@@ -198,7 +199,7 @@ export function BatchCamera({ onReview, onClose, defaultPublic }: { onReview: ()
               <Round label={t('batch.zoom')} onClick={() => setZoom(zoom === 1 ? 2 : 1)} size="lg" accent>{zoom}×</Round>
             </div>
             <label className="absolute right-3 grid size-14 cursor-pointer place-items-center rounded-full bg-black/60 text-2xl backdrop-blur" aria-label={t('batch.gallery')}>
-              🖼
+              <Images aria-hidden size={22} strokeWidth={1.75} />
               <input type="file" accept="image/*" multiple className="sr-only" onChange={(e) => { fromGallery(e.target.files); e.target.value = ''; }} />
             </label>
           </div>
@@ -208,20 +209,20 @@ export function BatchCamera({ onReview, onClose, defaultPublic }: { onReview: ()
       {/* recent scans */}
       <div data-tour="cam-strip" className="relative z-10 bg-black/70 pb-[env(safe-area-inset-bottom)] backdrop-blur">
         <div className="flex items-center justify-between px-5 pt-3">
-          <span className="font-semibold">{t('batch.recent')}</span>
-          <button type="button" onClick={onReview} disabled={!cards.length} data-tour="cam-next" className="font-semibold text-[#6cb2ff] disabled:text-white/30">
+          <span className="font-medium">{t('batch.recent')}</span>
+          <button type="button" onClick={onReview} disabled={!cards.length} data-tour="cam-next" className="font-medium text-[#6cb2ff] disabled:text-white/30">
             {t('batch.next', { n: cards.length })}
           </button>
         </div>
         <div className="flex gap-3 overflow-x-auto px-5 py-3">
-          <div className={`grid h-28 w-20 shrink-0 place-items-center rounded-2xl border-2 border-dashed text-center text-xs ${full ? 'border-white/15 text-white/30' : 'border-white/40 text-white/70'}`}>
+          <div className={`grid h-28 w-20 shrink-0 place-items-center rounded-md border-2 border-dashed text-center text-xs ${full ? 'border-white/15 text-white/30' : 'border-white/40 text-white/70'}`}>
             {full ? t('batch.fullShort') : t('batch.nextCard')}
           </div>
           {[...cards].reverse().map((c) => {
             const i = cards.indexOf(c) + 1;
             return (
               <button key={c.key} type="button" onClick={() => setSheet(c.key)} className="relative shrink-0 text-left">
-                <div className="h-28 w-20 overflow-hidden rounded-2xl bg-white/10">
+                <div className="h-28 w-20 overflow-hidden rounded-md bg-white/10">
                   {/* Plain <img>: an in-memory photo (object URL). */}
                   {c.photos.FRONT && <img src={c.photos.FRONT.url} alt={`#${i}`} className="size-full object-cover" />}
                 </div>
@@ -253,7 +254,7 @@ export function BatchCamera({ onReview, onClose, defaultPublic }: { onReview: ()
           <h2 className="mb-3 text-lg font-bold">#{cards.indexOf(sheetCard) + 1}</h2>
           <div className="mb-4 flex gap-3">
             {(['FRONT', 'BACK'] as const).map((s) => (
-              <div key={s} className="h-32 w-24 overflow-hidden rounded-xl bg-white/10">
+              <div key={s} className="h-32 w-24 overflow-hidden rounded-lg bg-white/10">
                 {sheetCard.photos[s] ? <img src={sheetCard.photos[s]!.url} alt={t(`side.${s}`)} className="size-full object-cover" /> : <span className="grid size-full place-items-center text-xs text-white/50">{t(`side.${s}`)}</span>}
               </div>
             ))}
@@ -291,5 +292,5 @@ function Sheet({ children, onClose }: { children: ReactNode; onClose: () => void
 }
 
 const SheetButton = ({ children, onClick, danger }: { children: ReactNode; onClick: () => void; danger?: boolean }) => (
-  <button type="button" onClick={onClick} className={`w-full rounded-xl bg-white/10 py-3 font-semibold ${danger ? 'text-[#ff7b7b]' : ''}`}>{children}</button>
+  <button type="button" onClick={onClick} className={`w-full rounded-lg bg-white/10 py-3 font-medium ${danger ? 'text-[#ff7b7b]' : ''}`}>{children}</button>
 );

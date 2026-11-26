@@ -1,4 +1,5 @@
 'use client';
+import { Camera, Check as CheckIcon, Images } from 'lucide-react';
 import Link from 'next/link';
 import { useState, type ReactNode } from 'react';
 import useSWR from 'swr';
@@ -36,8 +37,8 @@ function MyCards({ me }: { me: Me }) {
     <div>
       <PageTitle title={t('sell.title')} sub={t('sell.sub')} action={
         <div className="flex flex-wrap gap-2">
-          <ButtonLink href="/sell/batch" variant="secondary">📷 {t('batch.cta')}</ButtonLink>
-          <ButtonLink href="/sell/multi" variant="secondary">🖼️ {t('multi.cta')}</ButtonLink>
+          <ButtonLink href="/sell/batch" variant="secondary"><Camera aria-hidden size={16} strokeWidth={1.75} />{t('batch.cta')}</ButtonLink>
+          <ButtonLink href="/sell/multi" variant="secondary"><Images aria-hidden size={16} strokeWidth={1.75} />{t('multi.cta')}</ButtonLink>
           <ButtonLink href="/sell/new">＋ {t('sell.add')}</ButtonLink>
         </div>
       } />
@@ -70,7 +71,7 @@ function MyCards({ me }: { me: Me }) {
       {error && !data ? <LoadError error={error} retry={() => mutate()} />
         : !data ? <Loading />
         : data.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-line px-6 py-14 text-center">
+          <div className="rounded-md border border-dashed border-line px-6 py-14 text-center">
             <p className="text-muted">{t('sell.empty')}</p>
             <ButtonLink href="/sell/new" className="mt-4">＋ {t('sell.add')}</ButtonLink>
           </div>
@@ -105,7 +106,7 @@ function CardRow({ card: c, me, onChange }: { card: RealCard; me: Me; onChange: 
 
   const meta = splitNotes(c.notes);
   return (
-    <li className="rounded-2xl border border-line bg-surface p-3">
+    <li className="rounded-md border border-line bg-surface p-3">
       <div className="flex gap-3">
         <Link href={`/sell/${encodeURIComponent(c.id)}`} className="w-16 shrink-0 sm:w-20">
           <CardPhoto cardId={c.id} side={cover?.side} has={!!cover} version={cover?.uploadedAt} category={c.category} name={c.name} className="rounded-lg" />
@@ -113,7 +114,7 @@ function CardRow({ card: c, me, onChange }: { card: RealCard; me: Me; onChange: 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <Link href={`/sell/${encodeURIComponent(c.id)}`} className="min-w-0">
-              <p className="truncate font-semibold hover:underline">{c.name}</p>
+              <p className="truncate font-medium hover:underline">{c.name}</p>
               <p className="truncate text-xs text-muted">{cardDetail(c) || c.category?.name || t(`cond.${c.condition}`)}</p>
             </Link>
             <Badge tone={STATE_TONE[state]}>{t(`status.${state}`)}</Badge>
@@ -153,13 +154,13 @@ function CardRow({ card: c, me, onChange }: { card: RealCard; me: Me; onChange: 
 
 const Check = ({ done, children }: { done: boolean; children: ReactNode }) => (
   <li className="flex items-center gap-2">
-    <span aria-hidden className={`grid size-5 place-items-center rounded-full text-xs ${done ? 'bg-ok text-white' : 'border border-line'}`}>{done ? '✓' : ''}</span>
+    <span aria-hidden className={`grid size-5 place-items-center rounded-full text-xs ${done ? 'bg-surface-2 text-ok' : 'border border-line'}`}>{done && <CheckIcon size={12} strokeWidth={2.5} />}</span>
     <span className={done ? 'text-muted line-through' : ''}>{children}</span>
   </li>
 );
 
 const Stat = ({ label, value }: { label: string; value: string }) => (
-  <div className="rounded-2xl border border-line bg-surface px-3 py-3 sm:px-4">
+  <div className="rounded-md border border-line bg-surface px-3 py-3 sm:px-4">
     <p className="text-xs text-muted">{label}</p>
     <p className="mt-0.5 text-base font-bold [overflow-wrap:anywhere] sm:text-xl">{value}</p>
   </div>

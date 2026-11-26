@@ -122,35 +122,35 @@ export function Tour({ id, steps, open, onClose, finish }: {
   return createPortal(
     <div className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-labelledby="tour-title">
       {rect ? (
-        <div className="pointer-events-none absolute rounded-2xl transition-all duration-300 ease-out motion-safe-anim"
+        <div className="pointer-events-none absolute rounded-md transition-all duration-300 ease-out motion-safe-anim"
           style={{
             left: rect.left - PAD, top: rect.top - PAD, width: rect.width + PAD * 2, height: rect.height + PAD * 2,
-            boxShadow: '0 0 0 9999px rgba(8,10,20,0.68)',
+            boxShadow: '0 0 0 9999px rgba(0,0,0,0.75)',
           }}>
-          <span className="absolute inset-0 rounded-2xl border-2 border-accent" style={{ animation: 'tour-pulse 1.6s infinite' }} />
+          <span className="absolute inset-0 rounded-md border border-shelf shadow-[0_0_24px_var(--glow)]" />
         </div>
       ) : (
-        <div className="absolute inset-0 bg-[rgba(8,10,20,0.72)]" />
+        <div className="absolute inset-0 bg-black/75" />
       )}
       {/* Clicks outside the bubble do nothing: the tour moves only with its own buttons. */}
       <div className="absolute inset-0" />
 
-      <div key={i} ref={bubbleRef} className="motion-safe-anim absolute overflow-y-auto rounded-3xl bg-surface p-4 text-ink shadow-2xl"
+      <div key={i} ref={bubbleRef} className="motion-safe-anim absolute overflow-y-auto rounded-md border border-line bg-surface p-4 text-ink"
         style={{ ...bubble, maxHeight: view.h ? view.h - 32 : undefined, animation: 'tour-pop 260ms ease-out' }}>
         {step.art && <div className="mb-3">{step.art}</div>}
-        <p className="text-xs font-bold tracking-wide text-brand">{t('tour.step', { n: i + 1, total: steps.length })}</p>
-        <h2 id="tour-title" className="mt-0.5 text-lg font-bold">{t(step.title, step.vars)}</h2>
+        <p className="text-xs tracking-[0.2em] text-muted uppercase">{t('tour.step', { n: i + 1, total: steps.length })}</p>
+        <h2 id="tour-title" className="display mt-1 text-lg">{t(step.title, step.vars)}</h2>
         <p className="mt-1 text-[15px] leading-relaxed text-muted">{t(step.body, step.vars)}</p>
         <div className="mt-4 flex items-center justify-between gap-3">
           <div className="flex gap-1.5" aria-hidden>
-            {steps.map((_, n) => <span key={n} className={`h-1.5 rounded-full transition-all ${n === i ? 'w-5 bg-brand' : 'w-1.5 bg-line'}`} />)}
+            {steps.map((_, n) => <span key={n} className={`h-1.5 rounded-full transition-all ${n === i ? 'w-5 bg-shelf' : 'w-1.5 bg-line'}`} />)}
           </div>
           <div className="flex items-center gap-1">
             {!last && <button type="button" onClick={() => end()} className="rounded-lg px-2.5 py-2 text-sm text-muted hover:text-ink">{t('tour.skip')}</button>}
             {i > 0 && <button type="button" onClick={() => setI(i - 1)} className="rounded-lg px-2.5 py-2 text-sm font-medium hover:bg-surface-2">{t('tour.back')}</button>}
             <button ref={nextBtn} type="button"
               onClick={() => (last ? end(finish?.action) : setI(i + 1))}
-              className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-brand-ink">
+              className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-brand-ink">
               {last ? t(finish?.label ?? 'tour.done') : t('tour.next')}
             </button>
           </div>

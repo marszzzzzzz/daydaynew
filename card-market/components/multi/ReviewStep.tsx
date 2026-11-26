@@ -2,6 +2,7 @@
 // Last step of 一相多卡: every confirmed card is cut out (front, and its paired back if any) and read on the
 // phone, one after another; name, number, language and — from a player card's back — publisher and year
 // are filled in as each reading finishes. The person checks, prices and saves all, both photos per card.
+import { ArrowLeft, Camera, Check } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useSWRConfig } from 'swr';
@@ -172,7 +173,7 @@ export function ReviewStep({ front, back, pairs, onRestart }: { front: Shot; bac
                   <div className="min-w-0 flex-1 space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <h2 className="font-bold">#{i + 1} {x.name || <span className="font-normal text-muted">{t('batch.unnamed')}</span>}</h2>
-                      {done(x) && <span className="text-sm font-semibold text-ok">✓ {t('batch.savedOne')}</span>}
+                      {done(x) && <span className="text-sm font-medium text-ok"><Check aria-hidden size={14} strokeWidth={1.75} className="inline align-[-2px]" /> {t('batch.savedOne')}</span>}
                     </div>
                     {x.reading ? <p className="text-sm text-muted">⏳ {t('batch.reading')}</p>
                       : x.failed || !x.ocr?.text ? <p className="text-sm text-muted">{t('batch.noText')}</p>
@@ -237,7 +238,7 @@ export function ReviewStep({ front, back, pairs, onRestart }: { front: Shot; bac
           </span>
           {saved === items.length && items.length ? (
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={onRestart}>📷 {t('multi.another')}</Button>
+              <Button variant="secondary" onClick={onRestart}><Camera aria-hidden size={16} strokeWidth={1.75} />{t('multi.another')}</Button>
               <ButtonLink href="/sell">{t('batch.toMyCards')}</ButtonLink>
             </div>
           ) : (
@@ -245,14 +246,14 @@ export function ReviewStep({ front, back, pairs, onRestart }: { front: Shot; bac
           )}
         </div>
       </div>
-      <p className="mt-6 text-center text-sm"><Link href="/sell" className="text-muted hover:text-ink">← {t('nav.sell')}</Link></p>
+      <p className="mt-6 text-center text-sm"><Link href="/sell" className="text-muted hover:text-ink"><ArrowLeft aria-hidden size={14} strokeWidth={1.75} className="inline align-[-2px]" /> {t('nav.sell')}</Link></p>
     </div>
   );
 }
 
 const Chip = ({ children, onClick, strong, disabled }: { children: ReactNode; onClick: () => void; strong?: boolean; disabled?: boolean }) => (
   <button type="button" onClick={onClick} disabled={disabled}
-    className={`max-w-full truncate rounded-full border px-2.5 py-1 text-sm hover:border-brand disabled:opacity-50 ${strong ? 'border-brand/40 bg-brand/10 font-semibold' : 'border-line bg-surface-2'}`}>
+    className={`max-w-full truncate rounded-full border px-2.5 py-1 text-sm hover:border-brand disabled:opacity-50 ${strong ? 'border-brand/40 bg-brand/10 font-medium' : 'border-line bg-surface-2'}`}>
     {children}
   </button>
 );

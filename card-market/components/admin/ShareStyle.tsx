@@ -1,6 +1,7 @@
 'use client';
 // Admin: the background behind cards on share pictures, link previews and shared pages. One choice for
 // all cards, optionally a different one per category; presets or uploaded pictures. Saved for everyone.
+import { Check, ImageUp } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import useSWR from 'swr';
 import { Button, Loading, LoadError, Notice, Panel, Select } from '@/components/ui';
@@ -16,10 +17,10 @@ function Swatch({ bg, on, onClick, label }: { bg: Bg; on: boolean; onClick: () =
   const r = resolveBg({ all: bg, byCategory: {}, uploads: [] });
   return (
     <button type="button" onClick={onClick} aria-pressed={on} title={label} aria-label={label}
-      className={`relative h-16 w-14 shrink-0 overflow-hidden rounded-xl border-2 ${on ? 'border-brand ring-2 ring-brand/30' : 'border-line'}`}
+      className={`relative h-16 w-14 shrink-0 overflow-hidden rounded-lg border-2 ${on ? 'border-brand ring-2 ring-brand/30' : 'border-line'}`}
       style={{ background: `linear-gradient(135deg, ${r.from}, ${r.to})` }}>
       {r.image && <img src={r.image} alt="" className="absolute inset-0 size-full object-cover" />}
-      {on && <span className="absolute right-1 bottom-1 grid size-5 place-items-center rounded-full bg-brand text-[11px] text-brand-ink">✓</span>}
+      {on && <span className="absolute right-1 bottom-1 grid size-5 place-items-center rounded-full bg-brand text-[11px] text-brand-ink"><Check aria-hidden size={12} strokeWidth={2.5} /></span>}
     </button>
   );
 }
@@ -31,7 +32,7 @@ function BgPicker({ value, onChange, uploads, inherit }: { value: Bg | undefined
     <div className="flex gap-2 overflow-x-auto pb-1">
       {inherit && (
         <button type="button" onClick={() => onChange(undefined)} aria-pressed={!value}
-          className={`grid h-16 w-14 shrink-0 place-items-center rounded-xl border-2 border-dashed text-[11px] leading-tight text-muted ${!value ? 'border-brand text-ink' : 'border-line'}`}>
+          className={`grid h-16 w-14 shrink-0 place-items-center rounded-lg border-2 border-dashed text-[11px] leading-tight text-muted ${!value ? 'border-brand text-ink' : 'border-line'}`}>
           {t('style.inherit')}
         </button>
       )}
@@ -46,7 +47,7 @@ function Preview({ cfg, categoryId }: { cfg: ThemeConfig; categoryId?: string })
   const { t } = useT();
   const r = resolveBg(cfg, categoryId);
   return (
-    <div className="relative mx-auto w-44 overflow-hidden rounded-2xl text-white shadow-lg" style={{ aspectRatio: '4 / 5', background: `linear-gradient(135deg, ${r.from}, ${r.to})` }}>
+    <div className="relative mx-auto w-44 overflow-hidden rounded-md text-white shadow-lg" style={{ aspectRatio: '4 / 5', background: `linear-gradient(135deg, ${r.from}, ${r.to})` }}>
       {r.image && <><img src={r.image} alt="" className="absolute inset-0 size-full object-cover" /><span className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/45 to-black/80" /></>}
       <div className="absolute top-3 left-1/2 h-[52%] w-[48%] -translate-x-1/2 -rotate-2 rounded-lg border-2 border-white/90 bg-[#fff6cf] p-1 shadow-lg">
         <div className="size-full rounded bg-gradient-to-br from-[#ffd84a] to-[#e88b2a]" />
@@ -54,7 +55,7 @@ function Preview({ cfg, categoryId }: { cfg: ThemeConfig; categoryId?: string })
       <div className="absolute inset-x-3 bottom-3">
         <span className="rounded-full bg-[#34d27b] px-1.5 text-[8px] font-bold text-[#0b1f12]">{t('share.img.listed')}</span>
         <p className="mt-0.5 text-[11px] font-bold">Pikachu 025/165</p>
-        <p className="text-sm font-extrabold text-[#FFCB05]">HK$120</p>
+        <p className="text-sm font-bold text-[#FFCB05]">HK$120</p>
       </div>
     </div>
   );
@@ -117,7 +118,7 @@ export function ShareStyle() {
       <Notice>{t('style.intro')}</Notice>
       <Panel className="space-y-4">
         <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-sm font-semibold">
+          <label className="flex items-center gap-2 text-sm font-medium">
             {t('style.for')}
             <Select value={cat} onChange={(e) => setCat(e.target.value)} className="w-auto py-1.5">
               <option value="">{t('style.all')}</option>
@@ -128,8 +129,8 @@ export function ShareStyle() {
         <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-start">
           <div className="min-w-0 space-y-3">
             <BgPicker value={cat ? cfg.byCategory[cat] : cfg.all} onChange={setBg} uploads={cfg.uploads} inherit={!!cat} />
-            <label className={`inline-flex cursor-pointer items-center gap-2 rounded-xl bg-surface-2 px-3.5 py-2 text-sm font-semibold ${uploading ? 'opacity-60' : ''}`}>
-              🖼 {uploading ? t('style.uploading') : t('style.upload')}
+            <label className={`inline-flex cursor-pointer items-center gap-2 rounded-lg bg-surface-2 px-3.5 py-2 text-sm font-medium ${uploading ? 'opacity-60' : ''}`}>
+              <ImageUp aria-hidden size={16} strokeWidth={1.75} />{uploading ? t('style.uploading') : t('style.upload')}
               <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={uploading}
                 onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ''; }} />
             </label>

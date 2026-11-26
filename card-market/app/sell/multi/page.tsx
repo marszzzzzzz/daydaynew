@@ -3,6 +3,7 @@
 // the same for their backs (or skip) → backs paired with fronts → each card cut out, read and filled in →
 // check, price, save all. A feature of its own: it shares the reading engine with batch scan but none
 // of its screens or state.
+import { ArrowLeft, ArrowRight, Camera, Check, Images } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ConfirmStep, MAX_CARDS, MIN_CARDS } from '@/components/multi/ConfirmStep';
 import { PairStep } from '@/components/multi/PairStep';
@@ -56,11 +57,11 @@ function Multi() {
 
   return (
     <div>
-      <PageTitle title={`🖼️ ${t('multi.title')}`} sub={t('multi.sub', { min: MIN_CARDS, max: MAX_CARDS })} />
+      <PageTitle title={t('multi.title')} sub={t('multi.sub', { min: MIN_CARDS, max: MAX_CARDS })} />
       <ol className="mb-5 grid grid-cols-4 gap-1.5 text-[11px] sm:text-xs">
         {steps.map((k, i) => (
-          <li key={k} className={`rounded-full px-2 py-1.5 text-center font-semibold ${i === at ? 'bg-brand text-brand-ink' : i < at ? 'bg-ok-soft text-ok' : 'bg-surface-2 text-muted'}`}>
-            {i < at ? '✓ ' : `${i + 1}. `}{t(k)}
+          <li key={k} className={`rounded-full px-2 py-1.5 text-center font-medium ${i === at ? 'bg-brand text-brand-ink' : i < at ? 'bg-ok-soft text-ok' : 'bg-surface-2 text-muted'}`}>
+            {i < at ? <Check aria-hidden size={14} strokeWidth={1.75} className="inline align-[-2px]" /> : `${i + 1}. `}{t(k)}
           </li>
         ))}
       </ol>
@@ -75,7 +76,7 @@ function Multi() {
       {err && step.kind !== 'photo' && <Notice tone="danger" className="mb-4">{err}</Notice>}
       {step.kind === 'confirm' && (
         <>
-          {step.side === 'BACK' && <p className="mb-3 text-center text-sm font-semibold">{t('multi.backOf', { n: step.front?.boxes.length ?? 0 })}</p>}
+          {step.side === 'BACK' && <p className="mb-3 text-center text-sm font-medium">{t('multi.backOf', { n: step.front?.boxes.length ?? 0 })}</p>}
           <ConfirmStep key={step.src} img={step.img} src={step.src} expected={step.front?.boxes.length}
             onBack={() => setStep({ kind: 'photo', side: step.side, front: step.front })}
             onConfirm={(boxes) => setStep(step.side === 'FRONT'
@@ -110,22 +111,22 @@ function PhotoPick({ side, count, busy, err, onPick, onSkip, onBack }: {
   return (
     <div className="mx-auto max-w-xl space-y-4">
       {back && <h2 className="text-center text-lg font-bold">{t('multi.backTitle', { n: count ?? 0 })}</h2>}
-      <div aria-hidden className="relative mx-auto grid h-44 max-w-sm grid-cols-4 items-center gap-3 rounded-3xl bg-[#3b2a1a] p-5">
+      <div aria-hidden className="relative mx-auto grid h-44 max-w-sm grid-cols-4 items-center gap-3 rounded-md bg-black p-5 acrylic">
         {['#FFCB05', '#8B5CF6', '#FF4D2E', '#12B76A'].map((c, i) => (
-          <span key={c} className="aspect-[63/88] rounded-md border-2 border-white/80 shadow-lg"
+          <span key={c} className="aspect-[63/88] rounded-sm border border-white/40"
             style={{ background: back ? 'repeating-linear-gradient(45deg,#2a63d8 0 6px,#3b74ea 6px 12px)' : c, transform: `rotate(${(i - 1.5) * 3}deg)` }} />
         ))}
       </div>
-      <ul className="space-y-1.5 rounded-2xl bg-surface p-4 text-sm">
-        {tips.map((k) => <li key={k}>✓ {t(k, { min: MIN_CARDS, max: MAX_CARDS })}</li>)}
+      <ul className="space-y-1.5 rounded-md bg-surface p-4 text-sm">
+        {tips.map((k) => <li key={k} className="flex gap-2"><Check aria-hidden size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" />{t(k, { min: MIN_CARDS, max: MAX_CARDS })}</li>)}
       </ul>
       <div className="grid gap-2 sm:grid-cols-2">
-        <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-accent px-5 py-4 text-lg font-bold text-[#17192c] ${busy ? 'opacity-60' : ''}`}>
-          📷 {t(back ? 'multi.takeBack' : 'multi.take')}
+        <label className={`flex cursor-pointer items-center justify-center gap-2 lamp rounded-lg bg-shelf px-5 py-4 text-base font-medium text-bg ${busy ? 'opacity-60' : ''}`}>
+          <Camera aria-hidden size={16} strokeWidth={1.75} />{t(back ? 'multi.takeBack' : 'multi.take')}
           <input type="file" accept="image/*" capture="environment" className="sr-only" disabled={busy} onChange={(e) => { onPick(e.target.files?.[0]); e.target.value = ''; }} />
         </label>
-        <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-surface-2 px-5 py-4 font-semibold ${busy ? 'opacity-60' : ''}`}>
-          🖼 {t('multi.choose')}
+        <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-md bg-surface-2 px-5 py-4 font-medium ${busy ? 'opacity-60' : ''}`}>
+          <Images aria-hidden size={16} strokeWidth={1.75} />{t('multi.choose')}
           <input type="file" accept="image/*" className="sr-only" disabled={busy} onChange={(e) => { onPick(e.target.files?.[0]); e.target.value = ''; }} />
         </label>
       </div>
@@ -133,8 +134,8 @@ function PhotoPick({ side, count, busy, err, onPick, onSkip, onBack }: {
       {err && <Notice tone="danger">{err}</Notice>}
       {(onSkip || onBack) && (
         <div className="flex flex-wrap justify-between gap-2">
-          {onBack ? <Button variant="ghost" onClick={onBack}>← {t('multi.restart')}</Button> : <span />}
-          {onSkip && <Button variant="secondary" onClick={onSkip}>{t('multi.skipBacks')} →</Button>}
+          {onBack ? <Button variant="ghost" onClick={onBack}><ArrowLeft aria-hidden size={16} strokeWidth={1.75} />{t('multi.restart')}</Button> : <span />}
+          {onSkip && <Button variant="secondary" onClick={onSkip}>{t('multi.skipBacks')}<ArrowRight aria-hidden size={16} strokeWidth={1.75} /></Button>}
         </div>
       )}
     </div>

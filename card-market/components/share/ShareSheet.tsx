@@ -5,6 +5,7 @@
 // - Instagram / 小红书: the phone's share menu with the picture; else the picture is saved and the text copied.
 // - WeChat: a QR code to scan in WeChat (or the share menu).
 // "More" opens the phone's share menu with the picture, text and link (any app the phone has).
+import { Download, Link2, Share2, X } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
@@ -230,14 +231,14 @@ export function ShareSheet({ card, onClose }: { card: ShareTarget; onClose: () =
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/55 sm:items-center" onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-labelledby="share-title" onClick={(e) => e.stopPropagation()}
-        className="motion-safe-anim max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-surface p-5 pb-[max(20px,env(safe-area-inset-bottom))] sm:rounded-3xl"
+        className="motion-safe-anim max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-lg bg-surface p-5 pb-[max(20px,env(safe-area-inset-bottom))] sm:rounded-md"
         style={{ animation: 'tour-pop 220ms ease-out' }}>
         <div className="flex items-center justify-between">
           <h2 id="share-title" className="text-lg font-bold">{t('share.title')}</h2>
-          <button type="button" onClick={onClose} aria-label={t('admin.close')} className="grid size-9 place-items-center rounded-full bg-surface-2">✕</button>
+          <button type="button" onClick={onClose} aria-label={t('admin.close')} className="grid size-9 place-items-center rounded-full bg-surface-2"><X aria-hidden size={18} strokeWidth={1.75} /></button>
         </div>
 
-        <div className="mx-auto mt-3 w-44 overflow-hidden rounded-2xl bg-surface-2 shadow-lg" style={{ aspectRatio: `${W} / ${H}` }}>
+        <div className="mx-auto mt-3 w-44 overflow-hidden rounded-md bg-surface-2 shadow-lg" style={{ aspectRatio: `${W} / ${H}` }}>
           {image ? <img src={image.src} alt={t('share.preview')} className="size-full object-cover" />
             : <span className="grid size-full place-items-center text-xs text-muted">{err ? '—' : t('share.making')}</span>}
         </div>
@@ -247,7 +248,7 @@ export function ShareSheet({ card, onClose }: { card: ShareTarget; onClose: () =
           {PLATFORMS.map((p) => (
             <li key={p.id}>
               <button type="button" disabled={!url} onClick={() => go(p.id)} className="flex w-full flex-col items-center gap-1.5 disabled:opacity-40" aria-label={t('share.to', { app: p.label })}>
-                <span className="grid size-12 place-items-center rounded-full text-sm font-extrabold text-white shadow" style={{ background: p.color }} aria-hidden>{p.mark}</span>
+                <span className="grid size-12 place-items-center rounded-full text-sm font-bold text-white shadow" style={{ background: p.color }} aria-hidden>{p.mark}</span>
                 <span className="w-full truncate text-center text-[11px] text-muted">{p.label}</span>
               </button>
             </li>
@@ -255,23 +256,23 @@ export function ShareSheet({ card, onClose }: { card: ShareTarget; onClose: () =
         </ul>
 
         <div className="mt-5 grid grid-cols-3 gap-2">
-          <button type="button" disabled={!url} onClick={async () => say(t((await copy(url!)) ? 'share.copied' : 'share.copyFailed'))} className="rounded-xl bg-surface-2 py-2.5 text-sm font-semibold disabled:opacity-40">🔗 {t('share.copyLink')}</button>
-          <button type="button" disabled={!image} onClick={save} className="rounded-xl bg-surface-2 py-2.5 text-sm font-semibold disabled:opacity-40">⬇️ {t('share.saveImage')}</button>
-          <button type="button" disabled={!url} onClick={async () => { if (!(await nativeShare('native'))) say(t('share.noMenu')); }} className="rounded-xl bg-brand py-2.5 text-sm font-semibold text-brand-ink disabled:opacity-40">📤 {t('share.more')}</button>
+          <button type="button" disabled={!url} onClick={async () => say(t((await copy(url!)) ? 'share.copied' : 'share.copyFailed'))} className="rounded-lg bg-surface-2 py-2.5 text-sm font-medium disabled:opacity-40"><Link2 aria-hidden size={16} strokeWidth={1.75} className="mr-1 inline align-[-3px]" />{t('share.copyLink')}</button>
+          <button type="button" disabled={!image} onClick={save} className="rounded-lg bg-surface-2 py-2.5 text-sm font-medium disabled:opacity-40"><Download aria-hidden size={16} strokeWidth={1.75} className="mr-1 inline align-[-3px]" />{t('share.saveImage')}</button>
+          <button type="button" disabled={!url} onClick={async () => { if (!(await nativeShare('native'))) say(t('share.noMenu')); }} className="rounded-lg bg-brand py-2.5 text-sm font-medium text-brand-ink disabled:opacity-40"><Share2 aria-hidden size={16} strokeWidth={1.75} className="mr-1 inline align-[-3px]" />{t('share.more')}</button>
         </div>
         <p className="mt-3 text-center text-xs text-muted">{t('share.hint')}</p>
-        {toast && <p role="status" className="mt-3 rounded-xl bg-ok-soft px-3 py-2 text-center text-sm text-ok">{toast}</p>}
+        {toast && <p role="status" className="mt-3 rounded-lg bg-ok-soft px-3 py-2 text-center text-sm text-ok">{toast}</p>}
       </div>
 
       {qr && (
         <div className="fixed inset-0 z-[75] grid place-items-center bg-black/60 p-4" onClick={(e) => { e.stopPropagation(); setQr(null); }}>
-          <div role="dialog" aria-modal="true" className="w-full max-w-xs rounded-3xl bg-surface p-5 text-center" onClick={(e) => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" className="w-full max-w-xs rounded-md bg-surface p-5 text-center" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-bold">{t('share.wechat.title')}</h3>
-            <img src={qr} alt="QR" className="mx-auto mt-3 w-56 rounded-xl" />
+            <img src={qr} alt="QR" className="mx-auto mt-3 w-56 rounded-lg" />
             <p className="mt-2 text-sm text-muted">{t('share.wechat.body')}</p>
             <div className="mt-4 grid grid-cols-2 gap-2">
-              <button type="button" onClick={async () => { await nativeShare('wechat'); }} className="rounded-xl bg-[#07C160] py-2.5 text-sm font-semibold text-white">{t('share.more')}</button>
-              <button type="button" onClick={() => setQr(null)} className="rounded-xl bg-surface-2 py-2.5 text-sm font-semibold">{t('admin.close')}</button>
+              <button type="button" onClick={async () => { await nativeShare('wechat'); }} className="rounded-lg bg-[#07C160] py-2.5 text-sm font-medium text-white">{t('share.more')}</button>
+              <button type="button" onClick={() => setQr(null)} className="rounded-lg bg-surface-2 py-2.5 text-sm font-medium">{t('admin.close')}</button>
             </div>
           </div>
         </div>
@@ -280,15 +281,15 @@ export function ShareSheet({ card, onClose }: { card: ShareTarget; onClose: () =
   );
 }
 
-/** The 📤 button that opens the sheet. */
+/** The share button that opens the sheet. */
 export function ShareButton({ card, className = '', compact }: { card: ShareTarget; className?: string; compact?: boolean }) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} aria-label={t('share.button')}
-        className={`inline-flex items-center gap-1.5 rounded-xl font-semibold ${compact ? 'px-2 py-1 text-sm text-brand' : 'bg-surface-2 px-3.5 py-2 text-sm hover:bg-line'} ${className}`}>
-        <span aria-hidden>📤</span>{compact ? null : t('share.button')}
+        className={`inline-flex items-center gap-1.5 rounded-lg font-medium ${compact ? 'px-2 py-1 text-sm text-brand' : 'bg-surface-2 px-3.5 py-2 text-sm hover:bg-line'} ${className}`}>
+        <Share2 aria-hidden size={16} strokeWidth={1.75} />{compact ? null : t('share.button')}
       </button>
       {open && <ShareSheet card={card} onClose={() => setOpen(false)} />}
     </>

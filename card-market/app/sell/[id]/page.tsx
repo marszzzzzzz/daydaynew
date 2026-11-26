@@ -1,4 +1,5 @@
 'use client';
+import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -27,7 +28,7 @@ function EditCard() {
   const stale = !!card && base !== null && card.updatedAt !== base;
   return (
     <div>
-      <Link href="/sell" className="mb-4 inline-block text-sm text-muted hover:text-ink">← {t('sell.title')}</Link>
+      <Link href="/sell" className="mb-4 inline-block text-sm text-muted hover:text-ink"><ArrowLeft aria-hidden size={14} strokeWidth={1.75} className="inline align-[-2px]" /> {t('sell.title')}</Link>
       <PageTitle title={t('form.edit')} />
       {error && !data ? <LoadError error={error} retry={() => mutate()} />
         : !data || deleted ? <Loading />

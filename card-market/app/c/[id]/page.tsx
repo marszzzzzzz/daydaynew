@@ -15,7 +15,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const p = readShare(t, id);
   const title = p ? `${p.n}${p.p !== null ? ` · ${money(p.p, p.c)}` : ''}` : '日日新卡市 · Card Market';
   const description = p ? [p.d, p.sn && `限號 ${p.sn}`, p.s && `賣家 ${p.s}`, '日日新卡市：實體卡玩家之間直接買賣'].filter(Boolean).join(' · ')
-    : '實體卡，玩家之間直接買賣 — Real cards, traded player to player.';
+    : '實體卡，玩家之間直接買賣。Real cards, traded player to player.';
   const image = `/c/${encodeURIComponent(id)}/og${p && t ? `?t=${encodeURIComponent(t)}` : ''}`;
   return {
     title, description,

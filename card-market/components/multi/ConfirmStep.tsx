@@ -2,6 +2,7 @@
 // Step 2 of 一相多卡: the photo with a numbered frame on every card found. The person checks the count,
 // removes wrong frames (✕), draws missing ones (drag on the photo), or detects again more or less
 // sensitively, then confirms.
+import { ArrowLeft, RefreshCw, RotateCcw, RotateCw, X } from 'lucide-react';
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { Button, Notice } from '@/components/ui';
 import { detectCards, readingOrder, type Box } from '@/lib/detect';
@@ -57,7 +58,7 @@ export function ConfirmStep({ img, src, expected, onBack, onConfirm, onRotate }:
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl bg-surface p-4 text-center">
+      <div className="rounded-md bg-surface p-4 text-center">
         <p className="text-sm text-muted">{t('multi.found', { n: found })}</p>
         <p className="mt-1 text-xl font-bold">{t('multi.confirmQ', { n })}</p>
         {expected !== undefined
@@ -68,19 +69,19 @@ export function ConfirmStep({ img, src, expected, onBack, onConfirm, onRotate }:
       {/* Turn the photo upright: the cut-out cards come out the same way round. */}
       <div className="mx-auto flex max-w-xl flex-wrap items-center justify-center gap-2" role="group" aria-label={t('multi.rotate')}>
         <span className="hidden text-sm text-muted sm:inline">{t('multi.rotate')}</span>
-        <Button variant="secondary" disabled={turning} onClick={() => turn(270)} aria-label={t('multi.rotateLeft')}>↺ {t('multi.rotateLeft')}</Button>
-        <Button variant="secondary" disabled={turning} onClick={() => turn(90)} aria-label={t('multi.rotateRight')}>↻ {t('multi.rotateRight')}</Button>
-        <Button variant="secondary" disabled={turning} onClick={() => turn(180)} aria-label={t('multi.rotate180')}>⇅ 180°</Button>
+        <Button variant="secondary" disabled={turning} onClick={() => turn(270)} aria-label={t('multi.rotateLeft')}><RotateCcw aria-hidden size={16} strokeWidth={1.75} />{t('multi.rotateLeft')}</Button>
+        <Button variant="secondary" disabled={turning} onClick={() => turn(90)} aria-label={t('multi.rotateRight')}><RotateCw aria-hidden size={16} strokeWidth={1.75} />{t('multi.rotateRight')}</Button>
+        <Button variant="secondary" disabled={turning} onClick={() => turn(180)} aria-label={t('multi.rotate180')}><RefreshCw aria-hidden size={16} strokeWidth={1.75} />180°</Button>
       </div>
 
-      <div ref={area} className="relative mx-auto max-w-xl touch-none select-none overflow-hidden rounded-2xl bg-black"
+      <div ref={area} className="relative mx-auto max-w-xl touch-none select-none overflow-hidden rounded-md bg-black"
         onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => setDrawing(null)}>
         <img src={src} alt={t('multi.photoAlt')} className="block w-full" draggable={false} />
         {boxes.map((b, i) => (
           <div key={`${i}:${Math.round(b.x)}:${Math.round(b.y)}`} className="absolute rounded-lg border-[3px] border-[#34d27b] bg-[#34d27b]/10 shadow-[0_0_0_1px_rgba(0,0,0,0.4)]" style={pct(b)}>
-            <span className="absolute -top-0.5 -left-0.5 grid size-7 place-items-center rounded-br-lg bg-[#34d27b] text-sm font-extrabold text-[#0b1f12]">{i + 1}</span>
+            <span className="absolute -top-0.5 -left-0.5 grid size-7 place-items-center rounded-br-lg bg-[#34d27b] text-sm font-bold text-[#0b1f12]">{i + 1}</span>
             <button type="button" onClick={() => setBoxes((x) => x.filter((_, j) => j !== i))} aria-label={t('multi.removeBox', { n: i + 1 })}
-              className="absolute -top-0.5 -right-0.5 grid size-7 place-items-center rounded-bl-lg bg-black/70 text-sm font-bold text-white">✕</button>
+              className="absolute -top-0.5 -right-0.5 grid size-7 place-items-center rounded-bl-lg bg-black/70 text-sm font-bold text-white"><X aria-hidden size={16} strokeWidth={1.75} /></button>
           </div>
         ))}
         {draft && <div className="pointer-events-none absolute rounded-lg border-[3px] border-dashed border-accent" style={pct(draft)} />}
@@ -94,7 +95,7 @@ export function ConfirmStep({ img, src, expected, onBack, onConfirm, onRotate }:
 
       {n === 0 && <Notice tone="warn">{t('multi.none')}</Notice>}
       <div className="flex flex-wrap justify-between gap-2">
-        <Button variant="ghost" onClick={onBack}>← {t('multi.retake')}</Button>
+        <Button variant="ghost" onClick={onBack}><ArrowLeft aria-hidden size={16} strokeWidth={1.75} />{t('multi.retake')}</Button>
         <Button disabled={n === 0} onClick={() => onConfirm(boxes)}>{t('multi.confirm', { n })}</Button>
       </div>
     </div>

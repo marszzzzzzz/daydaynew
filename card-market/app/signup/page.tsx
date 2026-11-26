@@ -70,13 +70,13 @@ function Register({ next, onDone }: { next: string | null; onDone: () => void })
 
   return (
     <Panel className="p-6 sm:p-8">
-      <p className="text-xs font-semibold text-muted">{t('signup.step', { n: 1 })}</p>
+      <p className="text-xs font-medium text-muted">{t('signup.step', { n: 1 })}</p>
       <h1 className="mt-1 text-2xl font-bold">{t('signup.title')}</h1>
       <p className="mt-1 text-sm text-muted">{t('signup.sub')}</p>
       <form onSubmit={submit} className="mt-6 space-y-4">
         <Field label={t('signup.name')}
           hint={avail && checkName === cleanName(name) ? (
-            <span className={avail.available ? 'text-ok' : 'text-danger'}>{avail.available ? `✓ ${t('signup.name.ok')}` : `✗ ${t('signup.name.taken')}`}</span>
+            <span className={avail.available ? 'text-ok' : 'text-danger'}>{avail.available ? t('signup.name.ok') : t('signup.name.taken')}</span>
           ) : undefined}>
           <Input autoComplete="username" required minLength={2} maxLength={24} value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
@@ -90,7 +90,7 @@ function Register({ next, onDone }: { next: string | null; onDone: () => void })
         <Button type="submit" busy={busy} disabled={avail?.available === false && checkName === cleanName(name)} className="w-full">{t('signup.submit')}</Button>
       </form>
       <p className="mt-6 text-center text-sm">
-        {t('signup.haveAccount')} <Link href={next ? `/login?next=${encodeURIComponent(next)}` : '/login'} className="font-semibold text-brand">{t('nav.signin')}</Link>
+        {t('signup.haveAccount')} <Link href={next ? `/login?next=${encodeURIComponent(next)}` : '/login'} className="font-medium text-brand">{t('nav.signin')}</Link>
       </p>
     </Panel>
   );
@@ -103,7 +103,7 @@ function AddWhatsApp({ next }: { next: string }) {
   if (!me) return <Loading />;
   return (
     <Panel className="p-6 sm:p-8">
-      <p className="text-xs font-semibold text-muted">{t('signup.step', { n: 2 })}</p>
+      <p className="text-xs font-medium text-muted">{t('signup.step', { n: 2 })}</p>
       <h1 className="mt-1 text-2xl font-bold">{t('signup.wa.title')}</h1>
       <p className="mt-1 mb-6 text-sm text-muted">{t('signup.wa.sub')}</p>
       <WhatsAppForm me={me} submitLabel={t('account.wa.save')} onSaved={() => router.push(next)} />
