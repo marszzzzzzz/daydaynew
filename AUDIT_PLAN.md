@@ -66,9 +66,9 @@ Positives to keep: the pg pool is tuned for the Supabase pooler, `Promise.all` i
 - Collect 20 real Facebook posts (10 text-only, 10 with price or grid in the photo) with hand-labelled expected output, as an accuracy test set.
 
 **Step 1: Quick performance wins (low risk)**
-1. `React.lazy` plus `Suspense` per admin tab, and a manual chunk for recharts (P1/S3).
-2. Set a `QueryClient` default `staleTime` of 30-60 s and `refetchOnWindowFocus: false` (P5).
-3. Add `Cache-Control: s-maxage` for public tRPC reads (publicStats, publicGridWall) (P3).
+1. `React.lazy` plus `Suspense` at the **route level** (`src/App.tsx:4-10` imports every page, including AdminDashboard) and per admin tab, plus a manual chunk for recharts (P1/S3).
+2. Set `staleTime` and `refetchOnWindowFocus: false` on **public pages only** (P5). Keep admin screens fresh, or they will show stale numbers after another user's edit.
+3. Cache only the true public procedures (publicStats, publicGridWall, showcase, banner) with a short `s-maxage` and correct `Vary`. tRPC batches vary by cookie, so a mistake could leak role-specific data through the CDN (P3). Prefer a longer client `staleTime` on public pages first.
 4. Debounce the product search (P4).
 5. Verify `inspectAttr()` is dev-only; gate it with `apply: "serve"` (S6).
 6. Lower `bodyLimit` for non-import routes (S7).
@@ -76,7 +76,10 @@ Positives to keep: the pg pool is tuned for the Supabase pooler, `Promise.all` i
 **Step 2: Scan accuracy (medium risk)**
 1. Send the post photo to Claude as an image block (base64 or URL) alongside the text. Remove the `needsAi` text-only skip (I1).
 2. Fetch all attachments of a post (`attachments{media}`) and store up to N photos (I2).
-3. Server-side resize on download (for example `sharp`) instead of rejecting over 400 KB. Follow at most one redirect, and re-check the host after redirect (I5/I6).
+3. Avoid `sharp`: it is a native dependency that the single-file esbuild bundle (`scripts/build-vercel.mjs`) does not package. Instead, ask Graph for a smaller picture, or resize in the browser (`compressImage` already exists). Measure real `full_picture` sizes first (I5). Redirect handling is speculative: only change it if real failures show up (I6).
+   - Download the photo **at sync time** (or re-fetch it by post id before use). `full_picture` URLs are signed fbcdn links that expire, so a click days later may fail.
+   - Guard the Claude image block (type, size under about 5 MB, resized) and cap parallel calls: 6 posts at a 20 s timeout is already near Vercel's 30 s limit.
+   - A failed AI call on a photo-only post currently saves the rule insight with `aiPending` false and is never retried. Fix that.
 4. Surface `analyzedBy` and a "needs review" flag in the inbox UI. Raise the 6-post cap or queue the remainder (I3).
 5. Pick the model by measurement on the Step 0 test set (I7).
 6. HEIC: add a client-side decoder fallback, or accept the server upload and convert (I4).
@@ -84,7 +87,7 @@ Positives to keep: the pg pool is tuned for the Supabase pooler, `Promise.all` i
 
 **Step 3: Structural refactor (only with owner approval; no behaviour change)**
 - Split `shopRouter.ts` and `queries/shop.ts` by domain (sales, rent, leases, tenants, statements, import). Split `PayrollTab.tsx`.
-- Convert `sales.saleDate` to a `date` column (or add an expression index) via a reviewed migration, with a backup first (S5). **High risk. Needs a production backup per `db:backup`.**
+- S5: replace `LIKE 'YYYY-MM%'` and `substr()` (`shop.ts:459, 514, 569, 858, 892`, `payrollRouter.ts:42`) with range predicates (`>= 'YYYY-MM-01' AND < next month`). This works on text with no migration. Only consider a `date` column migration later, with a backup per `db:backup`. At about 565 rows this does not matter yet.
 - Move product photos to object storage if the DB grows (S4).
 
 **Step 4: Verify**: rerun typecheck, tests and Lighthouse, and compare with the Step 0 numbers.
@@ -96,3 +99,18 @@ Positives to keep: the pg pool is tuned for the Supabase pooler, `Promise.all` i
 3. Facebook is not connected in production yet. Step 2 cannot be validated end to end until it is (needs `FB_PAGE_ID` / `FB_PAGE_TOKEN`).
 4. Sending photos to Claude has a cost per post and a privacy aspect (public Page posts only, so low).
 5. Repo rule: Cantonese for owner communication; conventional commits with no attribution lines.
+
+## 6. Goldfish review result (fresh-context reviewer, static reading only)
+
+Confirmed against the code: S1, S3, S4, S5, S7, S8, P1, P3, P4, P5, P6, I1, I2, I4, I5, I6 (mechanism), I7. Notably I1 is exact: `needsAi` skips photo-only posts, and the Graph request asks only for `full_picture` (one URL, no attachments).
+
+Unverified: S6 (`inspectAttr()` is unconditional in `vite.config.ts:12` and the production build uses the same config. Check `dist` output for injected attributes), P2 (needs the Supabase region), S9/I3/I8 (docs not read).
+
+Plan corrections made above: route-level lazy loading; public-only caching scope; no `sharp`; range predicates instead of a date migration; sync-time photo download; image guard and parallelism cap; retry for failed AI on photo-only posts.
+
+Minor: the `substr` line is `shop.ts:892`, and the `findTenantById` loop is about `shopRouter.ts:1117`. `inspectAttr` is listed under `dependencies`, not `devDependencies`.
+
+## 7. Approval needed before any code change
+
+1. Confirm that "image scanning" means the Facebook post and photo analysis (B and C).
+2. Approve Step 0 (measurement), then Step 1 (performance), then Step 2 (scan accuracy). Step 3 only if wanted.
