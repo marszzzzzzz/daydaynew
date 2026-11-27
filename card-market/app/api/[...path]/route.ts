@@ -12,7 +12,10 @@ const ALLOWED = /^(config|me|me\/whatsapp|auth\/(login|register|password|name-av
 const TOKEN_ROUTES = new Set(['auth/login', 'auth/register']);
 // Writes whose text goes to the other player: a deal message (`body`) or the note with an offer (`message`).
 const CHAT_ROUTES = /^real-market\/(deals\/[^/]+\/messages|[^/]+\/offers)$/;
-const PASS_HEADERS = ['content-type', 'cache-control', 'retry-after'];
+const PASS_HEADERS = ['content-type', 'cache-control', 'retry-after', 'etag', 'last-modified'];
+// Card photos. `?w=` asks for a smaller copy (grid thumbnails); `?v=` marks a versioned URL that never changes.
+const PHOTO = /^real-cards\/[^/]+\/photos\/(front|back)$/;
+const THUMB_WIDTHS = [240, 360, 480];
 
 const fail = (status: number, error: string, code: string) => NextResponse.json({ error, code }, { status });
 
@@ -38,9 +41,22 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
   const token = req.cookies.get(SESSION_COOKIE)?.value;
   if (token) headers.set('authorization', `Bearer ${token}`);
 
+  const photo = req.method === 'GET' && PHOTO.test(sub);
+  const search = new URLSearchParams(req.nextUrl.search);
+  const asked = Number(search.get('w')); // 0 when absent: the full photo
+  const width = photo && asked > 0 ? THUMB_WIDTHS.find((w) => w >= asked) ?? null : null;
+  search.delete('w');
+  const query = search.toString();
+  if (photo) {
+    for (const h of ['if-none-match', 'if-modified-since']) {
+      const v = req.headers.get(h);
+      if (v && !width) headers.set(h, v); // a thumbnail's validators would be the original's
+    }
+  }
+
   let res: Response;
   try {
-    res = await fetch(`${UPSTREAM}/api/${path.map(encodeURIComponent).join('/')}${req.nextUrl.search}`, {
+    res = await fetch(`${UPSTREAM}/api/${path.map(encodeURIComponent).join('/')}${query ? `?${query}` : ''}`, {
       method: req.method,
       headers,
       body,
@@ -65,6 +81,8 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
     return out;
   }
 
+  if (photo && res.ok) return photoResponse(res, width, search.has('v'));
+
   const out = new NextResponse(req.method === 'HEAD' ? null : res.body, { status: res.status });
   for (const h of PASS_HEADERS) {
     const v = res.headers.get(h);
@@ -72,6 +90,32 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
   }
   // The backend no longer knows this session (signed out everywhere, or account reset): forget it.
   if (res.status === 401 && token && !TOKEN_ROUTES.has(sub)) clearSession(out);
+  return out;
+}
+
+/**
+ * A card photo for this browser only (private: it was fetched with the viewer's session). A versioned URL
+ * changes whenever the photo does, so it is kept for good; an unversioned one (market, deals) for 5 minutes,
+ * then shown while it is checked again. With a width, a JPEG thumbnail is made from the stored photo.
+ */
+async function photoResponse(res: Response, width: number | null, versioned: boolean) {
+  const cache = versioned ? 'private, max-age=31536000, immutable' : 'private, max-age=300, stale-while-revalidate=86400';
+  const type = res.headers.get('content-type') ?? '';
+  if (width && type.startsWith('image/')) {
+    try {
+      const { default: sharp } = await import('sharp');
+      const small = await sharp(Buffer.from(await res.arrayBuffer())).rotate().resize({ width, withoutEnlargement: true }).jpeg({ quality: 78, mozjpeg: true }).toBuffer();
+      return new NextResponse(new Uint8Array(small), { status: 200, headers: { 'content-type': 'image/jpeg', 'cache-control': cache } });
+    } catch {
+      return fail(502, 'Could not make a thumbnail of this photo', 'UPSTREAM_UNAVAILABLE');
+    }
+  }
+  const out = new NextResponse(res.body, { status: res.status });
+  for (const h of ['content-type', 'etag', 'last-modified']) {
+    const v = res.headers.get(h);
+    if (v) out.headers.set(h, v);
+  }
+  out.headers.set('cache-control', cache);
   return out;
 }
 

@@ -6,7 +6,9 @@ import type { AppConfig, Me } from './types';
 
 /** The signed-in account, or null when signed out. `undefined` while loading. */
 export function useMe() {
-  const { data, error, isLoading, mutate } = useSWR<Me | null>('me', fetcher, { refreshInterval: 30_000 });
+  // Every page shows the account; it is checked again when the tab comes back and every two minutes
+  // (the deals badge rides on it; open deal pages poll on their own).
+  const { data, error, isLoading, mutate } = useSWR<Me | null>('me', fetcher, { refreshInterval: 120_000 });
   // A suspended account is signed in but locked out: pages offer sign-out instead of a retry loop.
   const blocked = error instanceof ApiError && error.code === 'ACCOUNT_SUSPENDED' ? error : null;
   return { me: data, error, isLoading, mutate, blocked };

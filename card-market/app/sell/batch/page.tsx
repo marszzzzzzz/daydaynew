@@ -8,7 +8,7 @@ import { RequireSignIn } from '@/components/RequireSignIn';
 import { Loading } from '@/components/ui';
 import { batch, isDone, useBatch, type BatchCard } from '@/lib/batch';
 import { sellerReady } from '@/lib/cards';
-import { OCR_LANGS, readText, type OcrLangs } from '@/lib/ocr';
+import { OCR_LANGS, StaleJob, readText, type OcrLangs } from '@/lib/ocr';
 import { readPlayerCard } from '@/lib/sports';
 import type { Me, PhotoSide } from '@/lib/types';
 
@@ -40,17 +40,24 @@ function Batch({ me }: { me: Me }) {
         const shot = c.photos[side];
         if (!shot || c.ocr[side]) continue;
         batch.update(c.key, (x) => ({ ocr: { ...x.ocr, [side]: { status: 'reading', text: '', lines: [], numbers: [] } } }));
-        readText(shot.blob, langs).then((r) => {
-          const cur = batch.get().find((x) => x.key === c.key);
-          if (cur?.photos[side] !== shot) return; // retaken meanwhile
+        const current = () => batch.get().find((x) => x.key === c.key)?.photos[side] === shot;
+        // The back is read in the language found on the front (fronts are queued first).
+        const hint = () => {
+          const x = batch.get().find((y) => y.key === c.key);
+          return side === 'BACK' && x?.ocr.FRONT?.status === 'done' ? x.language : null;
+        };
+        readText(shot.ocr ?? shot.blob, langs, { stale: () => !current(), hint }).then((r) => {
+          if (!current()) return; // retaken or removed meanwhile
           batch.update(c.key, (x) => {
-            const ocr = { ...x.ocr, [side]: { status: 'done' as const, text: r.text, lines: r.lines, numbers: r.numbers, layout: r.layout } };
+            const ocr = { ...x.ocr, [side]: { status: 'done' as const, text: r.text, lines: r.lines, numbers: r.numbers, layout: r.layout, title: r.title } };
             // Helpful defaults the user can change: the printed card number, the front's language (until the
             // user picks one) and, on a player card, the name, the number from the top of the back and the
             // publisher + year for the notes. A field is filled only while empty or still holding our own guess.
             const pc = readPlayerCard(ocr.FRONT?.layout, ocr.BACK?.layout);
             // A player card's top-of-back number may replace an earlier guess; any other number only fills a blank.
-            const guess = { number: pc.number ?? (x.number ? '' : r.numbers[0] ?? ''), name: pc.name ?? '', notes: pc.note ?? '' };
+            // Any other card: the name line of the front, read a second time on its own.
+            const title = side === 'FRONT' && !pc.sports ? r.title : '';
+            const guess = { number: pc.number ?? (x.number ? '' : r.numbers[0] ?? ''), name: pc.name ?? title, notes: pc.note ?? '' };
             const fill: Partial<BatchCard> = {};
             const auto = { ...x.auto };
             for (const k of ['number', 'name', 'notes'] as const) {
@@ -62,7 +69,8 @@ function Batch({ me }: { me: Me }) {
               ...(side === 'FRONT' && r.text && x.langAuto ? { language: r.language } : {}),
             };
           });
-        }).catch(() => {
+        }).catch((e) => {
+          if (e instanceof StaleJob || !current()) return; // a newer photo has its own job
           batch.update(c.key, (x) => ({ ocr: { ...x.ocr, [side]: { status: 'failed', text: '', lines: [], numbers: [] } } }));
         });
       }

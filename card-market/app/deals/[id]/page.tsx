@@ -95,7 +95,7 @@ function DealView() {
           <Panel>
             <div className="flex gap-4">
               <div className="w-20 shrink-0">
-                <CardPhoto cardId={d.realCardId} side={coverSide(d.card.photos)} has={d.card.photos.length > 0} name={d.card.name} className="rounded-lg" />
+                <CardPhoto cardId={d.realCardId} side={coverSide(d.card.photos)} has={d.card.photos.length > 0} name={d.card.name} className="rounded-lg" thumb={240} />
               </div>
               <div className="min-w-0">
                 <DealStatusBadge status={d.status} />

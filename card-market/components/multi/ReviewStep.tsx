@@ -14,7 +14,7 @@ import { cropCard, type Shot } from '@/lib/detect';
 import { useConfig, useMe } from '@/lib/hooks';
 import { useT } from '@/lib/i18n';
 import { joinNotes } from '@/lib/meta';
-import { readText, type OcrResult } from '@/lib/ocr';
+import { readText, resetOcrLanguage, type OcrResult } from '@/lib/ocr';
 import { readPlayerCard } from '@/lib/sports';
 import type { CardLanguage, Condition, RealCard } from '@/lib/types';
 
@@ -61,17 +61,18 @@ export function ReviewStep({ front, back, pairs, onRestart }: { front: Shot; bac
       }));
       ref.current = first;
       setItems(first);
+      resetOcrLanguage(); // the cards of one photo are usually in one language, but not the last photo's
       for (let i = 0; i < cut.length; i++) {
         try {
           const r = await readText(cut[i], 'auto');
-          const rb = cutBack[i] ? await readText(cutBack[i]!, 'auto').catch(() => null) : null;
+          const rb = cutBack[i] ? await readText(cutBack[i]!, 'auto', { hint: () => r.language }).catch(() => null) : null;
           if (!live) return;
           // A player card's back has the number at the top and the publisher and year at the bottom.
           const pc = readPlayerCard(r.layout, rb?.layout ?? []);
           set(i, (x) => ({
             ocr: r, ocrBack: rb, reading: false, language: r.language,
             number: x.number || pc.number || r.numbers[0] || rb?.numbers[0] || '',
-            name: x.name || pc.name || r.lines[0] || '',
+            name: x.name || pc.name || r.title || r.lines[0] || '',
             notes: x.notes || pc.note || '',
           }));
         } catch {

@@ -109,7 +109,7 @@ function CardRow({ card: c, me, onChange }: { card: RealCard; me: Me; onChange: 
     <li className="rounded-md border border-line bg-surface p-3">
       <div className="flex gap-3">
         <Link href={`/sell/${encodeURIComponent(c.id)}`} className="w-16 shrink-0 sm:w-20">
-          <CardPhoto cardId={c.id} side={cover?.side} has={!!cover} version={cover?.uploadedAt} category={c.category} name={c.name} className="rounded-lg" />
+          <CardPhoto cardId={c.id} side={cover?.side} has={!!cover} version={cover?.uploadedAt} category={c.category} name={c.name} className="rounded-lg" thumb={240} />
         </Link>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">

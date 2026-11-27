@@ -9,10 +9,12 @@ import { ArtFlip, ArtFrame, ArtStack, ArtTap } from '@/components/guide/Art';
 import { Tour, useTour } from '@/components/guide/Tour';
 import { BATCH_MAX, batch, useBatch } from '@/lib/batch';
 import { useT } from '@/lib/i18n';
+import { frameToVideo } from '@/lib/camera';
 import { shrinkPhoto } from '@/lib/image';
 import type { PhotoSide } from '@/lib/types';
 
 const OUT_MAX = 1600; // longest side of a saved photo (spec §5)
+const OCR_MAX = 2400; // longest side of the copy that is read (kept on the device, never uploaded)
 const SHARP = 60; // Laplacian variance above which small text usually reads
 
 /** Variance of the Laplacian on a small grey copy of the framed area: a cheap focus/blur score. */
@@ -43,7 +45,7 @@ export function BatchCamera({ onReview, onClose, defaultPublic }: { onReview: ()
   const [torchOk, setTorchOk] = useState(false);
   const [torch, setTorch] = useState(false);
   const [zoom, setZoom] = useState<1 | 2>(1);
-  const [score, setScore] = useState(0);
+  const [sharp, setSharp] = useState(false);
   const [flashKey, setFlashKey] = useState(0);
   const tour = useTour('camera', true, 900);
   const [sheet, setSheet] = useState<string | null>(null);
@@ -61,7 +63,7 @@ export function BatchCamera({ onReview, onClose, defaultPublic }: { onReview: ()
     (async () => {
       if (!navigator.mediaDevices?.getUserMedia) { setCamError(t('batch.noCamera')); return; }
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } });
+        stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } } });
         if (stopped) { stream.getTracks().forEach((x) => x.stop()); return; }
         const v = video.current!;
         v.srcObject = stream;
@@ -77,16 +79,11 @@ export function BatchCamera({ onReview, onClose, defaultPublic }: { onReview: ()
     return () => { stopped = true; stream?.getTracks().forEach((x) => x.stop()); };
   }, [t]);
 
-  /** The part of the video under the frame, in video pixels (the video is object-cover, scaled by zoom). */
+  /** The part of the video under the frame, in video pixels. `zoom` is a dependency: the rect changes with it. */
   const crop = useCallback(() => {
     const v = video.current, f = frame.current;
     if (!v || !f || !v.videoWidth) return null;
-    const vr = v.getBoundingClientRect(), fr = f.getBoundingClientRect();
-    const base = Math.max(vr.width / v.videoWidth, vr.height / v.videoHeight);
-    const s = base * zoom;
-    const ox = (vr.width - v.videoWidth * s) / 2, oy = (vr.height - v.videoHeight * s) / 2;
-    const sx = Math.max(0, (fr.left - vr.left - ox) / s), sy = Math.max(0, (fr.top - vr.top - oy) / s);
-    return { sx, sy, sw: Math.min(v.videoWidth - sx, fr.width / s), sh: Math.min(v.videoHeight - sy, fr.height / s) };
+    return frameToVideo(v.getBoundingClientRect(), f.getBoundingClientRect(), v.videoWidth, v.videoHeight);
   }, [zoom]);
 
   // Live sharpness of the framed area, a few times a second.
@@ -99,7 +96,7 @@ export function BatchCamera({ onReview, onClose, defaultPublic }: { onReview: ()
       const r = crop();
       if (!r || !video.current) return;
       g.drawImage(video.current, r.sx, r.sy, r.sw, r.sh, 0, 0, c.width, c.height);
-      setScore(sharpness(g, c.width, c.height));
+      setSharp(sharpness(g, c.width, c.height) >= SHARP); // re-renders only when it flips
     }, 300);
     return () => clearInterval(id);
   }, [ready, crop]);
@@ -118,19 +115,19 @@ export function BatchCamera({ onReview, onClose, defaultPublic }: { onReview: ()
   flow.current = { retake, awaitingBack };
 
   /** Put a photo where the flow expects it: a retake, the waiting card's back, or a new card's front. */
-  function place(blob: Blob) {
+  function place(blob: Blob, ocr?: Blob) {
     const { retake: re, awaitingBack: waiting } = flow.current;
     if (re) {
-      batch.setPhoto(re.key, re.side, blob);
+      batch.setPhoto(re.key, re.side, blob, ocr);
       flow.current = { retake: null, awaitingBack: waiting };
       setRetake(null);
     } else if (waiting && batch.get().some((c) => c.key === waiting)) {
-      batch.setPhoto(waiting, 'BACK', blob);
+      batch.setPhoto(waiting, 'BACK', blob, ocr);
       flow.current = { retake: null, awaitingBack: null };
       setAwaitingBack(null);
     } else if (batch.get().length < BATCH_MAX) {
       const c = batch.add({ isPublic: defaultPublic });
-      batch.setPhoto(c.key, 'FRONT', blob);
+      batch.setPhoto(c.key, 'FRONT', blob, ocr);
       flow.current = { retake: null, awaitingBack: c.key };
       setAwaitingBack(c.key);
     }
@@ -139,23 +136,27 @@ export function BatchCamera({ onReview, onClose, defaultPublic }: { onReview: ()
   function shoot() {
     const r = crop();
     if (!r || full || !video.current) return;
-    const k = Math.min(1, OUT_MAX / Math.max(r.sw, r.sh));
-    const c = document.createElement('canvas');
-    c.width = Math.round(r.sw * k);
-    c.height = Math.round(r.sh * k);
-    c.getContext('2d')!.drawImage(video.current, r.sx, r.sy, r.sw, r.sh, 0, 0, c.width, c.height);
-    c.toBlob((b) => { if (b) place(b); }, 'image/jpeg', 0.9);
+    // Two copies of the framed area: the photo that is uploaded (≤1600 px) and a sharper one that is only read.
+    const grab = (max: number, quality: number) => new Promise<Blob | null>((resolve) => {
+      const k = Math.min(1, max / Math.max(r.sw, r.sh));
+      const c = document.createElement('canvas');
+      c.width = Math.round(r.sw * k);
+      c.height = Math.round(r.sh * k);
+      c.getContext('2d')!.drawImage(video.current!, r.sx, r.sy, r.sw, r.sh, 0, 0, c.width, c.height);
+      c.toBlob(resolve, 'image/jpeg', quality);
+    });
+    const big = Math.max(r.sw, r.sh) > OUT_MAX * 1.1;
+    Promise.all([grab(OUT_MAX, 0.9), big ? grab(OCR_MAX, 0.95) : null]).then(([b, ocr]) => { if (b) place(b, ocr ?? undefined); });
     setFlashKey((n) => n + 1);
     navigator.vibrate?.(25);
   }
 
   async function fromGallery(files: FileList | null) {
     for (const f of Array.from(files ?? [])) {
-      try { place(await shrinkPhoto(f)); } catch { /* unreadable file: skip it */ }
+      try { place(await shrinkPhoto(f), await shrinkPhoto(f, OCR_MAX)); } catch { /* unreadable file: skip it */ }
     }
   }
 
-  const sharp = score >= SHARP;
   const hint = full ? t('batch.full', { n: BATCH_MAX }) : retake ? t(`batch.retake.${retake.side}`) : t(`batch.tap.${side}`);
   const sheetCard = cards.find((c) => c.key === sheet);
 

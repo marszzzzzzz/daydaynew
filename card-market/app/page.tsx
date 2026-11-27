@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Camera, Handshake, Layers, Lock, MessageCircle, Plus, type LucideIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
-import useSWR from 'swr';
+import useSWR, { preload } from 'swr';
 import { CardPhoto } from '@/components/CardPhoto';
 import { ArtFrame, ArtScan, ArtStack } from '@/components/guide/Art';
 import { ScanHero, StarterChecklist } from '@/components/guide/Starter';
@@ -18,6 +18,9 @@ import type { Listing, Me } from '@/lib/types';
 
 export default function Home() {
   const { me, error, mutate, blocked } = useMe();
+  // While the account is still loading, ask for the market too instead of after it (same key and fetcher as
+  // <Market/>, which picks the answer up). Only then: later renders would start requests nobody reads.
+  if (typeof window !== 'undefined' && me === undefined) preload('real-market', fetcher);
   if (blocked) return <Blocked error={blocked} />;
   if (error && me === undefined) return <LoadError error={error} retry={() => mutate()} />;
   if (me === undefined) return <Loading />;
@@ -127,7 +130,7 @@ function Market() {
                 <Link href={`/listing/${encodeURIComponent(l.id)}?q=${encodeURIComponent(searchHint(l.name))}`} className="group block">
                   <div className="shelf px-3 pt-2 sm:px-5">
                     <div className="lamp relative rounded-sm transition group-hover:-translate-y-1">
-                      <CardPhoto cardId={l.id} side={coverSide(l.photos)} has={l.photos.length > 0} category={l.category} name={l.name} />
+                      <CardPhoto cardId={l.id} side={coverSide(l.photos)} has={l.photos.length > 0} category={l.category} name={l.name} thumb={480} />
                       {/* Bottom of the photo: the top is where a card prints its name. */}
                       <div className="absolute bottom-2 left-2 flex flex-wrap items-start gap-1">
                         {l.mine && <span className="rounded-full bg-black/80 px-2 py-0.5 text-xs text-white">{t('listing.mine')}</span>}

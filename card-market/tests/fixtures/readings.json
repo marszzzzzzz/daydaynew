@@ -1,0 +1,226 @@
+[
+ {
+  "card": "en",
+  "shot": "clean",
+  "model": "en",
+  "confidence": 72,
+  "text": "Pikachu      4            r\ny\nEE\nThunder Shock 30\nFlip a coin. If heads, the Defending Pokémon is now\nweakness x2 PR nce retreat\nSai                                                                  Illus. Example\n\\&                                                   4\n"
+ },
+ {
+  "card": "en",
+  "shot": "video",
+  "model": "en",
+  "confidence": 89,
+  "text": "     Pikachu                                      HP 60\nThunder Shock 30\nFlip a coin. If heads, the Defending Pokémon is now\nParalyzed.\nweakness x2 resistance retreat\n025/165                                            Bs Evampie\n"
+ },
+ {
+  "card": "zh",
+  "shot": "clean",
+  "model": "en",
+  "confidence": 49,
+  "text": "            4\n Es 1% ; ATE 2,\n025/165                                                                  c-\n\n\\&                                                                                                 4\n"
+ },
+ {
+  "card": "zh",
+  "shot": "video",
+  "model": "en",
+  "confidence": 42,
+  "text": "   KRE                                HP 60\nMire 30\nWELLE, EHF RIS HF OMIT) 6\nine\n025/165                                    Mus Example\n"
+ },
+ {
+  "card": "ja",
+  "shot": "clean",
+  "model": "en",
+  "confidence": 34,
+  "text": "©      /\nOA > EIERITA ETS. MFO LRT EY\n025/165                                                                  Illus. Example\n\\&                                           4\n"
+ },
+ {
+  "card": "ja",
+  "shot": "video",
+  "model": "en",
+  "confidence": 39,
+  "text": "    EhFary                         HP 60\n10FAFNLP 30\n1 EIB A E770 MFO bts\nEvEIZT >,\n025/165                                 Bs Example\n"
+ },
+ {
+  "card": "ko",
+  "shot": "clean",
+  "model": "en",
+  "confidence": 43,
+  "text": "©  /\nSHS 151 HRA 2B] LLB Alchel oS TAS\n\n2 Oft| 2 gHECt\n\n025/165                                                                  Illus. Example\n\\&                                                                     4\n"
+ },
+ {
+  "card": "ko",
+  "shot": "video",
+  "model": "en",
+  "confidence": 46,
+  "text": "    oj7pa                                  HP 60\n108Hg = 30\nSTE 181 BixiM 2010] Loe Mcjo| yg ze\ns ojy| 2 SHE},\n025/165                                    Bs Example\n"
+ },
+ {
+  "card": "en",
+  "shot": "clean",
+  "model": "zh",
+  "confidence": 66,
+  "text": "Pikachu            ii\n廊\n晤\nThunder shock 30 一\nFlip acoin. Ifheads, the Defending Pokemon is now\nParalyzed.\nweakness x2 resistance retreat\n025/165                                                                  lllus. Example\n(加                                               影\n"
+ },
+ {
+  "card": "en",
+  "shot": "video",
+  "model": "zh",
+  "confidence": 74,
+  "text": "    Pikachu                                   HP 60\nThunder Shock 30\nFlip acoin if heads, the Defending Pokemon is now\nParalyzed!.\nweakness x2 resistance retreat\n025/165                                    kazx Exampte\n"
+ },
+ {
+  "card": "zh",
+  "shot": "clean",
+  "model": "zh",
+  "confidence": 39,
+  "text": "                 點\n            啟\n主\n諮硬幣1次 , 若為正面 2\n, 主           革\n025/165                                                                  人\nX                                       諒\n"
+ },
+ {
+  "card": "zh",
+  "shot": "video",
+  "model": "zh",
+  "confidence": 72,
+  "text": "   皮卡丘                                HP 60\n十萬伏特 30\n擲硬幣1次 , 若為正面 , 則令對手的戰鬥寶可夢陷入麻\n義狀能\n0257165                                    Is teamDte\n"
+ },
+ {
+  "card": "ja",
+  "shot": "clean",
+  "model": "zh",
+  "confidence": 35,
+  "text": "上力 地 回    上\n(品      /\n10詩人求必上 30 語\n圖     還!自歇急才生子万己、 相手2/N卜未分下二\n025/165                                                                  lllus. Example\n\nX                                               同\n"
+ },
+ {
+  "card": "ja",
+  "shot": "video",
+  "model": "zh",
+  "confidence": 47,
+  "text": "    E力地了立                             HP 60\n10寺和,水約 30\n十也砷1回投(7才世示說性 . 相手0/\\上多未今世\n衛了YE(-=才人五,\n025/165                                    us Exoampte\n"
+ },
+ {
+  "card": "ko",
+  "shot": "clean",
+  "model": "zh",
+  "confidence": 32,
+  "text": "獸        /\n昭科全 18l 日對 | miol 呈鐘四 全El | 昌時 柬烈忌\n\nmll呈中\n\n025/165                                                                  lllus. Example\nX\n"
+ },
+ {
+  "card": "ko",
+  "shot": "video",
+  "model": "zh",
+  "confidence": 30,
+  "text": "    相|若                                  HP 60\n109hH放皇 30\n啥到寺 29 呈對對 完色ol Lfeei Arcil9 時 冬剖忌\n人 DHH|至 er號\n0257165                                    Is teamDte\n"
+ },
+ {
+  "card": "en",
+  "shot": "clean",
+  "model": "ja",
+  "confidence": 55,
+  "text": "科                      。記\n\nPikachu      2            過\n世\n\n3  ]\nペー一    /\nThunder Shock 30\nFliP acoin. If heads, the Defending Pokemon is now\nParalyzed.\nweakness x2 ro\n\nに                                                                  lllus. Example\n\n一                                           _ノ\n"
+ },
+ {
+  "card": "en",
+  "shot": "video",
+  "model": "ja",
+  "confidence": 76,
+  "text": "    Pikachu                                   HP 60\nThunder Shock 30\nFlp acoin. ifheads, he Defending Pokemon is now\nParayzed.\nWeakness x2 resistance rereai\n0257165                                    am、Example\n"
+ },
+ {
+  "card": "zh",
+  "shot": "clean",
+  "model": "ja",
+  "confidence": 28,
+  "text": "                 .\nジ 0\n            』\n手重幣1次 着為正面 ンク\n025/165                                                                  生\n\n\\過                                       2\n"
+ },
+ {
+  "card": "zh",
+  "shot": "video",
+  "model": "ja",
+  "confidence": 54,
+  "text": "   皮玉丘                                HP 60\n十萬伏特 30\n擬焼刺1次 , 若放正面 , 期今手的戦門資可夢作入麻\n痺状態.\n0257165                                    唱のErampee\n"
+ },
+ {
+  "card": "ja",
+  "shot": "clean",
+  "model": "ja",
+  "confidence": 67,
+  "text": "ビカ チュ    。\nりり      /\n10まんボルト 30 」記\nコ     回回役何モテなら、 相手のバトルポケモン\n025/165                                                                  lllus. Example\n\nv剛 ノ\n"
+ },
+ {
+  "card": "ja",
+  "shot": "video",
+  "model": "ja",
+  "confidence": 82,
+  "text": "    ビピカチュウ                             HP 60\n10まんボルト 30\nコインシを1回投げオモテなら、 相手のバトルポボケモン\nをマヒにする.\n0257165                                    as Exarmpte\n"
+ },
+ {
+  "card": "ko",
+  "shot": "clean",
+  "model": "ja",
+  "confidence": 18,
+  "text": "り        /\n号記呈 1 回 1 riol 紀思 侍昌引 旨量 到現品\n\n時 中品 引王串.\n\n025/165                                                                  lllus. Example\nv財                                                          人\n"
+ },
+ {
+  "card": "ko",
+  "shot": "video",
+  "model": "ja",
+  "confidence": 35,
+  "text": "    可ヲ[|千                                  HP 60\n10引明選 30\n王召費 1山 呈誠則 受還0| はSg 分折| Ll まま・シリー\nにまりににヨコ 中拓串.\n0257165                                    唱のErampee\n"
+ },
+ {
+  "card": "en",
+  "shot": "clean",
+  "model": "ko",
+  "confidence": 75,
+  "text": "Pikachu      4            『\ny\nEE\nThunder Shock 30\nFlip a coin. If heads, the Defending Pokémon is now\nweakness x2 PR nce retreat\nSai                                                                  105. Example\n\\&                                                   4\n"
+ },
+ {
+  "card": "en",
+  "shot": "video",
+  "model": "ko",
+  "confidence": 89,
+  "text": "     Pikachu                                      HP 60\nThunder Shock 30\nFlip a coin. If heads, the Defending Pokémon is now\nParalyzed.\nweakness x2 resistance retreat\n025/165                                            1 Evampie\n"
+ },
+ {
+  "card": "zh",
+  "shot": "clean",
+  "model": "ko",
+  "confidence": 51,
+  "text": "            4\n] Es 1% ; ATE 2,\n025/165                                                                  ~\n\n\\레                                                                                                 것\n"
+ },
+ {
+  "card": "zh",
+  "shot": "video",
+  "model": "ko",
+  "confidence": 48,
+  "text": "   소도                                HP 60\nMire 30\nWELLE, 옹치내지 , RIS HF OMIT) 6\nine\n025/165                                    Mus Example\n"
+ },
+ {
+  "card": "ja",
+  "shot": "clean",
+  "model": "ko",
+  "confidence": 38,
+  "text": "©      /\nOA > EIERITA ETS. MFO LRT EY\n025/165                                                                  Illus. Example\n\\&                                           4\n"
+ },
+ {
+  "card": "ja",
+  "shot": "video",
+  "model": "ko",
+  "confidence": 40,
+  "text": "    EhFary                         HP 60\n10#※ㅅ가사 30\n1 EIB A E770 MFO bts\nEvEIZT >,\n025/165                                 Bs Example\n"
+ },
+ {
+  "card": "ko",
+  "shot": "clean",
+  "model": "ko",
+  "confidence": 79,
+  "text": "©  /\nSHS 1번 던져서 앞면이 나오면 상대의 배틀 포켓몬\n\n2 마비로 만든다.\n\n025/165                                                                  Illus. Example\n대                                                                     .\n"
+ },
+ {
+  "card": "ko",
+  "shot": "video",
+  "model": "ko",
+  "confidence": 89,
+  "text": "    피카츄                                  HP 60\n10만블트 30\nSTE 1번 던져서 앞면이 나오면 상대의 배를 포켓몬\n을 마비로 만든다.\n025/165                                    Bs Example\n"
+ }
+]

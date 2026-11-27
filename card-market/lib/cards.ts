@@ -7,9 +7,17 @@ export const CARD_LANGUAGES: CardLanguage[] = ['en', 'zh', 'ja', 'ko', 'other'];
 const GLYPHS: Record<string, string> = { bolt: '⚡', diamond: '⚾', hoop: '🏀', hat: '👒', ball: '⚽', eye: '👁' };
 export const glyph = (g?: string | null) => (g && GLYPHS[g]) || '🃏';
 
-/** Photo through the same-origin proxy (the session cookie authorises it). `v` busts the cache after a re-upload. */
-export const photoUrl = (cardId: string, side: PhotoSide, v?: number) =>
-  `/api/real-cards/${encodeURIComponent(cardId)}/photos/${side.toLowerCase()}${v ? `?v=${v}` : ''}`;
+/**
+ * Photo through the same-origin proxy (the session cookie authorises it). `v` busts the cache after a
+ * re-upload; `w` asks for a thumbnail about that wide (the proxy makes it from the stored photo).
+ */
+export function photoUrl(cardId: string, side: PhotoSide, v?: number, w?: number) {
+  const q = new URLSearchParams();
+  if (v) q.set('v', String(v));
+  if (w) q.set('w', String(w));
+  const qs = q.toString();
+  return `/api/real-cards/${encodeURIComponent(cardId)}/photos/${side.toLowerCase()}${qs ? `?${qs}` : ''}`;
+}
 
 // WhatsApp — same rules as Card Pool shared/rules/phone.ts (the server re-checks).
 export const WHATSAPP_COUNTRIES = [

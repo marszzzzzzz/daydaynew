@@ -64,7 +64,7 @@ function DealRow({ deal: d }: { deal: Deal }) {
     <li>
       <Link href={`/deals/${encodeURIComponent(d.id)}`} className="flex gap-3 rounded-md border border-line bg-surface p-3 hover:bg-surface-2">
         <div className="w-12 shrink-0">
-          <CardPhoto cardId={d.realCardId} side={coverSide(d.card.photos)} has={d.card.photos.length > 0} name={d.card.name} className="rounded-lg" />
+          <CardPhoto cardId={d.realCardId} side={coverSide(d.card.photos)} has={d.card.photos.length > 0} name={d.card.name} className="rounded-lg" thumb={240} />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">

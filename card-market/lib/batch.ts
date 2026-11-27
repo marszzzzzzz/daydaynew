@@ -3,13 +3,14 @@
 // between the camera, the review screen and other pages; photos stay in memory until they are saved.
 'use client';
 import { useSyncExternalStore } from 'react';
-import type { OcrLine } from './ocr';
+import { resetOcrLanguage, type OcrLine } from './ocr';
 import type { CardLanguage, Condition, PhotoSide } from './types';
 
 export const BATCH_MAX = 10;
 
-export interface Shot { blob: Blob; url: string }
-export type OcrState = { status: 'idle' | 'reading' | 'done' | 'failed'; text: string; lines: string[]; numbers: string[]; layout?: OcrLine[] };
+/** `blob` is the photo that is uploaded; `ocr`, when present, a larger copy that is only read on the device. */
+export interface Shot { blob: Blob; url: string; ocr?: Blob }
+export type OcrState = { status: 'idle' | 'reading' | 'done' | 'failed'; text: string; lines: string[]; numbers: string[]; layout?: OcrLine[]; title?: string };
 
 export interface BatchCard {
   key: string;
@@ -34,6 +35,7 @@ export const batch = {
   get: () => cards,
   subscribe(l: () => void) { listeners.add(l); return () => { listeners.delete(l); }; },
   add(defaults: Partial<BatchCard>): BatchCard {
+    if (!cards.length) resetOcrLanguage(); // a new batch: don't assume the last batch's language
     const c: BatchCard = {
       key: `c${++seq}`, photos: {}, ocr: {}, name: '', cardId: null, categoryId: '', setName: '', number: '',
       language: 'en', langAuto: true, condition: 'NEAR_MINT', grade: '', quantity: '1', asking: '', cost: '', listed: '1', isPublic: false, tags: [], serial: '', notes: '', auto: {}, sports: false,
@@ -47,12 +49,12 @@ export const batch = {
     cards = cards.map((c) => (c.key === key ? { ...c, ...(typeof patch === 'function' ? patch(c) : patch) } : c));
     emit();
   },
-  setPhoto(key: string, side: PhotoSide, blob: Blob) {
+  setPhoto(key: string, side: PhotoSide, blob: Blob, ocr?: Blob) {
     const c = cards.find((x) => x.key === key);
     if (!c) return;
     const old = c.photos[side];
     if (old) URL.revokeObjectURL(old.url);
-    batch.update(key, (x) => ({ photos: { ...x.photos, [side]: { blob, url: URL.createObjectURL(blob) } }, ocr: { ...x.ocr, [side]: undefined }, uploaded: { ...x.uploaded, [side]: false } }));
+    batch.update(key, (x) => ({ photos: { ...x.photos, [side]: { blob, url: URL.createObjectURL(blob), ocr } }, ocr: { ...x.ocr, [side]: undefined }, uploaded: { ...x.uploaded, [side]: false } }));
   },
   remove(key: string) {
     const c = cards.find((x) => x.key === key);

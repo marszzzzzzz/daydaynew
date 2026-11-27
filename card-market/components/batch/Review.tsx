@@ -4,7 +4,7 @@
 // retry; a card that already has a record is never created twice.
 import { Camera, Check, Medal } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { memo, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useSWRConfig } from 'swr';
 import { ArtPick, ArtPrice } from '@/components/guide/Art';
 import { FirstSaveCelebration } from '@/components/guide/Starter';
@@ -169,7 +169,8 @@ export function BatchReview({ langs, setLangs, onCamera }: { langs: OcrLangs; se
   );
 }
 
-function CardRow({ card: c, index, currency, maxPrice, canList, disabled }: { card: BatchCard; index: number; currency: string; maxPrice: number; canList: boolean; disabled: boolean }) {
+// Memoised: typing in one card re-renders that card only (the store keeps unchanged cards as they were).
+const CardRow = memo(function CardRow({ card: c, index, currency, maxPrice, canList, disabled }: { card: BatchCard; index: number; currency: string; maxPrice: number; canList: boolean; disabled: boolean }) {
   const { t } = useT();
   const config = useConfig();
   const [target, setTarget] = useState<Target>('name');
@@ -181,18 +182,20 @@ function CardRow({ card: c, index, currency, maxPrice, canList, disabled }: { ca
   const sides = (['FRONT', 'BACK'] as const).filter((s) => c.photos[s]);
   const reading = sides.some((s) => !c.ocr[s] || c.ocr[s]!.status === 'reading');
   const text = sides.map((s) => c.ocr[s]?.text ?? '').filter(Boolean).join('\n');
+  // Suggestions are matched on the name line and the number first, then the rest of the text.
+  const lookup = [...sides.map((s) => c.ocr[s]?.title ?? ''), ...sides.flatMap((s) => c.ocr[s]?.numbers ?? []), text].filter(Boolean).join('\n');
   const lines = [...new Set(sides.flatMap((s) => c.ocr[s]?.lines ?? []))];
   const numbers = [...new Set(sides.flatMap((s) => c.ocr[s]?.numbers ?? []))];
 
   // Name suggestions from Card Pool's catalogue and shared dictionary, once the text is in.
   useEffect(() => {
-    if (!text) return;
+    if (!lookup) return;
     let live = true;
-    api<{ suggestions: Suggestion[] }>('real-cards/suggest', { body: { text: text.slice(0, 4000) } })
+    api<{ suggestions: Suggestion[] }>('real-cards/suggest', { body: { text: lookup.slice(0, 4000) } })
       .then((r) => { if (live) setSuggestions(r.suggestions.filter((s) => s.source !== 'PHOTO').slice(0, 4)); })
       .catch(() => undefined);
     return () => { live = false; };
-  }, [text]);
+  }, [lookup]);
 
   function fill(value: string) {
     if (locked) return;
@@ -330,7 +333,7 @@ function CardRow({ card: c, index, currency, maxPrice, canList, disabled }: { ca
       </Panel>
     </li>
   );
-}
+});
 
 const Chip = ({ children, onClick, strong, disabled }: { children: ReactNode; onClick: () => void; strong?: boolean; disabled?: boolean }) => (
   <button type="button" onClick={onClick} disabled={disabled}
