@@ -14,7 +14,7 @@ The repo has **no dedicated "automatic image scanning" module** (no OCR, no visi
 | C | Facebook post photo download for "turn into product" | `server/facebook/graph.ts` `downloadImage` |
 | D | Attendance CSV import (the only other "automatic scan" of an uploaded file) | `src/components/AttendanceImport.tsx`, `contracts/attendance.ts` |
 
-Plan assumes the user means B plus C (auto-reading Facebook posts and their photos). If they mean something else (e.g. scanning receipts or shelf photos), Part 3 changes.
+**CORRECTED (user said it is the scanning function of their Vercel app):** the scanner is not in `main`. It lives in two other branches of this repo, each deployed as its own Vercel project: `origin/claude/card-market` (project `daydaynew-card-market`, trading-card photos) and `origin/claude/bizcards` (project `bizcards`, business cards). Both use in-browser OCR (tesseract.js). Parts B and C above (Facebook) are secondary. The primary analysis is Section 8. Which of the two projects is the one they mean is still unconfirmed, so both are covered. `daydaynew-shop` (this `main` branch) has no scanner.
 
 ## 1. Structural / code-quality findings
 
@@ -114,3 +114,65 @@ Minor: the `substr` line is `shop.ts:892`, and the `findTenantById` loop is abou
 
 1. Confirm that "image scanning" means the Facebook post and photo analysis (B and C).
 2. Approve Step 0 (measurement), then Step 1 (performance), then Step 2 (scan accuracy). Step 3 only if wanted.
+
+## 8. Scanner audit (card-market and bizcards branches)
+
+Read from worktrees of `origin/claude/card-market` (HEAD `5b989a2`) and `origin/claude/bizcards` (HEAD `3bb4a15`). Static reading only: not run, no sample photos, no Lighthouse. The two branches share most of the OCR code (`lib/ocr.ts` is near-identical; bizcards adds PSM 11 and layout parsing).
+
+### 8.1 Pipeline
+
+Camera frame (or gallery photo) -> shrink to 1600 px -> [card-market only, multi-card photo: `detectCards` finds boxes, `cropCard` cuts them] -> `readText` (tesseract.js in the browser, one job at a time) -> regex/heuristic parsing (`hints`, `scriptLanguage`; bizcards `parseCard`) -> user confirms in a review screen -> upload to Vercel Blob or the card backend. There is no server-side OCR and no AI vision call.
+
+### 8.2 Slowness root causes
+
+| ID | Finding | Evidence |
+|----|---------|----------|
+| O1 | **Auto language mode can run up to four full OCR passes per photo.** The loop tries the last language, then the other three, and stops only when the read "fits" its script AND confidence >= 70. Tesseract LSTM confidence on CJK, stylised or foil text is often under 70, so many photos take the full sweep. | `lib/ocr.ts` bizcards:23,111; card-market:23,109 |
+| O2 | **Worker thrash.** Only 2 workers are kept (`workers.size > 2`), but the sweep needs 4 models (`eng`, `chi_tra+eng`, `jpn+eng`, `kor+eng`). Older workers are terminated, so the next photo reloads big traineddata. | `lib/ocr.ts` bizcards:74; card-market:72 |
+| O3 | **Heavy models.** `copy-ocr.mjs` ships `4.0.0_best_int` data (the highest-accuracy, slowest tier) for CJK, and every language is listed with `+eng`. First use downloads and parses several MB to tens of MB per language. | `scripts/copy-ocr.mjs:14` |
+| O4 | **Large canvas.** Photos are upscaled up to 2x and capped at 2200 px (`Math.min(2, ...)`) before recognition, so Tesseract works on up to about 4-5 megapixels per pass. | `lib/ocr.ts:17,28` |
+| O5 | **Serial queue.** Jobs run strictly one at a time (`queue`), a batch of 10 cards with fronts and backs is 20 jobs, and multi-card review awaits each card and each back in sequence. | `lib/ocr.ts` queue; `ReviewStep.tsx:66-67` |
+| O6 | **Main-thread image work.** `prepare()` does a full `getImageData` loop on the main thread, and `detectCards` runs its flood fill and morphology on the main thread (card-market). Both block the UI on phones. | `lib/ocr.ts:27-56`; `lib/detect.ts` |
+
+### 8.3 Inaccuracy root causes
+
+| ID | Finding | Evidence |
+|----|---------|----------|
+| A1 | **Camera frames are video grabs, not stills.** `getUserMedia` asks for an *ideal* 1920x1080 stream and the shot is a canvas copy of the cropped frame. The framed card is often only about 600-1000 px tall, which is low for small print (and what Tesseract needs is about 30 px text height). `ImageCapture.takePhoto()` or native photo capture would give full sensor resolution. | `Camera.tsx:66, 142-150` |
+| A2 | **Sharpness gauge is advisory and probably mis-calibrated.** It computes Laplacian variance on an 80x134 downscale of the frame, which measures coarse contrast, not text crispness. The threshold `SHARP = 60` has no stated calibration. It never blocks a blurry shot and there is no glare check. | `Camera.tsx:15-20, 98-104, 161` |
+| A3 | **Multi-card detection drops tilted cards.** A blob is rejected if its pixels fill less than 55% of its axis-aligned bounding box. A card rotated about 25-45 degrees fills roughly 50-60% and gets discarded. Boxes are axis-aligned, so there is no perspective correction or de-skew either. | `lib/detect.ts:93` |
+| A4 | **Background assumed from the photo edge.** The background colour is the median of a 3% border band. Cards touching the photo edge, a patterned or glossy table, or shadows break the foreground mask. The fixed thresholds (`thr`, 640 px working size, 1.2% area minimum) are untested on real photos. | `lib/detect.ts:11,26,37,92` |
+| A5 | **Touching cards are split by area, not by edges.** A merged blob is cut into `round(area / typical)` equal slices (max 6), and when only one blob exists it falls back to an aspect-ratio guess. Sizes that differ (a landscape card, a toploader) mis-split. | `lib/detect.ts:100-112` |
+| A6 | **Contrast stretch only.** Greyscale plus a 1st-99th percentile stretch is a global operation. There is no deskew, no local/adaptive thresholding for uneven lighting, and no glare handling for foil cards. | `lib/ocr.ts:27-56` |
+| A7 | **Language heuristics.** `scriptLanguage` picks the language by script counts with fixed thresholds (`cjk < 3`, `latin * 0.15`, kana >= 15%). Short names, Chinese cards with a few Latin letters, and mixed-script cards can land in the wrong language, which then selects the wrong model first (`lastFound`) for the next photo. | `lib/ocr.ts` scriptLanguage |
+| A8 | **Heuristic field parsing.** Number regexes (`\d{1,3}\s*/\s*\d{1,3}`, `#\d{1,4}`) also match dates and street numbers. `NOISE` drops legitimate short lines. bizcards uses PSM 11 (sparse text), which fragments lines, and name/title/company assignment depends on keyword lists. | `lib/ocr.ts` NUMBER_PATTERNS; `lib/bizcard.ts` |
+| A9 | **No ground truth.** There are unit tests for parsing (`tests/lib.test.ts`) but no labelled photo set and no accuracy metric, so "inaccurate" cannot be measured or regressed. | `tests/` |
+
+### 8.4 Fix plan for the scanner (proposal; nothing implemented)
+
+**Step S0: Measure (no behaviour change).** Collect 30-50 real photos from the owner's phone (good light, glare, tilt, dark table, 2-4 cards per photo, mixed languages) with hand-written expected fields. Add a script that runs the OCR and parser on them and prints per-field accuracy and time per photo. Record the current numbers.
+
+**Step S1: Cheap speed wins.**
+1. Stop the four-model sweep. Default to one model per card (let the user pick, remember it per batch), and sweep only on failure. Lower `CONFIDENT` or replace it with a script-based check only (O1/O2).
+2. Raise the worker cap to match the models in use, or prewarm only `eng` plus the one chosen CJK model (O2).
+3. Cap the recognition canvas near 1600 px and stop upscaling beyond need; test accuracy at each size (O4).
+4. Move `prepare()` and `detectCards` to a Web Worker or `OffscreenCanvas` (O6).
+5. Evaluate `best_int` vs `fast_int` data on the labelled set before changing O3. Accuracy may drop.
+
+**Step S2: Accuracy.**
+1. Capture a still: try `ImageCapture.takePhoto()` with the highest available resolution and fall back to the video grab; request a higher ideal resolution (A1).
+2. Make the sharpness gauge meaningful: measure on the full-resolution crop and gate or warn the shutter. Add a simple glare check (A2).
+3. Detection: accept rotated rectangles (minimum-area box or Hough/contour approach), apply a perspective warp to a flat card, lower the fill-ratio rule or replace it with a rectangularity test on the contour (A3/A5). Use `OffscreenCanvas` or OpenCV.js only if the labelled set shows the heuristic cannot reach the target.
+4. Add adaptive thresholding or CLAHE before OCR; compare on the labelled set (A6).
+5. Add a "confidence low, please check" flag in the review UI instead of silently auto-filling (A7/A8).
+
+**Step S3: Decision point on a different engine.** If S1-S2 do not reach the target on the labelled set, compare server-side Claude vision (structured output, one call per card, Vercel function in `sin1`) with the on-device path. That gives better CJK and layout reading, at a per-photo cost and with a privacy trade-off (business-card photos contain personal data). The owner must approve this explicitly.
+
+**Step S4: Verify.** Rerun the labelled set, record accuracy and time per photo, compare with S0.
+
+### 8.5 Open questions
+
+1. Which Vercel project does the owner mean: `daydaynew-card-market`, `bizcards` (its latest deployment is `CANCELED`), or both?
+2. What does "inaccurate" look like in practice: wrong text, wrong language, missed cards in a multi-card photo, or fields in the wrong boxes? One or two example photos would settle it.
+3. Is sending photos to a server-side vision model acceptable (S3), especially for business cards?
+4. Which devices (iPhone Safari, Android Chrome)? The camera and `createImageBitmap` behaviour differ.
