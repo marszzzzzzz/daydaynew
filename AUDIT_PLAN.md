@@ -176,3 +176,32 @@ Camera frame (or gallery photo) -> shrink to 1600 px -> [card-market only, multi
 2. What does "inaccurate" look like in practice: wrong text, wrong language, missed cards in a multi-card photo, or fields in the wrong boxes? One or two example photos would settle it.
 3. Is sending photos to a server-side vision model acceptable (S3), especially for business cards?
 4. Which devices (iPhone Safari, Android Chrome)? The camera and `createImageBitmap` behaviour differ.
+
+### 8.6 Goldfish review of Section 8 (fresh reviewer, static reading only)
+
+**Corrections to the findings above**
+- O1: the full four-pass sweep is not the common case for English cards. English text passes the "fits" test (`scriptLanguage` returns `en` for under 3 CJK glyphs), so those stop at pass 1. The sweep happens mainly for CJK, foil, or when `lastFound` is wrong. Unproven without measurement.
+- O2: the eviction is real, but it triggers only when a third model is requested (the full sweep or a language switch). Serial jobs mean an in-use worker is never evicted. When it does happen, the wasm and language data reload every time.
+- O4: overstated. A card-shaped 1600 px input becomes about 2200x1340, roughly 3 MP (not 4-5 MP), and the upscale adds no information.
+- A3: the fill ratio for a 63x88 card is about 60% at 20 degrees, 55% at 25, 52% at 30 and 49% at 45. Cards tilted beyond about 25 degrees are rejected. My earlier "25-45" was right, "50-60% fill" only holds near 20-30 degrees.
+- A1 line numbers: card-market `Camera.tsx` getUserMedia at :64 and canvas grab at :146-147; bizcards :66 and :149-150. `SHARP` is at card :16, biz :15.
+- A5 lines are `detect.ts:99-111`. Orientation: `shrinkPhoto` uses `from-image`, and `prepare` receives canvas-exported JPEGs without EXIF, so orientation is not a problem.
+
+**New findings the first draft missed**
+
+| ID | Finding | Evidence |
+|----|---------|----------|
+| N1 | **The 2x zoom crops the wrong region.** The `<video>` is scaled with CSS `transform: scale(zoom)`, so `getBoundingClientRect` already includes the zoom. `crop()` then multiplies by `zoom` again (`s = base * zoom`), so at 2x the saved shot and the sharpness region cover about half of what the frame shows. I verified this in the code. 2x is also only a digital crop. | bizcards `Camera.tsx:86-92, 167` |
+| N2 | **Stale OCR failure.** The success handler ignores a retaken photo, but the failure handler does not, so an old photo's failure can overwrite the new photo's state with `failed`. `rescan` of the same blob queues duplicate jobs. | `batch.ts` (`startOcr`) |
+| N3 | **Removed cards still use the OCR queue.** Queued and in-flight jobs for deleted cards run to completion (up to 4 passes each). There is no cancellation. | `batch.ts` remove/clearSaved |
+| N4 | **Silent gallery failures.** A photo that cannot be decoded (HEIC on Chrome, huge files) is swallowed with no message, leaving a missing card. | `Camera.tsx:157` |
+| N5 | **Object URL leaks and unhandled failures.** `shrinkPhoto`'s `<img>` fallback never revokes its URL if `decode()` throws. `prepare()` throws if `createImageBitmap` fails, with no fallback. `rotateImage` URLs depend on callers revoking them (callers not checked). | `lib/image.ts:17`; `lib/ocr.ts:27`; `lib/detect.ts:181` |
+| N6 | **No timeout or retry for OCR.** A hung worker blocks the whole serial queue, and failures show no detail. A failed back-side read in multi-card review is dropped silently (`.catch(() => null)`). Worker `terminate()` is fire-and-forget, so wasm instances can overlap and spike memory on phones. | `lib/ocr.ts`; `ReviewStep.tsx:67` |
+| N7 | **bizcards PSM 11 applies to backs too.** Sparse-text mode is set on every worker, including mostly blank or noisy back sides. | `lib/ocr.ts:69` (biz) |
+
+**Changes to the proposed fixes**
+- S1.1: do not use a script-only "fits" check. Garbage Latin text counts as English and passes. Use the user's chosen language, and sweep other models only when the first read is empty or confidence is very low.
+- S1.3: test any size cap on the labelled set. Small print may need the upscale.
+- S1.4: older iOS Safari has patchy `OffscreenCanvas` and `createImageBitmap` support. Doing the image prep inside the existing tesseract worker is simpler and safer.
+- S2.1: `ImageCapture.takePhoto()` does not exist on iOS Safari, so the video-grab fallback must stay, and which devices the owner uses matters.
+- Add to S1: **fix the zoom crop (N1) first.** It is a small, certain bug, and it hurts accuracy whenever 2x is used. Also fix N2 (stale failure), N4 (gallery error message) and N5 (cleanup in failure paths).
